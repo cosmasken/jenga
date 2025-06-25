@@ -2,7 +2,7 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Gift, Users, Zap } from "lucide-react";
+import { CheckCircle, Gift, Users, Zap, Shield, Target } from "lucide-react";
 
 interface ModalProps {
   isOpen: boolean;
@@ -27,80 +27,80 @@ export const Modal = ({
   recipient, 
   chamaName,
   onConfirm,
-  confirmText = "Continue"
+  confirmText = "CONTINUE"
 }: ModalProps) => {
   const getIcon = () => {
     switch (type) {
       case "success":
-        return <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />;
+        return <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4 neon-glow" />;
       case "redenvelope":
-        return <Gift className="w-16 h-16 text-red-500 mx-auto mb-4" />;
+        return <Gift className="w-16 h-16 text-red-400 mx-auto mb-4 neon-glow" />;
       case "contribution":
       case "create-chama":
-        return <Users className="w-16 h-16 text-blue-500 mx-auto mb-4" />;
+        return <Shield className="w-16 h-16 text-blue-400 mx-auto mb-4 neon-glow" />;
       case "stacking":
-        return <Zap className="w-16 h-16 text-orange-500 mx-auto mb-4" />;
+        return <Target className="w-16 h-16 text-orange-400 mx-auto mb-4 neon-glow" />;
       default:
-        return <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />;
+        return <CheckCircle className="w-16 h-16 text-green-400 mx-auto mb-4 neon-glow" />;
     }
   };
 
   const getBackgroundColor = () => {
     switch (type) {
       case "success":
-        return "bg-green-50";
+        return "bg-card cyber-border";
       case "redenvelope":
-        return "bg-red-50";
+        return "bg-card cyber-border";
       case "contribution":
       case "create-chama":
-        return "bg-blue-50";
+        return "bg-card cyber-border";
       case "stacking":
-        return "bg-orange-50";
+        return "bg-card cyber-border";
       default:
-        return "bg-gray-50";
+        return "bg-card cyber-border";
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className={`${getBackgroundColor()} max-w-md`}>
+      <DialogContent className={`${getBackgroundColor()} max-w-md neon-glow`}>
         <DialogHeader className="text-center">
           {getIcon()}
-          <DialogTitle className="text-xl font-bold">{title}</DialogTitle>
-          <DialogDescription className="text-gray-600 mt-2">
+          <DialogTitle className="text-xl font-bold text-foreground font-mono glitch-text">{title}</DialogTitle>
+          <DialogDescription className="text-muted-foreground mt-2 font-mono">
             {description}
           </DialogDescription>
         </DialogHeader>
         
         {(amount || recipient || chamaName) && (
-          <div className="border-t border-gray-200 pt-4 mt-4">
+          <div className="border-t border-border pt-4 mt-4">
             {amount && (
               <div className="flex justify-between mb-2">
-                <span className="text-gray-600">Amount:</span>
-                <span className="font-semibold text-orange-600">{amount}</span>
+                <span className="text-muted-foreground font-mono">AMOUNT:</span>
+                <span className="font-semibold text-orange-400 font-mono">{amount}</span>
               </div>
             )}
             {recipient && (
               <div className="flex justify-between mb-2">
-                <span className="text-gray-600">Recipient:</span>
-                <span className="font-semibold">{recipient}</span>
+                <span className="text-muted-foreground font-mono">RECIPIENT:</span>
+                <span className="font-semibold text-foreground font-mono">{recipient}</span>
               </div>
             )}
             {chamaName && (
               <div className="flex justify-between mb-2">
-                <span className="text-gray-600">Chama:</span>
-                <span className="font-semibold">{chamaName}</span>
+                <span className="text-muted-foreground font-mono">CHAMA:</span>
+                <span className="font-semibold text-foreground font-mono">{chamaName}</span>
               </div>
             )}
           </div>
         )}
 
         <div className="flex gap-3 mt-6">
-          <Button variant="outline" onClick={onClose} className="flex-1">
-            Close
+          <Button variant="outline" onClick={onClose} className="flex-1 cyber-button">
+            CLOSE
           </Button>
           {onConfirm && (
-            <Button onClick={onConfirm} className="flex-1 bg-orange-500 hover:bg-orange-600">
+            <Button onClick={onConfirm} className="flex-1 cyber-button bg-orange-500 hover:bg-orange-600 text-black">
               {confirmText}
             </Button>
           )}
