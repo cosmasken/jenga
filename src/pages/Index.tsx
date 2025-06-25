@@ -1,17 +1,70 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
 import { PersonalStacking } from "@/components/PersonalStacking";
 import { ChamaCircles } from "@/components/ChamaCircles";
 import { P2PSending } from "@/components/P2PSending";
-import { Coins, Users, Send, Zap, TrendingUp, Trophy } from "lucide-react";
+import { WalletConnect } from "@/components/WalletConnect";
+import { useAuth } from "@/contexts/AuthContext";
+import { Coins, Users, Send, Zap, TrendingUp, Trophy, LogOut, Wallet } from "lucide-react";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("stacking");
+  const [showWalletConnect, setShowWalletConnect] = useState(false);
+  const { user, logout, isLoggedIn } = useAuth();
+
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
+        <div className="max-w-md w-full mx-4">
+          <Card className="bg-white/90 backdrop-blur-sm border-orange-200">
+            <CardHeader className="text-center">
+              <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Coins className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-3xl font-bold text-gray-900">Jenga</CardTitle>
+              <p className="text-gray-600">Stack, Circle, Send</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-center text-gray-700">
+                Connect your Bitcoin wallet to start your financial journey on Citrea
+              </p>
+              
+              <Button 
+                onClick={() => setShowWalletConnect(true)}
+                className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 h-12"
+              >
+                <Wallet className="w-5 h-5 mr-2" />
+                Connect Wallet
+              </Button>
+              
+              <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">
+                <div className="text-center">
+                  <Coins className="w-6 h-6 text-orange-500 mx-auto mb-1" />
+                  <p className="text-xs text-gray-600">Personal Stacking</p>
+                </div>
+                <div className="text-center">
+                  <Users className="w-6 h-6 text-blue-500 mx-auto mb-1" />
+                  <p className="text-xs text-gray-600">Chama Circles</p>
+                </div>
+                <div className="text-center">
+                  <Send className="w-6 h-6 text-green-500 mx-auto mb-1" />
+                  <p className="text-xs text-gray-600">P2P Sending</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
+        <WalletConnect 
+          isOpen={showWalletConnect} 
+          onClose={() => setShowWalletConnect(false)} 
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50">
@@ -34,8 +87,13 @@ const Index = () => {
                 <Zap className="w-3 h-3 mr-1" />
                 Testnet
               </Badge>
-              <Button variant="outline" size="sm">
-                Connect Wallet
+              <div className="text-right">
+                <p className="text-xs text-gray-600">Balance</p>
+                <p className="text-sm font-semibold">{user?.balance.toLocaleString()} sats</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={logout}>
+                <LogOut className="w-4 h-4 mr-1" />
+                Disconnect
               </Button>
             </div>
           </div>

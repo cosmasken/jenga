@@ -5,28 +5,39 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Modal } from "@/components/ui/modal";
 import { Target, Zap, Shield, Gift, Calendar, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export const PersonalStacking = () => {
   const [dailyGoal, setDailyGoal] = useState(1000);
   const [currentSats, setCurrentSats] = useState(650);
+  const [showStackingModal, setShowStackingModal] = useState(false);
+  const [stackAmount, setStackAmount] = useState("100");
   const { toast } = useToast();
 
-  const handleStackSats = () => {
-    const newAmount = currentSats + 100;
+  const handleStackSats = (amount = 100) => {
+    const newAmount = currentSats + amount;
     setCurrentSats(newAmount);
     
+    // Show stacking success modal
+    setShowStackingModal(true);
+    
     if (newAmount >= dailyGoal) {
-      toast({
-        title: "🎉 Daily Goal Achieved!",
-        description: "You've hit your stacking target. Streak continues!",
-      });
-    } else {
-      toast({
-        title: "✨ Sats Stacked!",
-        description: `Added 100 sats. ${dailyGoal - newAmount} sats to go!`,
-      });
+      setTimeout(() => {
+        toast({
+          title: "🎉 Daily Goal Achieved!",
+          description: "You've hit your stacking target. Streak continues!",
+        });
+      }, 1500);
+    }
+  };
+
+  const handleCustomStack = () => {
+    const amount = parseInt(stackAmount);
+    if (amount > 0) {
+      handleStackSats(amount);
+      setStackAmount("100");
     }
   };
 
@@ -49,19 +60,43 @@ export const PersonalStacking = () => {
               <span className="text-orange-200">/ {dailyGoal.toLocaleString()} sats</span>
             </div>
             <Progress value={progressPercentage} className="bg-orange-400" />
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <Button 
-                onClick={handleStackSats}
+                onClick={() => handleStackSats(100)}
                 variant="secondary" 
                 className="bg-white text-orange-600 hover:bg-orange-50"
               >
                 <Zap className="w-4 h-4 mr-2" />
-                Stack 100 Sats
+                +100 Sats
               </Button>
-              <Button variant="outline" className="border-white text-white hover:bg-white hover:text-orange-600">
-                Adjust Goal
+              <Button 
+                onClick={() => handleStackSats(500)}
+                variant="secondary" 
+                className="bg-white text-orange-600 hover:bg-orange-50"
+              >
+                <Zap className="w-4 h-4 mr-2" />
+                +500 Sats
               </Button>
             </div>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                placeholder="Custom amount"
+                value={stackAmount}
+                onChange={(e) => setStackAmount(e.target.value)}
+                className="bg-white text-gray-900"
+              />
+              <Button 
+                onClick={handleCustomStack}
+                variant="secondary"
+                className="bg-white text-orange-600 hover:bg-orange-50"
+              >
+                Stack
+              </Button>
+            </div>
+            <Button variant="outline" className="w-full border-white text-white hover:bg-white hover:text-orange-600">
+              Adjust Goal
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -178,6 +213,16 @@ export const PersonalStacking = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Stacking Success Modal */}
+      <Modal
+        isOpen={showStackingModal}
+        onClose={() => setShowStackingModal(false)}
+        type="stacking"
+        title="Sats Stacked Successfully! ⚡"
+        description="Your Bitcoin has been added to your stack via Citrea L2"
+        amount={`${stackAmount} sats`}
+      />
     </div>
   );
 };
