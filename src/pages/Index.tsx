@@ -8,6 +8,8 @@ import { PersonalStacking } from "@/components/PersonalStacking";
 import { ChamaCircles } from "@/components/ChamaCircles";
 import { P2PSending } from "@/components/P2PSending";
 import { WalletConnect } from "@/components/WalletConnect";
+import { OnboardingFlow } from "@/components/OnboardingFlow";
+import { NetworkSwitcher } from "@/components/NetworkSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
 import { Coins, Users, Send, Zap, TrendingUp, Trophy, LogOut, Wallet, Shield, Target } from "lucide-react";
 
@@ -33,7 +35,7 @@ const Index = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-center text-muted-foreground font-mono text-sm">
-                > CONNECT BITCOIN WALLET TO ACCESS CITREA L2
+                {'>'} CONNECT BITCOIN WALLET TO ACCESS CITREA L2
               </p>
               
               <Button 
@@ -76,6 +78,11 @@ const Index = () => {
     );
   }
 
+  // Show onboarding for first-time users
+  if (user?.isFirstTime) {
+    return <OnboardingFlow />;
+  }
+
   return (
     <div className="min-h-screen bg-background cyber-grid">
       {/* Header */}
@@ -93,6 +100,7 @@ const Index = () => {
             </div>
             
             <div className="flex items-center space-x-4">
+              <NetworkSwitcher />
               <Badge variant="outline" className="bg-orange-500/20 text-orange-400 border-orange-500/50 font-mono">
                 <Zap className="w-3 h-3 mr-1" />
                 TESTNET

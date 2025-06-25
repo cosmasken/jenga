@@ -51,7 +51,7 @@ export const WalletConnect = ({ isOpen, onClose }: WalletConnectProps) => {
         
         <div className="space-y-3 mt-4">
           <p className="text-muted-foreground text-sm font-mono">
-            > SELECT YOUR BITCOIN WALLET TO ACCESS CITREA L2
+            {'>'} SELECT YOUR BITCOIN WALLET TO ACCESS CITREA L2
           </p>
           
           {mockWallets.map((wallet) => {
@@ -77,7 +77,7 @@ export const WalletConnect = ({ isOpen, onClose }: WalletConnectProps) => {
           
           {isConnecting && (
             <div className="text-center text-orange-400 text-sm font-mono animate-pulse">
-              > ESTABLISHING SECURE CONNECTION...
+              {'>'} ESTABLISHING SECURE CONNECTION...
             </div>
           )}
         </div>

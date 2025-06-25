@@ -5,12 +5,20 @@ interface User {
   address: string;
   balance: number;
   isConnected: boolean;
+  isFirstTime?: boolean;
+  profile?: {
+    name: string;
+    location: string;
+    dailyGoal: string;
+    preferredCurrency: string;
+  };
 }
 
 interface AuthContextType {
   user: User | null;
   login: (address: string) => void;
   logout: () => void;
+  completeOnboarding: (profile: any) => void;
   isLoggedIn: boolean;
 }
 
@@ -34,11 +42,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const login = (address: string) => {
     // Mock wallet connection with random balance
     const mockBalance = Math.floor(Math.random() * 500000) + 50000; // 50k-550k sats
+    const isReturningUser = localStorage.getItem(`user_${address}`);
+    
     setUser({
       address,
       balance: mockBalance,
-      isConnected: true
+      isConnected: true,
+      isFirstTime: !isReturningUser
     });
+  };
+
+  const completeOnboarding = (profile: any) => {
+    if (user) {
+      const updatedUser = {
+        ...user,
+        isFirstTime: false,
+        profile
+      };
+      setUser(updatedUser);
+      localStorage.setItem(`user_${user.address}`, JSON.stringify(updatedUser));
+    }
   };
 
   const logout = () => {
@@ -48,7 +71,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const isLoggedIn = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoggedIn }}>
+    <AuthContext.Provider value={{ user, login, logout, completeOnboarding, isLoggedIn }}>
       {children}
     </AuthContext.Provider>
   );
