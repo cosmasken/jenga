@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { UserProfile } from "@/components/UserProfile";
 import { WalletManagement } from "@/components/WalletManagement";
 import { ContactsSection } from "@/components/ContactsSection";
+import { OnrampOfframp } from "@/components/OnrampOfframp";
 import { AdjustGoalModal } from "@/components/AdjustGoalModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { User, Wallet, Users, Target, Trophy, ArrowLeft } from "lucide-react";
@@ -116,7 +117,10 @@ const Accounts = () => {
           </TabsContent>
 
           <TabsContent value="contacts" className="mt-6">
-            <ContactsSection />
+            <div className="space-y-6">
+              <ContactsSection />
+              <OnrampOfframp />
+            </div>
           </TabsContent>
 
           <TabsContent value="achievements" className="mt-6">
