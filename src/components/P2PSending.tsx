@@ -2,15 +2,13 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Modal } from "@/components/ui/modal";
+import { P2PSendForm } from "@/components/P2PSendForm";
+import { RedEnvelopeForm } from "@/components/RedEnvelopeForm";
 import { Clock, Send, Gift, Zap, ArrowUpRight, ArrowDownLeft, TrendingUp } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
 
 export const P2PSending = () => {
-  const [showSendModal, setShowSendModal] = useState(false);
-  const [showRedEnvelopeModal, setShowRedEnvelopeModal] = useState(false);
-  const [modalData, setModalData] = useState({ type: "success", title: "", description: "", amount: "", recipient: "" });
-  const { toast } = useToast();
+  const [showSendForm, setShowSendForm] = useState(false);
+  const [showRedEnvelopeForm, setShowRedEnvelopeForm] = useState(false);
 
   const recentTransactions = [
     {
@@ -72,7 +70,7 @@ export const P2PSending = () => {
           <CardContent>
             <p className="text-green-100 mb-4 font-mono">Send Bitcoin instantly to anyone</p>
             <Button 
-              onClick={() => setShowSendModal(true)}
+              onClick={() => setShowSendForm(true)}
               className="w-full bg-white text-green-600 hover:bg-green-50 cyber-button font-mono"
             >
               <Zap className="w-4 h-4 mr-2" />
@@ -91,7 +89,7 @@ export const P2PSending = () => {
           <CardContent>
             <p className="text-red-100 mb-4 font-mono">Send lucky money with crypto tradition</p>
             <Button 
-              onClick={() => setShowRedEnvelopeModal(true)}
+              onClick={() => setShowRedEnvelopeForm(true)}
               className="w-full bg-white text-red-600 hover:bg-red-50 cyber-button font-mono"
             >
               <Gift className="w-4 h-4 mr-2" />
@@ -164,7 +162,7 @@ export const P2PSending = () => {
                     {envelope.claimed}/{envelope.total} claimed
                   </Badge>
                 </div>
-                <p className="text-white font-mono text-sm mb-2">{envelope.amount.toLocaleString()} sats remaining</p>
+                <p className="text-foreground font-mono text-sm mb-2">{envelope.amount.toLocaleString()} sats remaining</p>
                 <p className="text-red-300 font-mono text-xs">Created {envelope.createdAt}</p>
               </div>
             ))}
@@ -209,25 +207,9 @@ export const P2PSending = () => {
         </CardContent>
       </Card>
 
-      {/* Modals */}
-      <Modal
-        isOpen={showSendModal}
-        onClose={() => setShowSendModal(false)}
-        type="success"
-        title={modalData.title}
-        description={modalData.description}
-        amount={modalData.amount}
-        recipient={modalData.recipient}
-      />
-
-      <Modal
-        isOpen={showRedEnvelopeModal}
-        onClose={() => setShowRedEnvelopeModal(false)}
-        type="redenvelope"
-        title={modalData.title}
-        description={modalData.description}
-        amount={modalData.amount}
-      />
+      {/* Forms */}
+      <P2PSendForm isOpen={showSendForm} onClose={() => setShowSendForm(false)} />
+      <RedEnvelopeForm isOpen={showRedEnvelopeForm} onClose={() => setShowRedEnvelopeForm(false)} />
     </div>
   );
 };
