@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,7 @@ import { WalletConnect } from "@/components/WalletConnect";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
 import { NetworkSwitcher } from "@/components/NetworkSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
-import { Coins, Users, Send, Zap, TrendingUp, Trophy, LogOut, Wallet, Shield, Target } from "lucide-react";
+import { Coins, Users, Send, Zap, TrendingUp, Trophy, LogOut, Wallet, Shield, Target, User } from "lucide-react";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("stacking");
@@ -109,6 +108,15 @@ const Index = () => {
                 <p className="text-xs text-muted-foreground font-mono">BALANCE</p>
                 <p className="text-sm font-bold text-orange-400">{user?.balance.toLocaleString()} sats</p>
               </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => window.location.href = '/accounts'}
+                className="cyber-button"
+              >
+                <User className="w-4 h-4 mr-1" />
+                ACCOUNT
+              </Button>
               <Button variant="outline" size="sm" onClick={logout} className="cyber-button">
                 <LogOut className="w-4 h-4 mr-1" />
                 DISCONNECT
