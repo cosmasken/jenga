@@ -1,23 +1,20 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Modal } from "@/components/ui/modal";
-import { Users, Plus, Vote, Shield, Calendar, Target, TrendingUp } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Users, Plus, Vote, Shield, TrendingUp, UserPlus } from "lucide-react";
+import { ChamaCreationForm } from "@/components/ChamaCreationForm";
+import { ContributionForm } from "@/components/ContributionForm";
+import { VotingForm } from "@/components/VotingForm";
+import { JoinChamaForm } from "@/components/JoinChamaForm";
 
 export const ChamaCircles = () => {
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showContributeModal, setShowContributeModal] = useState(false);
-  const [showVoteModal, setShowVoteModal] = useState(false);
-  const [contributionAmount, setContributionAmount] = useState("");
-  const [selectedChama, setSelectedChama] = useState("");
-  const [newChamaName, setNewChamaName] = useState("");
-  const [modalData, setModalData] = useState({ type: "success", title: "", description: "", amount: "", chamaName: "" });
-  const { toast } = useToast();
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showContributeForm, setShowContributeForm] = useState(false);
+  const [showVotingForm, setShowVotingForm] = useState(false);
+  const [showJoinForm, setShowJoinForm] = useState(false);
+  const [selectedProposal, setSelectedProposal] = useState<any>(null);
 
   const chamas = [
     {
@@ -71,85 +68,78 @@ export const ChamaCircles = () => {
     }
   ];
 
-  const handleContribute = () => {
-    if (!contributionAmount || !selectedChama) {
-      toast({
-        title: "Missing Information",
-        description: "Please select a chama and enter contribution amount",
-      });
-      return;
-    }
-
-    setModalData({
-      type: "contribution",
-      title: "Contribution Successful!",
-      description: "Your sats have been added to the chama pool",
-      amount: `${contributionAmount} sats`,
-      chamaName: selectedChama
-    });
-    setShowContributeModal(true);
-    setContributionAmount("");
-  };
-
-  const handleVote = (proposalId: number, vote: 'yes' | 'no' | 'abstain') => {
+  const handleVote = (proposalId: number) => {
     const proposal = proposals.find(p => p.id === proposalId);
-    setModalData({
-      type: "vote",
-      title: "Vote Recorded!",
-      description: `Your ${vote} vote has been recorded for: ${proposal?.title}`,
-      amount: "",
-      chamaName: ""
-    });
-    setShowVoteModal(true);
-  };
-
-  const handleCreateChama = () => {
-    if (!newChamaName) {
-      toast({
-        title: "Missing Name",
-        description: "Please enter a chama name",
+    if (proposal) {
+      setSelectedProposal({
+        ...proposal,
+        description: proposalId === 1 ? "Emergency medical expenses for Maria who needs immediate surgery" : "Increase weekly contribution target to accelerate savings goals"
       });
-      return;
+      setShowVotingForm(true);
     }
-
-    setModalData({
-      type: "create-chama",
-      title: "Chama Created Successfully!",
-      description: "Your new savings circle is ready. Invite members to get started.",
-      amount: "",
-      chamaName: newChamaName
-    });
-    setShowCreateModal(true);
-    setNewChamaName("");
   };
 
   return (
     <div className="space-y-6">
-      {/* Create New Chama */}
-      <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 cyber-border neon-glow">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-white font-mono">
-            <Plus className="w-5 h-5" />
-            Create New Chama Circle
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-blue-100 mb-4 font-mono">
-            Start a new savings circle with friends, family, or community members
-          </p>
-          <div className="flex gap-3">
-            <Input
-              placeholder="Enter chama name..."
-              value={newChamaName}
-              onChange={(e) => setNewChamaName(e.target.value)}
-              className="bg-white/20 text-white placeholder:text-white/70 border-white/30 font-mono"
-            />
+      {/* Action Buttons */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 cyber-border neon-glow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white font-mono">
+              <Plus className="w-5 h-5" />
+              Create New Chama
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-blue-100 mb-4 font-mono text-sm">
+              Start a savings circle with friends or community
+            </p>
             <Button 
-              onClick={handleCreateChama}
+              onClick={() => setShowCreateForm(true)}
               variant="secondary"
-              className="bg-white text-blue-600 hover:bg-blue-50 font-mono cyber-button"
+              className="w-full bg-white text-blue-600 hover:bg-blue-50 font-mono cyber-button"
             >
               Create Chama
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-r from-green-600 to-teal-600 text-white border-0 cyber-border neon-glow">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white font-mono">
+              <UserPlus className="w-5 h-5" />
+              Join Existing Chama
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-green-100 mb-4 font-mono text-sm">
+              Join a chama using an invite code
+            </p>
+            <Button 
+              onClick={() => setShowJoinForm(true)}
+              variant="secondary"
+              className="w-full bg-white text-green-600 hover:bg-green-50 font-mono cyber-button"
+            >
+              Join Chama
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Contribute */}
+      <Card className="bg-gradient-to-r from-orange-600 to-red-600 text-white border-0 cyber-border neon-glow">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-mono text-white font-semibold">Quick Contribute</h3>
+              <p className="text-white/80 text-sm font-mono">Add sats to your active chamas</p>
+            </div>
+            <Button 
+              onClick={() => setShowContributeForm(true)}
+              variant="secondary"
+              className="bg-white text-orange-600 hover:bg-orange-50 font-mono cyber-button"
+            >
+              Contribute Now
             </Button>
           </div>
         </CardContent>
@@ -199,11 +189,7 @@ export const ChamaCircles = () => {
                   <Button 
                     size="sm" 
                     className="flex-1 bg-blue-600 hover:bg-blue-700 cyber-button font-mono"
-                    onClick={() => {
-                      setSelectedChama(chama.name);
-                      setContributionAmount("5000");
-                      handleContribute();
-                    }}
+                    onClick={() => setShowContributeForm(true)}
                   >
                     Contribute
                   </Button>
@@ -253,31 +239,13 @@ export const ChamaCircles = () => {
                 </div>
               </div>
               
-              <div className="flex gap-2">
-                <Button 
-                  size="sm" 
-                  className="bg-green-600 hover:bg-green-700 cyber-button font-mono"
-                  onClick={() => handleVote(proposal.id, 'yes')}
-                >
-                  Vote Yes
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="destructive"
-                  className="cyber-button font-mono"
-                  onClick={() => handleVote(proposal.id, 'no')}
-                >
-                  Vote No
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  className="cyber-button font-mono"
-                  onClick={() => handleVote(proposal.id, 'abstain')}
-                >
-                  Abstain
-                </Button>
-              </div>
+              <Button 
+                size="sm" 
+                className="w-full bg-purple-600 hover:bg-purple-700 cyber-button font-mono"
+                onClick={() => handleVote(proposal.id)}
+              >
+                Cast Vote
+              </Button>
             </div>
           ))}
         </CardContent>
@@ -320,41 +288,15 @@ export const ChamaCircles = () => {
         </CardContent>
       </Card>
 
-      {/* Modals */}
-      <Modal
-        isOpen={showContributeModal}
-        onClose={() => setShowContributeModal(false)}
-        type={modalData.type as any}
-        title={modalData.title}
-        description={modalData.description}
-        amount={modalData.amount}
-        chamaName={modalData.chamaName}
+      {/* All Form Modals */}
+      <ChamaCreationForm isOpen={showCreateForm} onClose={() => setShowCreateForm(false)} />
+      <ContributionForm isOpen={showContributeForm} onClose={() => setShowContributeForm(false)} />
+      <VotingForm 
+        isOpen={showVotingForm} 
+        onClose={() => setShowVotingForm(false)} 
+        proposal={selectedProposal}
       />
-
-      <Modal
-        isOpen={showVoteModal}
-        onClose={() => setShowVoteModal(false)}
-        type="vote"
-        title={modalData.title}
-        description={modalData.description}
-      />
-
-      <Modal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        type="create-chama"
-        title={modalData.title}
-        description={modalData.description}
-        chamaName={modalData.chamaName}
-        onConfirm={() => {
-          toast({
-            title: "📋 Invite Link Copied!",
-            description: "Share this link to invite members to your chama",
-          });
-          setShowCreateModal(false);
-        }}
-        confirmText="Copy Invite Link"
-      />
+      <JoinChamaForm isOpen={showJoinForm} onClose={() => setShowJoinForm(false)} />
     </div>
   );
 };
