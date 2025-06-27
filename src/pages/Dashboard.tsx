@@ -10,16 +10,16 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAppStore();
 
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!user) {
-      navigate('/');
-    }
-  }, [user, navigate]);
+  // // Redirect to login if not authenticated
+  // useEffect(() => {
+  //   if (!user) {
+  //     navigate('/');
+  //   }
+  // }, [user, navigate]);
 
-  if (!user) {
-    return null; // Or a loading spinner
-  }
+  // if (!user) {
+  //   return null; // Or a loading spinner
+  // }
 
   return (
     <div className="min-h-screen flex flex-col">

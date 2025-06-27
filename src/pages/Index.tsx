@@ -176,8 +176,13 @@ const Index = () => {
       <AppHeader />
       
       <main className="flex-1 flex items-center justify-center p-4">
-        {!isAuthenticated || !isDynamicAuthenticated ? (
-          // Not authenticated view
+        {isDynamicAuthenticated ? (
+          // Show dashboard when authenticated
+          <div className="w-full max-w-6xl">
+            <LoggedInView />
+          </div>
+        ) : (
+          // Show connect wallet screen when not authenticated
           <div className="w-full max-w-md">
             <Card className="bg-card/90 backdrop-blur-sm cyber-border neon-glow">
               <CardHeader className="text-center">
@@ -192,7 +197,7 @@ const Index = () => {
               </CardHeader>
               <CardContent className="flex flex-col space-y-4 items-center">
                 <p className="text-center text-muted-foreground font-mono text-sm">
-                  {'>'} CONNECT BITCOIN WALLET TO ACCESS CITREA L2
+                  {'>'} CONNECT WALLET TO ACCESS CITREA AND THE POWER OF THE CIRCLE
                 </p>
                 
                 <div className="w-full">
@@ -201,7 +206,7 @@ const Index = () => {
                     className="w-full cyber-button h-12 font-mono flex items-center justify-center"
                   >
                     <Wallet className="w-5 h-5 mr-2" />
-                    {isAuthenticated ? 'WALLET CONNECTED' : 'CONNECT WALLET'}
+                    CONNECT WALLET
                   </Button>
                 </div>
                 
@@ -228,9 +233,6 @@ const Index = () => {
               </CardContent>
             </Card>
           </div>
-        ) : (
-          // Onboarding flow for first-time users (only reachable if not redirected to dashboard)
-          <OnboardingFlow onComplete={handleOnboardingComplete} />
         )}
       </main>
       
