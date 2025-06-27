@@ -94,7 +94,7 @@ const Index = () => {
                 [FINANCIAL SOVEREIGNTY PROTOCOL]
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="flex flex-col space-y-4 items-center">
               <p className="text-center text-muted-foreground font-mono text-sm">
                 {'>'} CONNECT BITCOIN WALLET TO ACCESS CITREA L2
               </p>

@@ -14,7 +14,14 @@ import { http } from "viem";
 import { mainnet } from "viem/chains";
 import App from "./App";
 import "./index.css";
+import "./styles/dynamic-theme.css"; // Import the custom theme
 import Index from "./pages/Index";
+
+// Add Google Fonts to the document head
+const fontLink = document.createElement('link');
+fontLink.href = 'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap';
+fontLink.rel = 'stylesheet';
+document.head.appendChild(fontLink);
 
 const config = createConfig({
   chains: [mainnet],
