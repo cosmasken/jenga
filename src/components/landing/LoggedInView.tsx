@@ -14,7 +14,7 @@ export const LoggedInView = () => {
         </TabsTrigger>
         <TabsTrigger value="chamas">
           <Zap className="w-4 h-4 mr-2" />
-          CHAMAS
+          CHAMAS 2
         </TabsTrigger>
         <TabsTrigger value="sending">
           <Zap className="w-4 h-4 mr-2" />

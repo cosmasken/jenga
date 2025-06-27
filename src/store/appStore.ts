@@ -1,144 +1,249 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-// Define the shape of our app store
-export type AppStore = {
-  // User data
-  user: {
-    id: string;
+// Define types for our app store
+export type UserRole = 'admin' | 'member';
+
+// Base user properties
+// Define user properties
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  walletAddress?: string;
+  isFirstTime: boolean;
+  dynamicUserId?: string; // Store Dynamic user ID for reference
+  avatar?: string;
+  createdAt?: number;
+  lastLogin?: number;
+  // Allow additional properties with specific types
+  [key: string]: string | number | boolean | undefined | null;
+
+}
+
+// App user type is the same as User
+export type AppUser = User;
+
+
+
+export interface Chama {
+  id: number;
+  name: string;
+  members: number;
+  weeklyTarget: number;
+  currentPool: number;
+  nextPayout: string;
+  myContribution: number;
+  role: 'Admin' | 'Member';
+}
+
+export interface Network {
+  id: string;
+  name: string;
+  chainId: number;
+  nativeCurrency: {
     name: string;
-    email: string;
-    role: 'admin' | 'member';
-    walletAddress?: string;
-    isFirstTime: boolean;
-  } | null;
+    symbol: string;
+    decimals: number;
+  };
+  rpcUrls: string[];
+  blockExplorerUrls: string[];
+}
+
+export interface AppSettings {
+  theme: 'light' | 'dark';
+  currency: string;
+  language: string;
+  recentTransactions: boolean;
+  notifications: boolean;
+}
+
+// Define the shape of our app store
+export interface AppStore {
+  // User data
+  user: AppUser | null;
+  isAuthenticated: boolean;
   
   // Chamas (savings groups) data
-  chamas: Array<{
-    id: number;
-    name: string;
-    members: number;
-    weeklyTarget: number;
-    currentPool: number;
-    nextPayout: string;
-    myContribution: number;
-    role: 'Admin' | 'Member';
-  }>;
+  chamas: Chama[];
   
   // Available networks
-  networks: Array<{
-    id: string;
-    name: string;
-    chainId: number;
-    nativeCurrency: {
-      name: string;
-      symbol: string;
-      decimals: number;
-    };
-    rpcUrls: string[];
-    blockExplorerUrls: string[];
-  }>;
+  networks: Network[];
   
   // App settings
-  settings: {
-    theme: 'light' | 'dark';
-    currency: string;
-    language: string;
-  };
+  settings: AppSettings;
+  
+  // Loading and error states
+  isLoading: boolean;
+  error: string | null;
   
   // Actions
-  setUser: (user: AppStore['user']) => void;
-  updateUser: (updates: Partial<NonNullable<AppStore['user']>>) => void;
+  setUser: (user: User | null) => void;
+  updateUser: (updates: Partial<User>) => void;
   completeOnboarding: () => void;
   resetOnboarding: () => void;
-  updateSettings: (settings: Partial<AppStore['settings']>) => void;
+  
+  // Auth actions
+  login: (userData: Omit<User, 'isFirstTime' | 'role'> & { role?: UserRole }) => void;
+  logout: () => void;
+  
+  // Settings actions
+  updateSettings: (settings: Partial<AppSettings>) => void;
+  
+  // Utility actions
+  setLoading: (isLoading: boolean) => void;
+  setError: (error: string | null) => void;
+  clearError: () => void;
 };
 
 // Initial static data
 const initialData = {
-  user: null,
+  // State
+  user: null as User | null,
+  isAuthenticated: false,
+  isLoading: false,
+  error: null as string | null,
   
   chamas: [
     {
       id: 1,
-      name: 'Women Farmers Circle',
+      name: 'Bitcoin Builders',
       members: 12,
-      weeklyTarget: 5000,
-      currentPool: 38000,
-      nextPayout: '3 days',
-      myContribution: 15000,
-      role: 'Member' as const,
+      weeklyTarget: 0.01,
+      currentPool: 0.24,
+      nextPayout: '2023-06-15',
+      myContribution: 0.02,
+      role: 'Admin' as const
     },
     {
       id: 2,
-      name: 'Tech Builders Fund',
+      name: 'Crypto Savers',
       members: 8,
-      weeklyTarget: 10000,
-      currentPool: 72000,
-      nextPayout: '1 day',
-      myContribution: 30000,
-      role: 'Admin' as const,
-    },
+      weeklyTarget: 0.005,
+      currentPool: 0.12,
+      nextPayout: '2023-06-22',
+      myContribution: 0.01,
+      role: 'Member' as const
+    }
   ],
   
   networks: [
     {
-      id: 'ethereum-mainnet',
-      name: 'Ethereum Mainnet',
-      chainId: 1,
+      id: 'citrea',
+      name: 'Citrea L2',
+      chainId: 12345,
       nativeCurrency: {
-        name: 'Ethereum',
-        symbol: 'ETH',
-        decimals: 18,
+        name: 'Bitcoin',
+        symbol: 'BTC',
+        decimals: 18
       },
-      rpcUrls: ['https://mainnet.infura.io/v3/YOUR-INFURA-KEY'],
-      blockExplorerUrls: ['https://etherscan.io'],
+      rpcUrls: ['https://rpc.citrea.xyz'],
+      blockExplorerUrls: ['https://explorer.citrea.xyz']
     },
     {
-      id: 'polygon-mainnet',
-      name: 'Polygon Mainnet',
-      chainId: 137,
+      id: 'bitcoin',
+      name: 'Bitcoin',
+      chainId: 0,
       nativeCurrency: {
-        name: 'Matic',
-        symbol: 'MATIC',
-        decimals: 18,
+        name: 'Bitcoin',
+        symbol: 'BTC',
+        decimals: 8
       },
-      rpcUrls: ['https://polygon-rpc.com'],
-      blockExplorerUrls: ['https://polygonscan.com'],
-    },
+      rpcUrls: [],
+      blockExplorerUrls: ['https://blockstream.info']
+    }
   ],
   
   settings: {
-    theme: 'light' as const,
-    currency: 'USD',
+    theme: 'dark' as const,
+    currency: 'BTC',
     language: 'en',
-  },
+    recentTransactions: true,
+    notifications: true
+  }
 };
 
 // Create the store with persistence
 export const useAppStore = create<AppStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       ...initialData,
       
-      // Actions
-      setUser: (user) => set({ user }),
+      // User actions
+      setUser: (user) => ({
+        user: user ? { 
+          ...user,
+          isFirstTime: user.isFirstTime ?? true
+        } : null,
+        isAuthenticated: !!user
+      }),
       
-      updateUser: (updates) => set((state) => ({
-        user: state.user ? { ...state.user, ...updates } : null
-      })),
+      updateUser: (updates) => set((state) => {
+        if (!state.user) return state;
+        return { 
+          user: { 
+            ...state.user, 
+            ...updates,
+            updatedAt: Date.now()
+          } 
+        };
+      }),
       
       completeOnboarding: () => set((state) => ({
-        user: state.user ? { ...state.user, isFirstTime: false } : null
+        user: state.user ? { 
+          ...state.user, 
+          isFirstTime: false,
+          lastLogin: Date.now()
+        } : null
       })),
       
       resetOnboarding: () => set((state) => ({
-        user: state.user ? { ...state.user, isFirstTime: true } : null
+        user: state.user ? { 
+          ...state.user, 
+          isFirstTime: true 
+        } : null
       })),
       
+      // Auth actions
+      login: (userData: Omit<User, 'isFirstTime' | 'role'> & { role?: UserRole }) => {
+        const currentUser = get().user;
+        return {
+          user: { 
+            id: userData.id || `user-${Date.now()}`,
+            name: userData.name || 'Anonymous',
+            email: userData.email || '',
+            role: userData.role || 'member',
+            walletAddress: userData.walletAddress,
+            isFirstTime: currentUser ? currentUser.isFirstTime : true,
+            dynamicUserId: userData.dynamicUserId,
+            avatar: userData.avatar,
+            createdAt: userData.createdAt || Date.now(),
+            lastLogin: Date.now(),
+            ...userData // Include any additional properties
+          },
+          isAuthenticated: true,
+          error: null
+        };
+      },
+      
+      logout: () => set({
+        user: null,
+        isAuthenticated: false
+      }),
+      
+      // Settings actions
       updateSettings: (settings) => set((state) => ({
-        settings: { ...state.settings, ...settings }
+        settings: { 
+          ...state.settings, 
+          ...settings 
+        }
       })),
+      
+      // Utility actions
+      setLoading: (isLoading) => set({ isLoading }),
+      setError: (error) => set({ error }),
+      clearError: () => set({ error: null }),
     }),
     {
       name: 'jenga-app-storage',

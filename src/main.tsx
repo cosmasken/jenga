@@ -1,6 +1,3 @@
-// import { createRoot } from 'react-dom/client'
-// import App from './App.tsx'
-// import './index.css'
 
 // createRoot(document.getElementById("root")!).render(<App />);
 import { StrictMode } from "react";
@@ -10,9 +7,8 @@ import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
 import { DynamicWagmiConnector } from "@dynamic-labs/wagmi-connector";
 import { createConfig, WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { http } from "viem";
-import { mainnet } from "viem/chains";
-import App from "./App";
+import { type Chain } from 'viem'
+import { http } from 'viem'
 import "./index.css";
 import "./styles/dynamic-theme.css"; // Import the custom theme
 import Index from "./pages/Index";
@@ -23,52 +19,83 @@ fontLink.href = 'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;
 fontLink.rel = 'stylesheet';
 document.head.appendChild(fontLink);
 
+// Citrea Testnet Configuration
+export const citreaTestnet: Chain = {
+  id: 5115,
+  name: 'Citrea',
+  nativeCurrency: {
+    name: 'Citrea BTC',
+    symbol: 'cBTC',
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: { http: ['https://rpc.testnet.citrea.xyz'] },
+    public: { http: ['https://rpc.testnet.citrea.xyz'] },
+  },
+  blockExplorers: {
+    default: { name: 'Citrea Explorer', url: 'https://explorer.testnet.citrea.xyz' },
+  },
+  testnet: true,
+};
+
+const evmNetworks = [
+  {
+    chainId: 5115,
+    networkId: 5115,
+    name: 'Citrea',
+    nativeCurrency: {
+      name: 'Citrea BTC',
+      symbol: 'cBTC',
+      decimals: 18,
+    },
+    rpcUrls: ['https://rpc.testnet.citrea.xyz'],
+    blockExplorerUrls: ['https://explorer.testnet.citrea.xyz'],
+    iconUrls: ['https://example.com/icon.png'], // Replace with actual icon URL
+    isTestnet: true,
+    vanityName: 'Citrea Testnet',
+    chainName: 'Citrea',
+  }
+]
+
+// // Citrea Testnet configuration for Dynamic
+// const citreaNetworkConfig = {
+//   blockExplorerUrls: ['https://explorer.testnet.citrea.xyz/'],
+//   chainId: 5115,
+//   chainName: 'Citrea',
+//   iconUrls: ['https://app.dynamic.xyz/assets/networks/eth.svg'],
+//   name: 'Citrea',
+//   nativeCurrency: {
+//     decimals: 18,
+//     name: 'Citrea BTC',
+//     symbol: 'cBTC',
+//   },
+//   networkId: 5115,
+//   rpcUrls: ['https://rpc.testnet.citrea.xyz'],
+//   vanityName: 'Citrea Testnet',
+//   isTestnet: true
+// };
+
 const config = createConfig({
-  chains: [mainnet],
+  chains: [citreaTestnet],
   multiInjectedProviderDiscovery: false,
   transports: {
-    [mainnet.id]: http(),
+    [citreaTestnet.id]: http(),
   },
 });
 
 const queryClient = new QueryClient();
-// Citrea Testnet Configuration
-const citreaTestnet = {
-  blockExplorerUrls: ['https://explorer.testnet.citrea.xyz/'],
-  chainId: 5115, // 0x13fb in hex
-  chainName: 'Citrea Testnet',
-  iconUrls: ['https://app.dynamic.xyz/assets/networks/eth.svg'], // Using ETH icon as fallback
-  name: 'Citrea',
-  nativeCurrency: {
-    decimals: 18,
-    name: 'Citrea BTC',
-    symbol: 'cBTC',
-  },
-  networkId: 5115,
-  rpcUrls: ['https://rpc.testnet.citrea.xyz'],
-  vanityName: 'Citrea Testnet',
-  isTestnet: true,
-};
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    {/* <DynamicContextProvider
-      theme="auto"
+    <DynamicContextProvider
       settings={{
         environmentId: import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID,
         walletConnectors: [EthereumWalletConnectors],
+        initialAuthenticationMode: 'connect-only',
+        overrides: { evmNetworks },
       }}
-    > */}
-    <DynamicContextProvider
-    theme="auto"
-          settings={{
-            environmentId: import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID,
-            initialAuthenticationMode: 'connect-only',
-            overrides: { 
-              evmNetworks: [citreaTestnet],
-            },
-          }}
-        >
+      theme="dark"
+    >
       <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
           <DynamicWagmiConnector>
