@@ -4,11 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { User, Target, Globe, ArrowRight } from "lucide-react";
 
-export const OnboardingFlow = () => {
+interface OnboardingFlowProps {
+  onComplete: () => void;
+}
+
+export const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
   const [step, setStep] = useState(1);
   const [userData, setUserData] = useState({
     name: "",
@@ -16,11 +19,11 @@ export const OnboardingFlow = () => {
     dailyGoal: "1000",
     preferredCurrency: "USD"
   });
-  const { completeOnboarding } = useAuth();
   const { toast } = useToast();
 
   const handleComplete = () => {
-    completeOnboarding(userData);
+    // Save user data to store or API here if needed
+    onComplete();
     toast({
       title: "🎉 WELCOME TO JENGA!",
       description: "Your financial sovereignty journey begins now!",

@@ -1,13 +1,26 @@
 
 import { useState } from "react";
+import { ethers } from "ethers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LoadingModal } from "@/components/ui/loading-modal";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  getSaccoFactoryContract, 
+  switchToCitreaNetwork, 
+  formatTokenAmount, 
+  parseTokenAmount, 
+  checkAndApproveToken,
+  CONTRACT_ADDRESSES,
+  CHAMA_ADDRESSES
+} from "@/utils/ethUtils";
+
+// Available chamas from the config
+const AVAILABLE_CHAMAS = Object.keys(CHAMA_ADDRESSES) as Array<keyof typeof CHAMA_ADDRESSES>;
 
 interface ContributionFormProps {
   isOpen: boolean;
@@ -24,11 +37,7 @@ export const ContributionForm = ({ isOpen, onClose }: ContributionFormProps) => 
   const [showSuccess, setShowSuccess] = useState(false);
   const { toast } = useToast();
 
-  const chamas = [
-    "Women Farmers Circle",
-    "Tech Builders Fund", 
-    "Family Emergency Fund"
-  ];
+  const chamas = AVAILABLE_CHAMAS;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,17 +46,69 @@ export const ContributionForm = ({ isOpen, onClose }: ContributionFormProps) => 
       toast({
         title: "Missing Information",
         description: "Please select a chama and enter contribution amount",
+        variant: "destructive"
       });
       return;
     }
 
-    setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setIsLoading(false);
-    setShowSuccess(true);
+    try {
+      setIsLoading(true);
+      
+      // Switch to Citrea network if needed
+      await switchToCitreaNetwork();
+      
+      // Get the chama contract address
+      const chamaAddress = CHAMA_ADDRESSES[formData.chama as keyof typeof CHAMA_ADDRESSES];
+      if (!chamaAddress) {
+        throw new Error("Invalid chama selected");
+      }
+      
+      // Parse the amount (assuming USDC with 6 decimals)
+      const parsedAmount = parseTokenAmount(formData.amount, 6);
+      
+      // Get the SaccoFactory contract with signer
+      const saccoFactory = await getSaccoFactoryContract(true);
+      
+      // First approve the token transfer if needed
+      await checkAndApproveToken(
+        CONTRACT_ADDRESSES.TOKEN,
+        CONTRACT_ADDRESSES.SACCO_FACTORY,
+        parsedAmount
+      );
+      
+      // Call the deposit function
+      const tx = await saccoFactory.depositToChama(
+        chamaAddress,
+        parsedAmount,
+        formData.note || ""
+      );
+      
+      // Wait for transaction confirmation
+      const receipt = await tx.wait();
+      
+      if (!receipt.status) {
+        throw new Error("Transaction failed");
+      }
+      
+      // Show success message with transaction hash
+      toast({
+        title: "Deposit Successful!",
+        description: `Your contribution of ${formData.amount} tokens has been submitted.`,
+      });
+      
+      setShowSuccess(true);
+      
+    } catch (error) {
+      console.error("Deposit failed:", error);
+      
+      toast({
+        title: "Deposit Failed",
+        description: error instanceof Error ? error.message : "An error occurred while processing your deposit",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSuccess = () => {
@@ -62,9 +123,10 @@ export const ContributionForm = ({ isOpen, onClose }: ContributionFormProps) => 
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="bg-card cyber-border neon-glow max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-foreground font-mono glitch-text">
-              CONTRIBUTE TO CHAMA
-            </DialogTitle>
+            <DialogTitle className="text-center">Make a Contribution</DialogTitle>
+            <DialogDescription className="text-center">
+              Contribute to your chama's pool on the Citrea network
+            </DialogDescription>
           </DialogHeader>
           
           <form onSubmit={handleSubmit} className="space-y-4">

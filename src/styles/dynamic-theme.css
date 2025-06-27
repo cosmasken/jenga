@@ -1,0 +1,159 @@
+/* Cyberpunk Orange/Black Theme for Dynamic UI */
+.dynamic-shadow-dom {
+  /* Base Colors - Matching your theme */
+  --dynamic-base-1: hsl(12, 12%, 4%);
+  --dynamic-base-2: hsl(12, 12%, 6%);
+  --dynamic-base-3: hsl(12, 12%, 8%);
+  --dynamic-base-4: hsl(12, 12%, 10%);
+  --dynamic-base-5: hsl(12, 12%, 12%);
+  
+  /* Brand Colors - Orange theme */
+  --dynamic-brand-primary-color: hsl(25, 95%, 53%);
+  --dynamic-brand-hover-color: linear-gradient(0deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.2)), hsl(39, 100%, 55%);
+  --dynamic-brand-secondary-color: hsla(25, 95%, 53%, 0.15);
+  
+  /* Text */
+  --dynamic-text-primary: hsl(39, 100%, 85%);
+  --dynamic-text-secondary: hsl(39, 100%, 75%);
+  --dynamic-text-tertiary: hsl(39, 50%, 65%);
+  --dynamic-text-link: hsl(25, 95%, 53%);
+  
+  /* UI Elements */
+  --dynamic-border-radius: 0.5rem;
+  --dynamic-hover: hsla(25, 95%, 53%, 0.1);
+  
+  /* Status Colors */
+  --dynamic-connection-green: hsl(120, 100%, 50%);
+  --dynamic-error-1: hsl(0, 84%, 60%);
+  --dynamic-error-2: hsla(0, 84%, 60%, 0.15);
+  --dynamic-success-1: hsl(120, 100%, 50%);
+  --dynamic-success-2: hsla(120, 100%, 50%, 0.15);
+  
+  /* Shadows - Orange Glow Effects */
+  --dynamic-shadow-down-1: 0 0 5px hsla(25, 95%, 53%, 0.5);
+  --dynamic-shadow-down-2: 0 0 15px hsla(25, 95%, 53%, 0.6);
+  --dynamic-shadow-down-3: 0 0 30px hsla(25, 95%, 53%, 0.7);
+  --dynamic-shadow-up-1: 0 -5px 30px -5px hsla(25, 95%, 53%, 0.3);
+  
+  /* Modal */
+  --dynamic-modal-border: 1px solid hsl(25, 95%, 53%);
+  --dynamic-modal-backdrop-background: hsla(12, 12%, 4%, 0.8);
+  --dynamic-modal-backdrop-filter: blur(10px);
+  
+  /* Wallet List */
+  --dynamic-wallet-list-tile-background: hsla(12, 12%, 6%, 0.8);
+  --dynamic-wallet-list-tile-border: 1px solid hsl(25, 95%, 53%);
+  --dynamic-wallet-list-tile-shadow: 0 0 10px hsla(25, 95%, 53%, 0.3);
+  --dynamic-wallet-list-tile-background-hover: hsla(12, 12%, 10%, 0.8);
+  --dynamic-wallet-list-tile-border-hover: 1px solid hsl(39, 100%, 55%);
+  --dynamic-wallet-list-tile-shadow-hover: 0 0 15px hsla(25, 95%, 53%, 0.5);
+  
+  /* Connect Button */
+  --dynamic-connect-button-background: linear-gradient(45deg, #1a1a1a, #2d2d2d);
+  --dynamic-connect-button-color: hsl(25, 95%, 53%);
+  --dynamic-connect-button-border: 1px solid hsl(25, 95%, 53%);
+  --dynamic-connect-button-shadow: 0 0 5px hsla(25, 95%, 53%, 0.5);
+  --dynamic-connect-button-background-hover: linear-gradient(45deg, #2d2d2d, #3d3d3d);
+  --dynamic-connect-button-color-hover: hsl(39, 100%, 55%);
+  --dynamic-connect-button-border-hover: 1px solid hsl(39, 100%, 55%);
+  --dynamic-connect-button-shadow-hover: 0 0 15px hsla(25, 95%, 53%, 0.8);
+  --dynamic-connect-button-radius: 0.25rem;
+  
+  /* Search Bar */
+  --dynamic-search-bar-background: hsla(12, 12%, 8%, 0.8);
+  --dynamic-search-bar-border: 1px solid hsl(25, 95%, 53%);
+  --dynamic-search-bar-background-hover: hsla(12, 12%, 10%, 0.8);
+  --dynamic-search-bar-border-hover: 1px solid hsl(39, 100%, 55%);
+  --dynamic-search-bar-background-focus: hsla(12, 12%, 10%, 0.9);
+  --dynamic-search-bar-border-focus: 1px solid hsl(25, 95%, 53%);
+  
+  /* Tooltip */
+  --dynamic-tooltip-color: hsl(25, 95%, 53%);
+  --dynamic-tooltip-text-color: hsl(12, 12%, 4%);
+  
+  /* Fonts */
+  --dynamic-font-family-primary: 'JetBrains Mono', 'Courier New', monospace;
+  --dynamic-font-family-numbers: 'JetBrains Mono', 'Courier New', monospace;
+  
+  /* Text Sizes */
+  --dynamic-text-size-body-mini: 10px;
+  --dynamic-text-size-body-small: 12px;
+  --dynamic-text-size-body-normal: 14px;
+  --dynamic-text-size-button-primary: 14px;
+  --dynamic-text-size-button-secondary: 12px;
+  --dynamic-text-size-numbers-small: 10px;
+  --dynamic-text-size-numbers-medium: 14px;
+  --dynamic-text-size-numbers-big: 18px;
+  --dynamic-text-size-title: 20px;
+}
+
+/* Additional Cyberpunk Styling */
+.dynamic-shadow-dom {
+  /* Add subtle scanline effect to modals */
+  background: 
+    radial-gradient(circle at 25% 25%, rgba(255, 140, 0, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 75% 75%, rgba(255, 165, 0, 0.05) 0%, transparent 50%),
+    linear-gradient(
+      rgba(255, 140, 0, 0.03) 1px, 
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg, 
+      rgba(255, 140, 0, 0.03) 1px, 
+      transparent 1px
+    );
+  background-size: 100% 100%, 100% 100%, 20px 20px, 20px 20px;
+  border: 1px solid hsla(25, 95%, 53%, 0.3);
+  box-shadow: 0 0 5px hsla(25, 95%, 53%, 0.5);
+}
+
+/* Glow effect on interactive elements */
+.dynamic-shadow-dom button:hover,
+.dynamic-shadow-dom [role="button"]:hover,
+.dynamic-shadow-dom [data-testid="wallet-button"]:hover {
+  box-shadow: 0 0 15px hsla(25, 95%, 53%, 0.7) !important;
+  transition: all 0.3s ease;
+  border-color: hsl(25, 95%, 53%) !important;
+}
+
+/* Custom scrollbar */
+.dynamic-shadow-dom::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dynamic-shadow-dom::-webkit-scrollbar-track {
+  background: rgba(0, 240, 255, 0.1);
+  border-radius: 3px;
+}
+
+.dynamic-shadow-dom::-webkit-scrollbar-thumb {
+  background: #00f0ff;
+  border-radius: 3px;
+}
+
+.dynamic-shadow-dom::-webkit-scrollbar-thumb:hover {
+  background: #ff2a6d;
+}
+
+/* Animation for loading states */
+@keyframes cyberPulse {
+  0% { 
+    box-shadow: 0 0 5px hsla(25, 95%, 53%, 0.5);
+    border-color: hsla(25, 95%, 53%, 0.8);
+  }
+  50% { 
+    box-shadow: 0 0 20px hsla(25, 95%, 53%, 0.8), 0 0 30px hsla(39, 100%, 55%, 0.6);
+    border-color: hsla(39, 100%, 55%, 1);
+  }
+  100% { 
+    box-shadow: 0 0 5px hsla(25, 95%, 53%, 0.5);
+    border-color: hsla(25, 95%, 53%, 0.8);
+  }
+}
+
+.dynamic-shadow-dom [data-testid="loading-indicator"] {
+  animation: cyberPulse 2s infinite;
+  border: 1px solid hsla(25, 95%, 53%, 0.8) !important;
+  background: hsla(12, 12%, 10%, 0.8) !important;
+}
