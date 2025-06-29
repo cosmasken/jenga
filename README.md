@@ -1,73 +1,59 @@
-# Welcome to your Lovable project
+# 🧱 Jenga – Bitcoin-Native Community Lending Circles on Citrea
 
-## Project info
+## 🌀 What it does
 
-**URL**: https://lovable.dev/projects/1b07301c-7ce8-45c1-9183-0a1789c0bfcf
+Jenga enables communities to create and participate in Bitcoin-based saving circles (Chamas) using Citrea. It brings informal financial practices—like rotating savings, P2P stacking, and group credit—on-chain in a non-custodial, transparent, and trustless way.
 
-## How can I edit this code?
+Users can form or join a circle, contribute BTC (on Citrea), receive payouts in turn, and build on-chain credit history with reputation scores.
 
-There are several ways of editing your application.
+## 🛠️ The problem it solves
 
-**Use Lovable**
+Across the Global South, informal saving groups are a lifeline—yet they're vulnerable to fraud, require trust, and exclude participants from modern digital finance.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/1b07301c-7ce8-45c1-9183-0a1789c0bfcf) and start prompting.
+Jenga solves this by:
+- Automating group saving cycles with smart contracts
+- Eliminating the need for a trusted treasurer
+- Providing financial transparency and privacy using zk-proofs
+- Keeping everything Bitcoin-native, removing the need for wrapped tokens or centralized apps
 
-Changes made via Lovable will be committed automatically to this repo.
+## ⚔️ Challenges we ran into
 
-**Use your preferred IDE**
+- Designing smart contracts that reflect real-world group dynamics while remaining trustless
+- Integrating zkEVM features on Citrea
+- Adapting UX for Bitcoin-denominated values (e.g., sats)
+- Building a frontend that's both static and functional with no backend while enabling real interaction with the zkEVM contracts
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 🧰 Technologies we used
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- Citrea zkEVM for L2 execution
+- Solidity for smart contracts
+- Vue.js and TailwindCSS for the static frontend
+- Ethers.js for contract interaction
+- MetaMask for wallet integration
+- Zero-Knowledge Proofs (zk-SNARKs – in progress) for private contributions
 
-Follow these steps:
+## 🧱 How we built it
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- Designed the savings logic around ROSCAs (Rotating Savings and Credit Associations)
+- Wrote modular smart contracts for:
+  - Chama group creation and joining
+  - Scheduled contributions and automatic payouts
+  - Penalty enforcement and reputation tracking
+- Deployed contracts on Citrea testnet
+- Developed a static frontend with wallet connection, real contract calls, and UI for tracking contribution status and history
+- Began integrating zk circuits to prove contribution history without revealing wallet details
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## 📚 What we learned
 
-# Step 3: Install the necessary dependencies.
-npm i
+- Building for a Bitcoin rollup like Citrea introduces a unique design space, especially when working with zkEVM and a Bitcoin-centric UX
+- Real-world financial behaviors can be modeled effectively with simple yet robust smart contract systems
+- zk-integration adds privacy without compromising composability—but requires thoughtful UI/UX and circuit design
+- Community-first DeFi needs to balance simplicity with security
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## 🔮 What's next for Jenga
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/1b07301c-7ce8-45c1-9183-0a1789c0bfcf) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- 🧾 Finalize and deploy zkProof circuit for private contribution verification
+- 📱 Launch mobile-first version for underserved communities
+- 🌍 Pilot Jenga with real community savings groups in Kenya and Nigeria
+- 🎯 Expand into credit scoring and DeFi borrowing based on on-chain reputation
+- ⛓️ Explore DAO governance for group treasuries and long-term savings vaults
