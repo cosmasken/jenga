@@ -14,10 +14,9 @@ import {
   switchToCitreaNetwork, 
   formatTokenAmount, 
   parseTokenAmount, 
-  checkAndApproveToken,
-  CONTRACT_ADDRESSES,
-  CHAMA_ADDRESSES
+  checkAndApproveToken
 } from "@/utils/ethUtils";
+import { CONTRACT_ADDRESSES, CHAMA_ADDRESSES, TOKEN } from "@/config";
 
 // Available chamas from the config
 const AVAILABLE_CHAMAS = Object.keys(CHAMA_ADDRESSES) as Array<keyof typeof CHAMA_ADDRESSES>;
@@ -42,53 +41,30 @@ export const ContributionForm = ({ isOpen, onClose }: ContributionFormProps) => 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.chama || !formData.amount) {
+    if (!formData.amount || !formData.chama) {
       toast({
-        title: "Missing Information",
-        description: "Please select a chama and enter contribution amount",
-        variant: "destructive"
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
       });
       return;
     }
-
+    
     try {
       setIsLoading(true);
-      
-      // Switch to Citrea network if needed
-      await switchToCitreaNetwork();
-      
-      // Get the chama contract address
-      const chamaAddress = CHAMA_ADDRESSES[formData.chama as keyof typeof CHAMA_ADDRESSES];
-      if (!chamaAddress) {
-        throw new Error("Invalid chama selected");
-      }
-      
-      // Parse the amount (assuming USDC with 6 decimals)
-      const parsedAmount = parseTokenAmount(formData.amount, 6);
-      
-      // Get the SaccoFactory contract with signer
       const saccoFactory = await getSaccoFactoryContract(true);
+      const parsedAmount = parseTokenAmount(formData.amount);
+      const chamaAddress = CHAMA_ADDRESSES[formData.chama as keyof typeof CHAMA_ADDRESSES];
       
-      // First approve the token transfer if needed
-      await checkAndApproveToken(
-        CONTRACT_ADDRESSES.TOKEN,
-        CONTRACT_ADDRESSES.SACCO_FACTORY,
-        parsedAmount
-      );
-      
-      // Call the deposit function
-      const tx = await saccoFactory.depositToChama(
+      // For native token (BTC) transfers, we don't need to approve
+      // Just send the transaction with the value
+      const tx = await saccoFactory.contributeToCycle(
         chamaAddress,
-        parsedAmount,
-        formData.note || ""
+        { value: parsedAmount }
       );
       
       // Wait for transaction confirmation
-      const receipt = await tx.wait();
-      
-      if (!receipt.status) {
-        throw new Error("Transaction failed");
-      }
+      await tx.wait();
       
       // Show success message with transaction hash
       toast({

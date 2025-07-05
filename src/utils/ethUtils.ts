@@ -1,4 +1,8 @@
-import { ethers, BrowserProvider, JsonRpcProvider, Contract, Signer, InterfaceAbi } from 'ethers';
+import { Contract, BrowserProvider, JsonRpcProvider, Signer, InterfaceAbi, ethers } from 'ethers';
+import { CONTRACT_ADDRESSES, LOADING_MESSAGES } from '../config';
+
+// Import the required utils
+const { parseEther, formatUnits, parseUnits } = ethers;
 import JengaRegistryABI from '@/abi/JengaRegistry.json';
 import P2PTransfersABI from '@/abi/P2PTransfers.json';
 import SaccoFactoryABI from '@/abi/SaccoFactory.json';
@@ -6,9 +10,8 @@ import StackingVaultABI from '@/abi/StackingVault.json';
 import { DynamicWidget } from '@dynamic-labs/sdk-react-core';
 import { type Chain } from 'viem'
 
-
 // Citrea Testnet Configuration
- const citreaTestnet: Chain = {
+const citreaTestnet: Chain = {
   id: 5115,
   name: 'Citrea',
   nativeCurrency: {
@@ -33,15 +36,7 @@ const ERC20_ABI = [
   'function decimals() external view returns (uint8)'
 ];
 
-// Contract addresses - replace these with your actual deployed contract addresses
-export const CONTRACT_ADDRESSES = {
-  JENGA_REGISTRY: '0xBb53cb5d15Ca9dF45e7eD01a91871D4180399533', 
-  P2P_TRANSFERS: '0xEe9490dd80B60115678044C4186a2B923A2c3B0C',   
-  SACCO_FACTORY: '0x4bD4B0A3f0cbF78Ed4545147bd485fCB6c8cF982',   
-  STACKING_VAULT: '0x0c917Ccc38203734aC963152059439cd33EA57fF',
-  // Add your token contract address here (e.g., USDC on Citrea testnet)
-  TOKEN: '0x1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f'
-} as const;
+// Contract addresses are imported from config.ts
 
 // Mock chama contract addresses - replace with actual chama contract addresses
 export const CHAMA_ADDRESSES = {
@@ -52,6 +47,9 @@ export const CHAMA_ADDRESSES = {
 
 // Initialize provider for read operations
 export const provider = new JsonRpcProvider(citreaTestnet.rpcUrls.default.http[0]);
+
+// Re-export the utils for external use
+export { parseEther, formatUnits, parseUnits };
 
 // Get signer for write operations
 export async function getSigner(): Promise<Signer | null> {
@@ -67,7 +65,7 @@ export async function getTokenContract(tokenAddress: string, withSigner = false)
   if (!signerOrProvider) {
     throw new Error('No provider or signer available');
   }
-  return new ethers.Contract(tokenAddress, ERC20_ABI, signerOrProvider);
+  return new Contract(tokenAddress, ERC20_ABI, signerOrProvider);
 }
 
 /**
@@ -95,7 +93,45 @@ export async function checkAndApproveToken(
   }
 }
 
+// Loading state management
+let loadingHandler: ((message: string, isLoading: boolean) => void) | null = null;
+
+export const setLoadingHandler = (handler: (message: string, isLoading: boolean) => void) => {
+  loadingHandler = handler;
+};
+
+const withLoading = async <T>(
+  message: string,
+  action: () => Promise<T>
+): Promise<T> => {
+  try {
+    loadingHandler?.(message, true);
+    const result = await action();
+    return result;
+  } catch (error) {
+    console.error('Contract interaction failed:', error);
+    throw error;
+  } finally {
+    loadingHandler?.(message, false);
+  }
+};
+
 // Contract factory functions
+// Jenga Registry Functions
+export async function createProfile(username: string) {
+  return withLoading(LOADING_MESSAGES.CREATING_PROFILE, async () => {
+    const contract = await getJengaRegistryContract(true);
+    const tx = await contract.createProfile(username);
+    await tx.wait();
+    return tx.hash;
+  });
+}
+
+export async function getProfile(address: string) {
+  const contract = await getJengaRegistryContract();
+  return contract.profiles(address);
+}
+
 export async function getJengaRegistryContract(withSigner = false) {
   const signerOrProvider = withSigner ? await getSigner() : provider;
   if (!signerOrProvider) throw new Error('Provider not available');
@@ -118,6 +154,39 @@ export async function getP2PTransfersContract(withSigner = false) {
   );
 }
 
+// Sacco Factory Functions
+export async function createPool(contribution: string, cycleDuration: number, totalCycles: number, initialMembers: string[] = []) {
+  return withLoading(LOADING_MESSAGES.CREATING_POOL, async () => {
+    const contract = await getSaccoFactoryContract(true);
+    const tx = await contract.createPool(
+      parseEther(contribution),
+      cycleDuration,
+      totalCycles,
+      initialMembers
+    );
+    await tx.wait();
+    return tx.hash;
+  });
+}
+
+export async function joinPool(poolId: number, amount: string) {
+  return withLoading(LOADING_MESSAGES.JOINING_POOL, async () => {
+    const contract = await getSaccoFactoryContract(true);
+    const tx = await contract.joinPool(poolId, { value: parseEther(amount) });
+    await tx.wait();
+    return tx.hash;
+  });
+}
+
+export async function contributeToCycle(poolId: number, amount: string) {
+  return withLoading(LOADING_MESSAGES.CONTRIBUTING, async () => {
+    const contract = await getSaccoFactoryContract(true);
+    const tx = await contract.contributeToCycle(poolId, { value: parseEther(amount) });
+    await tx.wait();
+    return tx.hash;
+  });
+}
+
 export async function getSaccoFactoryContract(withSigner = false) {
   const signerOrProvider = withSigner ? await getSigner() : provider;
   if (!signerOrProvider) throw new Error('Provider not available');
@@ -127,6 +196,30 @@ export async function getSaccoFactoryContract(withSigner = false) {
     SaccoFactoryABI,
     signerOrProvider
   );
+}
+
+// Stacking Vault Functions
+export async function createStackingGoal(dailyAmount: string) {
+  return withLoading(LOADING_MESSAGES.CREATING_GOAL, async () => {
+    const contract = await getStackingVaultContract(true);
+    const tx = await contract.createStackingGoal(parseEther(dailyAmount));
+    await tx.wait();
+    return tx.hash;
+  });
+}
+
+export async function makeDeposit(amount: string) {
+  return withLoading(LOADING_MESSAGES.PROCESSING_DEPOSIT, async () => {
+    const contract = await getStackingVaultContract(true);
+    const tx = await contract.makeDeposit({ value: parseEther(amount) });
+    await tx.wait();
+    return tx.hash;
+  });
+}
+
+export async function getStackingGoal(address: string) {
+  const contract = await getStackingVaultContract();
+  return contract.goals(address);
 }
 
 export async function getStackingVaultContract(withSigner = false) {
@@ -232,12 +325,12 @@ export async function exampleContractInteraction() {
 
 // Utility to format token amounts (e.g., from wei to ether)
 export function formatTokenAmount(amount: bigint, decimals: number = 18): string {
-  return ethers.formatUnits(amount, decimals);
+  return formatUnits(amount.toString(), decimals);
 }
 
 // Utility to parse token amounts (e.g., from ether to wei)
 export function parseTokenAmount(amount: string, decimals: number = 18): bigint {
-  return ethers.parseUnits(amount, decimals);
+  return BigInt(parseUnits(amount, decimals).toString());
 }
 
 // Utility to get the current block number
