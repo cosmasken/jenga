@@ -11,7 +11,9 @@ import { WalletConnect } from "@/components/WalletConnect";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
 import { NetworkSwitcher } from "@/components/NetworkSwitcher";
 import { EnhancedWalletOnboarding } from "@/components/EnhancedWalletOnboarding";
-import { InteractiveTutorial } from "@/components/InteractiveTutorial";
+import { SimpleTutorial } from "@/components/SimpleTutorial";
+import { OnboardingWizard } from "@/components/OnboardingWizard";
+import { OnboardingService } from "@/lib/onboarding";
 import { MobileDashboard } from "@/components/MobileDashboard";
 import { NotificationSystem } from "@/components/NotificationSystem";
 import { EducationalContent } from "@/components/EducationalContent";
@@ -52,6 +54,8 @@ export default function Index() {
   const chainId = useChainId();
   
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
   const [currentView, setCurrentView] = useState<'dashboard' | 'chamas' | 'stacking' | 'p2p' | 'learn' | 'notifications' | 'insights' | 'gas'>('dashboard');
   const [isMobile, setIsMobile] = useState(false);
 
@@ -69,13 +73,40 @@ export default function Index() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Check for first-time user tutorial
+  // Check for first-time user and onboarding status
   useEffect(() => {
-    const hasSeenTutorial = localStorage.getItem('jenga-tutorial-completed');
-    if (isDynamicAuthenticated && !hasSeenTutorial) {
-      setTimeout(() => setShowTutorial(true), 2000); // Show tutorial after 2 seconds
-    }
-  }, [isDynamicAuthenticated]);
+    const checkOnboardingStatus = async () => {
+      if (isDynamicAuthenticated && primaryWallet?.address) {
+        try {
+          const userProfile = await OnboardingService.getUserProfile(primaryWallet.address);
+          
+          if (!userProfile) {
+            // Completely new user - show onboarding
+            setIsFirstTimeUser(true);
+            setShowOnboarding(true);
+          } else if (!userProfile.onboarding_completed) {
+            // Returning user who hasn't completed onboarding
+            setShowOnboarding(true);
+          } else {
+            // Check for tutorial (existing logic)
+            const hasSeenTutorial = localStorage.getItem('jenga-tutorial-completed');
+            if (!hasSeenTutorial) {
+              setTimeout(() => setShowTutorial(true), 2000);
+            }
+          }
+        } catch (error) {
+          console.error('Error checking onboarding status:', error);
+          // Fallback to tutorial for existing users
+          const hasSeenTutorial = localStorage.getItem('jenga-tutorial-completed');
+          if (!hasSeenTutorial) {
+            setTimeout(() => setShowTutorial(true), 2000);
+          }
+        }
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [isDynamicAuthenticated, primaryWallet?.address]);
 
   // Sync authentication state with app store
   useEffect(() => {
@@ -228,10 +259,11 @@ export default function Index() {
     <div className="min-h-screen flex flex-col">
       <AppHeader />
       
-      <main className="flex-1 flex items-center justify-center p-4">
+      <main className="flex-1">
         {isDynamicAuthenticated ? (
           // Show enhanced dashboard when authenticated
-          <div className="w-full max-w-7xl">
+          <div className="flex items-center justify-center p-4">
+            <div className="w-full max-w-7xl">
             {/* Show onboarding for new users or wrong network */}
             {(chainId !== 5115 || user?.isFirstTime) && (
               <div className="mb-6">
@@ -240,7 +272,7 @@ export default function Index() {
             )}
             
             {/* Debug component - remove in production */}
-            {process.env.NODE_ENV === 'development' && (
+            {import.meta.env.DEV && (
               <div className="mb-6">
                 <WagmiDebug />
               </div>
@@ -248,39 +280,12 @@ export default function Index() {
             
             {/* Main content */}
             {isMobile ? renderMobileView() : renderDesktopView()}
+            </div>
           </div>
         ) : (
           // Show connect wallet screen when not authenticated
-          <div className="w-full max-w-md">
-            <Card className="bg-card/90 backdrop-blur-sm cyber-border neon-glow">
-              <CardHeader className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-orange-400 rounded-2xl flex items-center justify-center mx-auto mb-4 neon-glow pulse-orange">
-                  <Coins className="w-8 h-8 text-white" />
-                </div>
-                <CardTitle className="text-2xl font-bold text-foreground font-mono glitch-text">
-                  JENGA
-                </CardTitle>
-                <p className="text-muted-foreground font-mono">
-                  Bitcoin-Native Community Lending Circles
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 gap-4 text-center">
-                  <div className="p-3 rounded-lg bg-muted/50">
-                    <Users className="w-6 h-6 mx-auto mb-2 text-orange-500" />
-                    <p className="text-sm font-medium">Community</p>
-                    <p className="text-xs text-muted-foreground">Savings Circles</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-muted/50">
-                    <Shield className="w-6 h-6 mx-auto mb-2 text-orange-500" />
-                    <p className="text-sm font-medium">Trustless</p>
-                    <p className="text-xs text-muted-foreground">Smart Contracts</p>
-                  </div>
-                </div>
-                
-                <LoggedOutView />
-              </CardContent>
-            </Card>
+          <div className="w-full">
+            <LoggedOutView />
           </div>
         )}
       </main>
@@ -313,8 +318,25 @@ export default function Index() {
 
       <AppFooter />
 
-      {/* Interactive Tutorial */}
-      <InteractiveTutorial 
+      {/* Onboarding Wizard for new users */}
+      <OnboardingWizard
+        isOpen={showOnboarding}
+        onComplete={() => {
+          setShowOnboarding(false);
+          setIsFirstTimeUser(false);
+          toast.success('Welcome to Jenga! You\'re all set up.');
+        }}
+        onClose={() => {
+          setShowOnboarding(false);
+          // If they close without completing, show tutorial instead
+          if (isFirstTimeUser) {
+            setTimeout(() => setShowTutorial(true), 1000);
+          }
+        }}
+      />
+
+      {/* Simple Tutorial */}
+      <SimpleTutorial 
         isOpen={showTutorial} 
         onClose={() => {
           setShowTutorial(false);
