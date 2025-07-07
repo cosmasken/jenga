@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,15 +10,23 @@ import { P2PSending } from "@/components/P2PSending";
 import { WalletConnect } from "@/components/WalletConnect";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
 import { NetworkSwitcher } from "@/components/NetworkSwitcher";
+import { EnhancedWalletOnboarding } from "@/components/EnhancedWalletOnboarding";
+import { InteractiveTutorial } from "@/components/InteractiveTutorial";
+import { MobileDashboard } from "@/components/MobileDashboard";
+import { NotificationSystem } from "@/components/NotificationSystem";
+import { EducationalContent } from "@/components/EducationalContent";
+import { FinanceInsights } from "@/components/FinanceInsights";
+import { GasSponsorshipDashboard } from "@/components/GasSponsorshipDashboard";
 import { WagmiDebug } from "@/components/WagmiDebug";
 import { useAppStore } from "@/store/appStore";
 import { useDynamicContext, type UserProfile } from '@dynamic-labs/sdk-react-core';
+import { useAccount, useChainId } from 'wagmi';
 import { LoggedInView } from "@/components/landing/LoggedInView";
 import { LoggedOutView } from "@/components/landing/LoggedOutView";
 import { AppHeader } from "@/components/AppHeader";
 import { AppFooter } from "@/components/AppFooter";
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
-import { Coins, Users, Send, Zap, TrendingUp, Trophy, LogOut, Wallet, Shield, Target, User } from "lucide-react";
+import { Coins, Users, Send, Zap, TrendingUp, Trophy, LogOut, Wallet, Shield, Target, User, BookOpen, Bell, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 
 // Extend the UserProfile type to include the properties we need
@@ -31,130 +39,84 @@ interface ExtendedUserProfile extends UserProfile {
   [key: string]: unknown; // Allow additional properties
 }
 
-const Index = () => {
-  const { 
-    user: dynamicUser, 
+export default function Index() {
+  const {
+    user,
+    isAuthenticated,
     primaryWallet,
+    dynamicUserProfile,
     handleLogOut,
-    setShowAuthFlow
   } = useDynamicContext();
-  
-  // Toggle the Dynamic auth flow
-  const handleConnectWallet = () => {
-    if (!isAuthenticated) {
-      setShowAuthFlow(true);
-    }
-  };
-  
-  const isDynamicAuthenticated = !!primaryWallet;
-  
-  // Safe access to dynamic user properties
-  const dynamicUserProfile = dynamicUser as ExtendedUserProfile | null;
-  
-  const { 
-    user, 
-    isAuthenticated, 
-    login, 
-    logout, 
-    updateUser, 
-    completeOnboarding,
-    setLoading,
-    setError
-  } = useAppStore();
 
-  // Sync authentication state between Dynamic and our app store
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [currentView, setCurrentView] = useState<'dashboard' | 'chamas' | 'stacking' | 'p2p' | 'learn' | 'notifications' | 'insights' | 'gas'>('dashboard');
+  const [isMobile, setIsMobile] = useState(false);
+
+  const isDynamicAuthenticated = !!primaryWallet;
+  const { setUser, setIsAuthenticated } = useAppStore();
+
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Check for first-time user tutorial
+  useEffect(() => {
+    const hasSeenTutorial = localStorage.getItem('jenga-tutorial-completed');
+    if (isDynamicAuthenticated && !hasSeenTutorial) {
+      setTimeout(() => setShowTutorial(true), 2000); // Show tutorial after 2 seconds
+    }
+  }, [isDynamicAuthenticated]);
+
+  // Sync authentication state with app store
   useEffect(() => {
     const syncAuthState = async () => {
       try {
-        setLoading(true);
-        
         if (isDynamicAuthenticated && dynamicUserProfile && primaryWallet) {
-          // Get the wallet address from the primary wallet
           const walletAddress = primaryWallet.address;
           
-          // Generate a username from email or use a default
-          const username = dynamicUserProfile.email?.split('@')[0] || 
-                         `${dynamicUserProfile.firstName || 'User'}_${Math.random().toString(36).substring(2, 6)}`;
+          // Create user object with extended profile information
+          const extendedProfile = dynamicUserProfile as ExtendedUserProfile;
+          const userData = {
+            id: extendedProfile.userId || walletAddress,
+            email: extendedProfile.email || `${walletAddress}@wallet.local`,
+            name: extendedProfile.firstName && extendedProfile.lastName 
+              ? `${extendedProfile.firstName} ${extendedProfile.lastName}`
+              : `User ${walletAddress.slice(0, 6)}`,
+            walletAddress,
+            profileImage: extendedProfile.profileImageUrl,
+            isFirstTime: !localStorage.getItem('jenga-user-onboarded'),
+            ...extendedProfile
+          };
+
+          setUser(userData);
+          setIsAuthenticated(true);
           
-          // Check if we need to update the user in our store
-          if (!user || user.dynamicUserId !== dynamicUser.userId) {
-            // Create or update user in our store
-// Prepare user data for login
-            const userData = {
-              id: dynamicUserProfile.userId || `user-${Date.now()}`,
-              name: dynamicUserProfile.firstName || username,
-              email: dynamicUserProfile.email || `${username.toLowerCase()}@example.com`,
-              walletAddress,
-              role: user?.role || 'member',
-              dynamicUserId: dynamicUserProfile.userId,
-              avatar: dynamicUserProfile.profileImageUrl,
-              // Include any additional properties from the dynamic user
-              ...Object.fromEntries(
-                Object.entries(dynamicUserProfile)
-                  .filter(([key]) => !['userId', 'email', 'firstName', 'profileImageUrl'].includes(key))
-              )
-            };
-            
-            // Update user data in the store
-            if (user) {
-              updateUser({
-                ...userData,
-                isFirstTime: user.isFirstTime,
-                lastLogin: Date.now()
-              });
-              toast.success('Welcome back!');
-            } else {
-              // New user login
-              login({
-                ...userData,
-                isFirstTime: true,
-                role: userData.role as 'member' | 'admin',
-                createdAt: Date.now(),
-                lastLogin: Date.now()
-              });
-              toast.success('Welcome to Jenga!');
-              // The Navigate component will handle the redirection
-              // by re-rendering the component with the new route
-            }
-            
-            toast.success('Successfully connected wallet');
-          } else if (walletAddress && user.walletAddress !== walletAddress) {
-            // Just update the wallet address if it changed
-            updateUser({ 
-              walletAddress,
-              lastLogin: Date.now() 
-            });
+          // Mark user as onboarded after first successful connection
+          if (!localStorage.getItem('jenga-user-onboarded')) {
+            localStorage.setItem('jenga-user-onboarded', 'true');
           }
-        } else if (!isDynamicAuthenticated) {
-          // Handle logout
-          if (isAuthenticated) {
-            logout();
-            toast.info('Successfully disconnected');
-          }
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
         }
       } catch (error) {
         console.error('Error syncing auth state:', error);
-        setError(error instanceof Error ? error.message : 'Failed to sync authentication state');
-        toast.error('Authentication error');
-      } finally {
-        setLoading(false);
+        toast.error('Authentication sync failed');
       }
     };
 
     syncAuthState();
-  // We're using all the dependencies we need, but some are stable references from the store
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDynamicAuthenticated, dynamicUserProfile, primaryWallet?.address]);
-
-  // Handle onboarding completion
-  const handleOnboardingComplete = () => {
-    completeOnboarding();
-    updateUser({
-      isFirstTime: false,
-      lastLogin: Date.now()
-    });
-    toast.success('Onboarding completed!');
-  };
+  }, [isDynamicAuthenticated, dynamicUserProfile, primaryWallet?.address, setUser, setIsAuthenticated]);
 
   // Show loading state while syncing auth
   if (isDynamicAuthenticated === undefined) {
@@ -165,11 +127,101 @@ const Index = () => {
     );
   }
 
-  // Redirect to dashboard if already authenticated and not first time
-  if (isAuthenticated && isDynamicAuthenticated && !user?.isFirstTime) {
-    window.location.href = '/dashboard';
-    return null;
-  }
+  const renderMobileView = () => {
+    switch (currentView) {
+      case 'dashboard':
+        return <MobileDashboard />;
+      case 'chamas':
+        return <ChamaCircles />;
+      case 'stacking':
+        return <PersonalStacking />;
+      case 'p2p':
+        return <P2PSending />;
+      case 'learn':
+        return <EducationalContent />;
+      case 'notifications':
+        return <NotificationSystem />;
+      case 'insights':
+        return <FinanceInsights />;
+      case 'gas':
+        return <GasSponsorshipDashboard />;
+      default:
+        return <MobileDashboard />;
+    }
+  };
+
+  const renderDesktopView = () => {
+    return (
+      <Tabs value={currentView} onValueChange={(value: any) => setCurrentView(value)} className="w-full">
+        <TabsList className="grid w-full grid-cols-8 mb-6">
+          <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            <span className="hidden sm:inline">Dashboard</span>
+          </TabsTrigger>
+          <TabsTrigger value="chamas" className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            <span className="hidden sm:inline">Chamas</span>
+          </TabsTrigger>
+          <TabsTrigger value="stacking" className="flex items-center gap-2">
+            <Coins className="w-4 h-4" />
+            <span className="hidden sm:inline">Stacking</span>
+          </TabsTrigger>
+          <TabsTrigger value="p2p" className="flex items-center gap-2">
+            <Send className="w-4 h-4" />
+            <span className="hidden sm:inline">Send</span>
+          </TabsTrigger>
+          <TabsTrigger value="learn" className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4" />
+            <span className="hidden sm:inline">Learn</span>
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="flex items-center gap-2">
+            <Bell className="w-4 h-4" />
+            <span className="hidden sm:inline">Alerts</span>
+          </TabsTrigger>
+          <TabsTrigger value="insights" className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" />
+            <span className="hidden sm:inline">Insights</span>
+          </TabsTrigger>
+          <TabsTrigger value="gas" className="flex items-center gap-2">
+            <Zap className="w-4 h-4" />
+            <span className="hidden sm:inline">Gas</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dashboard" className="space-y-6">
+          <FinanceInsights />
+        </TabsContent>
+        
+        <TabsContent value="chamas" className="space-y-6">
+          <ChamaCircles />
+        </TabsContent>
+        
+        <TabsContent value="stacking" className="space-y-6">
+          <PersonalStacking />
+        </TabsContent>
+        
+        <TabsContent value="p2p" className="space-y-6">
+          <P2PSending />
+        </TabsContent>
+        
+        <TabsContent value="learn" className="space-y-6">
+          <EducationalContent />
+        </TabsContent>
+        
+        <TabsContent value="notifications" className="space-y-6">
+          <NotificationSystem />
+        </TabsContent>
+        
+        <TabsContent value="insights" className="space-y-6">
+          <FinanceInsights />
+        </TabsContent>
+        
+        <TabsContent value="gas" className="space-y-6">
+          <GasSponsorshipDashboard />
+        </TabsContent>
+      </Tabs>
+    );
+  };
 
   // Main container with consistent styling
   return (
@@ -178,10 +230,24 @@ const Index = () => {
       
       <main className="flex-1 flex items-center justify-center p-4">
         {isDynamicAuthenticated ? (
-          // Show dashboard when authenticated
-          <div className="w-full max-w-6xl space-y-6">
-            <WagmiDebug />
-            <LoggedInView />
+          // Show enhanced dashboard when authenticated
+          <div className="w-full max-w-7xl">
+            {/* Show onboarding for new users or wrong network */}
+            {(chainId !== 5115 || user?.isFirstTime) && (
+              <div className="mb-6">
+                <EnhancedWalletOnboarding />
+              </div>
+            )}
+            
+            {/* Debug component - remove in production */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mb-6">
+                <WagmiDebug />
+              </div>
+            )}
+            
+            {/* Main content */}
+            {isMobile ? renderMobileView() : renderDesktopView()}
           </div>
         ) : (
           // Show connect wallet screen when not authenticated
@@ -189,58 +255,72 @@ const Index = () => {
             <Card className="bg-card/90 backdrop-blur-sm cyber-border neon-glow">
               <CardHeader className="text-center">
                 <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-orange-400 rounded-2xl flex items-center justify-center mx-auto mb-4 neon-glow pulse-orange">
-                  <Coins className="w-8 h-8 text-black" />
+                  <Coins className="w-8 h-8 text-white" />
                 </div>
-                <CardTitle className="text-3xl font-bold text-foreground glitch-text">JENGA</CardTitle>
-                <p className="text-muted-foreground cyber-text">STACK • CIRCLE • SEND</p>
-                <div className="text-xs text-orange-400 font-mono mt-2">
-                  [FINANCIAL SOVEREIGNTY PROTOCOL]
-                </div>
-              </CardHeader>
-              <CardContent className="flex flex-col space-y-4 items-center">
-                <p className="text-center text-muted-foreground font-mono text-sm">
-                  {'>'} CONNECT WALLET TO ACCESS CITREA AND THE POWER OF THE CIRCLE
+                <CardTitle className="text-2xl font-bold text-foreground font-mono glitch-text">
+                  JENGA
+                </CardTitle>
+                <p className="text-muted-foreground font-mono">
+                  Bitcoin-Native Community Lending Circles
                 </p>
-                
-                <div className="w-full">
-                  <Button 
-                    onClick={handleConnectWallet}
-                    className="w-full cyber-button h-12 font-mono flex items-center justify-center"
-                  >
-                    <Wallet className="w-5 h-5 mr-2" />
-                    CONNECT WALLET
-                  </Button>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-border w-full">
-                  <div className="text-center">
-                    <div className="w-8 h-8 bg-orange-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-                      <Target className="w-5 h-5 text-orange-400" />
-                    </div>
-                    <p className="text-xs text-muted-foreground font-mono">STACK</p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <Users className="w-6 h-6 mx-auto mb-2 text-orange-500" />
+                    <p className="text-sm font-medium">Community</p>
+                    <p className="text-xs text-muted-foreground">Savings Circles</p>
                   </div>
-                  <div className="text-center">
-                    <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-                      <Shield className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <p className="text-xs text-muted-foreground font-mono">CIRCLE</p>
-                  </div>
-                  <div className="text-center">
-                    <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-2">
-                      <Zap className="w-5 h-5 text-green-400" />
-                    </div>
-                    <p className="text-xs text-muted-foreground font-mono">SEND</p>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <Shield className="w-6 h-6 mx-auto mb-2 text-orange-500" />
+                    <p className="text-sm font-medium">Trustless</p>
+                    <p className="text-xs text-muted-foreground">Smart Contracts</p>
                   </div>
                 </div>
+                
+                <LoggedOutView />
               </CardContent>
             </Card>
           </div>
         )}
       </main>
-      
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && isDynamicAuthenticated && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border p-2">
+          <div className="flex justify-around">
+            {[
+              { key: 'dashboard', icon: BarChart3, label: 'Home' },
+              { key: 'chamas', icon: Users, label: 'Chamas' },
+              { key: 'stacking', icon: Coins, label: 'Stack' },
+              { key: 'gas', icon: Zap, label: 'Gas' },
+              { key: 'learn', icon: BookOpen, label: 'Learn' }
+            ].map(({ key, icon: Icon, label }) => (
+              <Button
+                key={key}
+                variant={currentView === key ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setCurrentView(key as any)}
+                className="flex-col h-12 px-2"
+              >
+                <Icon className="w-4 h-4" />
+                <span className="text-xs">{label}</span>
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <AppFooter />
+
+      {/* Interactive Tutorial */}
+      <InteractiveTutorial 
+        isOpen={showTutorial} 
+        onClose={() => {
+          setShowTutorial(false);
+          localStorage.setItem('jenga-tutorial-completed', 'true');
+        }} 
+      />
     </div>
   );
-};
-
-export default Index;
+}

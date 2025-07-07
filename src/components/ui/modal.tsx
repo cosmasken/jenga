@@ -2,7 +2,8 @@
 import * as React from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Gift, Users, Zap, Shield, Target } from "lucide-react";
+import { CheckCircle, Gift, Users, Zap, Shield, Target, ExternalLink, Copy } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface ModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface ModalProps {
   amount?: string;
   recipient?: string;
   chamaName?: string;
+  txHash?: string;
   onConfirm?: () => void;
   confirmText?: string;
 }
@@ -26,9 +28,12 @@ export const Modal = ({
   amount, 
   recipient, 
   chamaName,
+  txHash,
   onConfirm,
   confirmText = "CONTINUE"
 }: ModalProps) => {
+  const { toast } = useToast();
+
   const getIcon = () => {
     switch (type) {
       case "success":
@@ -61,6 +66,23 @@ export const Modal = ({
     }
   };
 
+  const copyTxHash = () => {
+    if (txHash) {
+      navigator.clipboard.writeText(txHash);
+      toast({
+        title: "Copied!",
+        description: "Transaction hash copied to clipboard",
+      });
+    }
+  };
+
+  const openExplorer = () => {
+    if (txHash) {
+      // Open Citrea explorer
+      window.open(`https://explorer.testnet.citrea.xyz/tx/${txHash}`, '_blank');
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className={`${getBackgroundColor()} max-w-md neon-glow`}>
@@ -72,7 +94,7 @@ export const Modal = ({
           </DialogDescription>
         </DialogHeader>
         
-        {(amount || recipient || chamaName) && (
+        {(amount || recipient || chamaName || txHash) && (
           <div className="border-t border-border pt-4 mt-4">
             {amount && (
               <div className="flex justify-between mb-2">
@@ -83,13 +105,43 @@ export const Modal = ({
             {recipient && (
               <div className="flex justify-between mb-2">
                 <span className="text-muted-foreground font-mono">RECIPIENT:</span>
-                <span className="font-semibold text-foreground font-mono">{recipient}</span>
+                <span className="font-semibold text-foreground font-mono">
+                  {recipient.length > 20 ? `${recipient.slice(0, 10)}...${recipient.slice(-8)}` : recipient}
+                </span>
               </div>
             )}
             {chamaName && (
               <div className="flex justify-between mb-2">
                 <span className="text-muted-foreground font-mono">CHAMA:</span>
                 <span className="font-semibold text-foreground font-mono">{chamaName}</span>
+              </div>
+            )}
+            {txHash && (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-mono">TX HASH:</span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={copyTxHash}
+                      className="h-6 px-2"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={openExplorer}
+                      className="h-6 px-2"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="text-xs font-mono text-muted-foreground break-all bg-muted/50 p-2 rounded">
+                  {txHash}
+                </div>
               </div>
             )}
           </div>
