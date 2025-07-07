@@ -10,6 +10,7 @@ import { P2PSending } from "@/components/P2PSending";
 import { WalletConnect } from "@/components/WalletConnect";
 import { OnboardingFlow } from "@/components/OnboardingFlow";
 import { NetworkSwitcher } from "@/components/NetworkSwitcher";
+import { WagmiDebug } from "@/components/WagmiDebug";
 import { useAppStore } from "@/store/appStore";
 import { useDynamicContext, type UserProfile } from '@dynamic-labs/sdk-react-core';
 import { LoggedInView } from "@/components/landing/LoggedInView";
@@ -178,7 +179,8 @@ const Index = () => {
       <main className="flex-1 flex items-center justify-center p-4">
         {isDynamicAuthenticated ? (
           // Show dashboard when authenticated
-          <div className="w-full max-w-6xl">
+          <div className="w-full max-w-6xl space-y-6">
+            <WagmiDebug />
             <LoggedInView />
           </div>
         ) : (

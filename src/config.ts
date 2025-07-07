@@ -1,9 +1,11 @@
-// Dummy contract addresses - replace with actual addresses when deploying
+// Contract addresses - Update these with your actual deployed contract addresses
+// For testing purposes, using placeholder addresses that follow Ethereum address format
 export const CONTRACT_ADDRESSES = {
-  JENGA_REGISTRY: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-  SACCO_FACTORY: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-  STACKING_VAULT: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-  P2P_TRANSFERS: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9'
+  JENGA_REGISTRY: '0x1234567890123456789012345678901234567890',
+  SACCO_FACTORY: '0x2345678901234567890123456789012345678901',
+  STACKING_VAULT: '0x3456789012345678901234567890123456789012',
+  P2P_TRANSFERS: '0x4567890123456789012345678901234567890123',
+  MULTISIG: '0x5678901234567890123456789012345678901234',
 } as const;
 
 export const LOADING_MESSAGES = {
@@ -31,14 +33,16 @@ export const LOADING_MESSAGES = {
 } as const;
 
 // Token addresses
+// Replace with your actual token contract addresses if using ERC20/wrapped tokens
 export const TOKEN = {
-  BTC: '0x0000000000000000000000000000000000000000', // Native token address
+  BTC: '0x0000000000000000000000000000000000000000', // Native cBTC (use WBTC address if wrapped)
   // Add other token addresses as needed
 } as const;
 
 // Chama (savings group) addresses
+// Replace with real chama (pool) addresses as deployed on testnet
 export const CHAMA_ADDRESSES = {
-  CHAMA_1: '0x1234567890123456789012345678901234567890',
-  CHAMA_2: '0x2345678901234567890123456789012345678901',
-  CHAMA_3: '0x3456789012345678901234567890123456789012',
+  CHAMA_1: '0xYOUR_CHAMA1_ADDRESS',
+  CHAMA_2: '0xYOUR_CHAMA2_ADDRESS',
+  CHAMA_3: '0xYOUR_CHAMA3_ADDRESS',
 } as const;

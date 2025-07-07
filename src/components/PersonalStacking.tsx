@@ -7,40 +7,62 @@ import { Progress } from "@/components/ui/progress";
 import { Modal } from "@/components/ui/modal";
 import { ZKVaultModal } from "@/components/ZKVaultModal";
 import { AchievementMintModal } from "@/components/AchievementMintModal";
-import { Target, Zap, Shield, Gift, Calendar, TrendingUp } from "lucide-react";
+import { Target, Zap, Shield, Gift, Calendar, TrendingUp, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useStackingVault, useFormattedStackingData } from "@/hooks/useJengaContracts";
 
 export const PersonalStacking = () => {
-  const [dailyGoal, setDailyGoal] = useState(1000);
-  const [currentSats, setCurrentSats] = useState(650);
-  const [showStackingModal, setShowStackingModal] = useState(false);
   const [stackAmount, setStackAmount] = useState("100");
+  const [showStackingModal, setShowStackingModal] = useState(false);
   const [showZKVault, setShowZKVault] = useState(false);
   const [selectedVault, setSelectedVault] = useState<"emergency" | "vacation">("emergency");
   const [showAchievementMint, setShowAchievementMint] = useState(false);
   const { toast } = useToast();
+  
+  // Use the new hooks
+  const { deposit, isLoading, isConnected } = useStackingVault();
+  const { dailyGoalSats, totalStackedSats } = useFormattedStackingData();
+  
+  // Calculate current progress (simplified - in real app, track daily progress)
+  const currentSats = Math.min(dailyGoalSats * 0.65, dailyGoalSats);
+  const progressPercentage = dailyGoalSats > 0 ? (currentSats / dailyGoalSats) * 100 : 0;
 
-  const handleStackSats = (amount = 100) => {
-    const newAmount = currentSats + amount;
-    setCurrentSats(newAmount);
+  const handleStackSats = async (amount = 100) => {
+    if (!isConnected) {
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Convert sats to BTC
+    const amountBtc = (amount / 100000000).toString();
     
-    // Show stacking success modal
-    setShowStackingModal(true);
+    // Make deposit using the hook
+    const result = await deposit(amountBtc);
     
-    if (newAmount >= dailyGoal) {
-      setTimeout(() => {
-        toast({
-          title: "🎉 Daily Goal Achieved!",
-          description: "You've hit your stacking target. Streak continues!",
-        });
-      }, 1500);
+    if (result) {
+      // Show stacking success modal
+      setShowStackingModal(true);
+      
+      const newAmount = currentSats + amount;
+      if (newAmount >= dailyGoalSats) {
+        setTimeout(() => {
+          toast({
+            title: "🎉 Daily Goal Achieved!",
+            description: "You've hit your stacking target. Streak continues!",
+          });
+        }, 1500);
+      }
     }
   };
 
-  const handleCustomStack = () => {
+  const handleCustomStack = async () => {
     const amount = parseInt(stackAmount);
     if (amount > 0) {
-      handleStackSats(amount);
+      await handleStackSats(amount);
       setStackAmount("100");
     }
   };
@@ -49,8 +71,6 @@ export const PersonalStacking = () => {
     setSelectedVault(vaultType);
     setShowZKVault(true);
   };
-
-  const progressPercentage = Math.min((currentSats / dailyGoal) * 100, 100);
 
   return (
     <div className="space-y-6">
@@ -66,24 +86,26 @@ export const PersonalStacking = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-3xl font-bold">{currentSats.toLocaleString()}</span>
-              <span className="text-orange-200">/ {dailyGoal.toLocaleString()} sats</span>
+              <span className="text-orange-200">/ {dailyGoalSats.toLocaleString()} sats</span>
             </div>
             <Progress value={progressPercentage} className="bg-orange-400" />
             <div className="grid grid-cols-2 gap-2">
               <Button 
                 onClick={() => handleStackSats(100)}
+                disabled={isLoading}
                 variant="secondary" 
                 className="bg-white text-orange-600 hover:bg-orange-50"
               >
-                <Zap className="w-4 h-4 mr-2" />
+                {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
                 +100 Sats
               </Button>
               <Button 
                 onClick={() => handleStackSats(500)}
+                disabled={isLoading}
                 variant="secondary" 
                 className="bg-white text-orange-600 hover:bg-orange-50"
               >
-                <Zap className="w-4 h-4 mr-2" />
+                {isLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Zap className="w-4 h-4 mr-2" />}
                 +500 Sats
               </Button>
             </div>
@@ -97,10 +119,11 @@ export const PersonalStacking = () => {
               />
               <Button 
                 onClick={handleCustomStack}
+                disabled={isLoading}
                 variant="secondary"
                 className="bg-white text-orange-600 hover:bg-orange-50"
               >
-                Stack
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Stack"}
               </Button>
             </div>
             <Button variant="outline" className="w-full border-white text-white hover:bg-white hover:text-orange-600">

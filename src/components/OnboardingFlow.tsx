@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { User, Target, Globe, ArrowRight } from "lucide-react";
+import { User, Target, Globe, ArrowRight, Loader2 } from "lucide-react";
+import { createProfile, createStackingGoal, switchToCitreaNetwork } from "@/utils/ethUtils";
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -13,6 +15,7 @@ interface OnboardingFlowProps {
 
 export const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
   const [step, setStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
   const [userData, setUserData] = useState({
     name: "",
     location: "",
@@ -20,14 +23,51 @@ export const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
     preferredCurrency: "USD"
   });
   const { toast } = useToast();
+  const { primaryWallet } = useDynamicContext();
 
-  const handleComplete = () => {
-    // Save user data to store or API here if needed
-    onComplete();
-    toast({
-      title: "🎉 WELCOME TO JENGA!",
-      description: "Your financial sovereignty journey begins now!",
-    });
+  const handleComplete = async () => {
+    if (!primaryWallet) {
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Switch to Citrea network
+      await switchToCitreaNetwork();
+      
+      // Create user profile on-chain
+      await createProfile(userData.name);
+      
+      // Create stacking goal if set
+      if (userData.dailyGoal && parseFloat(userData.dailyGoal) > 0) {
+        // Convert sats to BTC (1 BTC = 100,000,000 sats)
+        const dailyBtc = (parseFloat(userData.dailyGoal) / 100000000).toString();
+        await createStackingGoal(dailyBtc);
+      }
+
+      // Save user data to local storage for UI purposes
+      localStorage.setItem('jengaUserData', JSON.stringify(userData));
+      
+      onComplete();
+      toast({
+        title: "🎉 WELCOME TO JENGA!",
+        description: "Your profile and stacking goal have been created on-chain!",
+      });
+    } catch (error) {
+      console.error('Onboarding error:', error);
+      toast({
+        title: "Setup Failed",
+        description: "Failed to create your profile. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const steps = [
@@ -184,10 +224,20 @@ export const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
               ) : (
                 <Button
                   onClick={handleComplete}
+                  disabled={isLoading}
                   className="flex-1 cyber-button bg-orange-500 hover:bg-orange-600 text-black"
                 >
-                  START STACKING
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      CREATING PROFILE...
+                    </>
+                  ) : (
+                    <>
+                      START STACKING
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
                 </Button>
               )}
             </div>

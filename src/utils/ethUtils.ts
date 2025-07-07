@@ -7,6 +7,8 @@ import JengaRegistryABI from '@/abi/JengaRegistry.json';
 import P2PTransfersABI from '@/abi/P2PTransfers.json';
 import SaccoFactoryABI from '@/abi/SaccoFactory.json';
 import StackingVaultABI from '@/abi/StackingVault.json';
+import MultiSignWalletABI from '@/abi/MultiSignWallet.json';
+
 import { DynamicWidget } from '@dynamic-labs/sdk-react-core';
 import { type Chain } from 'viem'
 
@@ -37,6 +39,8 @@ const ERC20_ABI = [
 ];
 
 // Contract addresses are imported from config.ts
+// TODO: Add the actual MultiSignWallet address in CONTRACT_ADDRESSES
+// Example: CONTRACT_ADDRESSES.MULTISIG = '0x...';
 
 // Mock chama contract addresses - replace with actual chama contract addresses
 export const CHAMA_ADDRESSES = {
@@ -51,12 +55,137 @@ export const provider = new JsonRpcProvider(citreaTestnet.rpcUrls.default.http[0
 // Re-export the utils for external use
 export { parseEther, formatUnits, parseUnits };
 
-// Get signer for write operations
-export async function getSigner(): Promise<Signer | null> {
-  if (typeof window === 'undefined' || !window.ethereum) return null;
+// ================= MultiSignWallet (Multisig) =================
+
+/**
+ * Get MultiSignWallet contract instance
+ * @param withSigner boolean - if true, returns contract with signer for write operations
+ */
+export async function getMultiSignWalletContract(withSigner = false) {
+  const signerOrProvider = withSigner ? await getSigner() : provider;
+  if (!signerOrProvider) throw new Error('Provider not available');
   
-  const provider = new BrowserProvider(window.ethereum);
-  return await provider.getSigner();
+  return new Contract(
+    CONTRACT_ADDRESSES.MULTISIG,
+    MultiSignWalletABI,
+    signerOrProvider
+  );
+}
+
+/**
+ * Submit a new transaction to the multisig wallet
+ */
+export async function submitMultisigTransaction(to: string, value: string, data: string = '0x') {
+  return withLoading('Submitting transaction...', async () => {
+    const contract = await getMultiSignWalletContract(true);
+    const tx = await contract.submitTransaction(to, value, data);
+    return await tx.wait();
+  });
+}
+
+/**
+ * Confirm a pending multisig transaction
+ */
+export async function confirmMultisigTransaction(txIndex: number) {
+  return withLoading('Confirming transaction...', async () => {
+    const contract = await getMultiSignWalletContract(true);
+    const tx = await contract.confirmTransaction(txIndex);
+    return await tx.wait();
+  });
+}
+
+/**
+ * Revoke a confirmation for a multisig transaction
+ */
+export async function revokeMultisigConfirmation(txIndex: number) {
+  return withLoading('Revoking confirmation...', async () => {
+    const contract = await getMultiSignWalletContract(true);
+    const tx = await contract.revokeConfirmation(txIndex);
+    return await tx.wait();
+  });
+}
+
+/**
+ * Execute a multisig transaction (after enough confirmations)
+ */
+export async function executeMultisigTransaction(txIndex: number) {
+  return withLoading('Executing transaction...', async () => {
+    const contract = await getMultiSignWalletContract(true);
+    const tx = await contract.executeTransaction(txIndex);
+    return await tx.wait();
+  });
+}
+
+/**
+ * Get all owners of the multisig wallet
+ */
+export async function getMultisigOwners(): Promise<string[]> {
+  const contract = await getMultiSignWalletContract();
+  return contract.getOwners();
+}
+
+/**
+ * Get the number of transactions submitted to the multisig wallet
+ */
+export async function getMultisigTransactionCount(): Promise<number> {
+  const contract = await getMultiSignWalletContract();
+  return contract.getTransactionCount();
+}
+
+/**
+ * Get details of a specific multisig transaction
+ */
+export async function getMultisigTransaction(txIndex: number): Promise<{
+  to: string;
+  value: string;
+  data: string;
+  executed: boolean;
+  numConfirmations: number;
+}> {
+  const contract = await getMultiSignWalletContract();
+  const [to, value, data, executed, numConfirmations] = await contract.getTransaction(txIndex);
+  return { to, value, data, executed, numConfirmations };
+}
+
+/**
+ * Get the ETH balance of the multisig wallet
+ */
+export async function getMultisigBalance(): Promise<string> {
+  const contract = await getMultiSignWalletContract();
+  return contract.getBalance();
+}
+
+// Get signer for write operations using Dynamic
+export async function getSigner(): Promise<Signer | null> {
+  // This function should be called from components that have access to Dynamic context
+  // We'll create a separate function that takes the wallet as parameter
+  if (typeof window === 'undefined') return null;
+  
+  // Try to get provider from window.ethereum as fallback
+  if (window.ethereum) {
+    const provider = new BrowserProvider(window.ethereum);
+    return await provider.getSigner();
+  }
+  
+  return null;
+}
+
+// New function to get signer from Dynamic wallet
+export async function getSignerFromWallet(wallet: any): Promise<Signer | null> {
+  if (!wallet) return null;
+  
+  try {
+    // Get the provider from Dynamic wallet
+    const provider = await wallet.getWalletConnection();
+    if (!provider) return null;
+    
+    // Create ethers provider from the wallet connection
+    const ethersProvider = new BrowserProvider(provider);
+    return await ethersProvider.getSigner();
+  } catch (error) {
+    console.error('Error getting signer from wallet:', error);
+    return null;
+  }
 }
 
 // Get ERC20 token contract
@@ -155,9 +284,9 @@ export async function getP2PTransfersContract(withSigner = false) {
 }
 
 // Sacco Factory Functions
-export async function createPool(contribution: string, cycleDuration: number, totalCycles: number, initialMembers: string[] = []) {
+export async function createPool(contribution: string, cycleDuration: number, totalCycles: number, initialMembers: string[] = [], wallet?: any) {
   return withLoading(LOADING_MESSAGES.CREATING_POOL, async () => {
-    const contract = await getSaccoFactoryContract(true);
+    const contract = await getSaccoFactoryContract(true, wallet);
     const tx = await contract.createPool(
       parseEther(contribution),
       cycleDuration,
@@ -187,8 +316,19 @@ export async function contributeToCycle(poolId: number, amount: string) {
   });
 }
 
-export async function getSaccoFactoryContract(withSigner = false) {
-  const signerOrProvider = withSigner ? await getSigner() : provider;
+export async function getSaccoFactoryContract(withSigner = false, wallet?: any) {
+  let signerOrProvider;
+  
+  if (withSigner) {
+    if (wallet) {
+      signerOrProvider = await getSignerFromWallet(wallet);
+    } else {
+      signerOrProvider = await getSigner();
+    }
+  } else {
+    signerOrProvider = provider;
+  }
+  
   if (!signerOrProvider) throw new Error('Provider not available');
   
   return new Contract(

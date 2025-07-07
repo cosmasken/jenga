@@ -1,10 +1,9 @@
-import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAppStore } from "@/store/appStore";
-import { AppHeader } from "@/components/AppHeader";
+import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Coins, Users, Send } from "lucide-react";
+import { Coins, Users, Send, Gift } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -22,58 +21,73 @@ const Dashboard = () => {
   // }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <AppHeader />
-      <main className="flex-1 container py-8">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Personal Stacking</CardTitle>
-              <Coins className="h-4 w-4 text-muted-foreground" />
+    <DashboardLayout active="stacking">
+      <div className="max-w-6xl mx-auto w-full">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+          <Card className="bg-gradient-to-br from-yellow-900/30 to-gray-900/80 shadow-lg">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-semibold text-yellow-300">Personal Stacking</CardTitle>
+              <Coins className="h-5 w-5 text-yellow-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0 cBTC</div>
-              <p className="text-xs text-muted-foreground">Stacked in personal wallet</p>
+              <div className="text-2xl font-bold text-yellow-200">0 cBTC</div>
+              <p className="text-xs text-gray-400">Stacked in personal wallet</p>
             </CardContent>
           </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Chama Circles</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+          <Card className="bg-gradient-to-br from-blue-900/30 to-gray-900/80 shadow-lg">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-semibold text-blue-300">Chama Circles</CardTitle>
+              <Users className="h-5 w-5 text-blue-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0 Circles</div>
-              <p className="text-xs text-muted-foreground">Active savings groups</p>
+              <div className="text-2xl font-bold text-blue-200">0 Circles</div>
+              <p className="text-xs text-gray-400">Active savings groups</p>
             </CardContent>
           </Card>
-          
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">P2P Sending</CardTitle>
-              <Send className="h-4 w-4 text-muted-foreground" />
+          <Card className="bg-gradient-to-br from-green-900/30 to-gray-900/80 shadow-lg">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-semibold text-green-300">P2P Sending</CardTitle>
+              <Send className="h-5 w-5 text-green-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0 cBTC</div>
-              <p className="text-xs text-muted-foreground">Sent this month</p>
+              <div className="text-2xl font-bold text-green-200">0 cBTC</div>
+              <p className="text-xs text-gray-400">Sent this month</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-yellow-400/30 to-yellow-800/80 shadow-lg border-2 border-yellow-400">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-semibold text-yellow-400">Giftcards</CardTitle>
+              <Gift className="h-5 w-5 text-yellow-400" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-yellow-400">Red Envelopes</div>
+              <p className="text-xs text-yellow-300">Send festive group gifts</p>
             </CardContent>
           </Card>
         </div>
-        
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold tracking-tight mb-4">Welcome back, {user.name || 'User'}!</h2>
-          <p className="text-muted-foreground mb-6">
-            Manage your assets and start stacking today.
+        <div className="rounded-xl bg-gray-900/70 p-6 mb-8 shadow-xl border border-gray-800">
+          <h2 className="text-2xl font-extrabold tracking-tight mb-2 text-yellow-300">Welcome back, {user.name || 'User'}!</h2>
+          <p className="text-gray-400 mb-6">
+            Manage your Bitcoin-native assets, join savings circles, send P2P, and gift with style.
           </p>
-          
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Button className="w-full">Stack cBTC</Button>
-            <Button className="w-full" variant="outline">Join a Circle</Button>
-            <Button className="w-full" variant="outline">Send cBTC</Button>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Button className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold shadow" size="lg">
+              <Coins className="w-5 h-5 mr-2" /> Stack cBTC
+            </Button>
+            <Button className="w-full bg-blue-500 hover:bg-blue-400 text-white font-bold shadow" size="lg">
+              <Users className="w-5 h-5 mr-2" /> Join a Circle
+            </Button>
+            <Button className="w-full bg-green-500 hover:bg-green-400 text-white font-bold shadow" size="lg">
+              <Send className="w-5 h-5 mr-2" /> Send cBTC
+            </Button>
+            <Button className="w-full bg-yellow-400 hover:bg-yellow-300 text-black font-bold shadow border-2 border-yellow-500" size="lg">
+              <Gift className="w-5 h-5 mr-2" /> Giftcard / Red Envelope
+            </Button>
           </div>
         </div>
-      </main>
-    </div>
+        {/* You can slot in your main feature components here, e.g. <PersonalStacking />, <ChamaCircles />, <P2PSending />, <RedEnvelopeForm /> */}
+      </div>
+    </DashboardLayout>
   );
 };
 

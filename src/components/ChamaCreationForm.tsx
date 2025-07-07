@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LoadingModal } from "@/components/ui/loading-modal";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/hooks/use-toast";
+import { useCreatePool } from "@/hooks/useWagmiContracts";
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { Loader2 } from "lucide-react";
 
 interface ChamaCreationFormProps {
   isOpen: boolean;
@@ -23,9 +26,32 @@ export const ChamaCreationForm = ({ isOpen, onClose }: ChamaCreationFormProps) =
     duration: "",
     purpose: ""
   });
-  const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const { toast } = useToast();
+  const { primaryWallet } = useDynamicContext();
+  const { createPool, isLoading, isSuccess, hash } = useCreatePool();
+
+  // Handle successful transaction
+  useEffect(() => {
+    if (isSuccess && hash) {
+      toast({
+        title: "Chama Created Successfully!",
+        description: `Transaction hash: ${hash.slice(0, 10)}...`,
+      });
+      
+      setShowSuccess(true);
+      
+      // Reset form
+      setFormData({
+        name: "",
+        description: "",
+        weeklyTarget: "",
+        maxMembers: "",
+        duration: "",
+        purpose: ""
+      });
+    }
+  }, [isSuccess, hash, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,23 +64,41 @@ export const ChamaCreationForm = ({ isOpen, onClose }: ChamaCreationFormProps) =
       return;
     }
 
-    setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    setIsLoading(false);
-    setShowSuccess(true);
-    
-    // Reset form
-    setFormData({
-      name: "",
-      description: "",
-      weeklyTarget: "",
-      maxMembers: "",
-      duration: "",
-      purpose: ""
-    });
+    if (!primaryWallet) {
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Convert weekly target to BTC (assuming input is in sats)
+      const weeklyBtc = (parseFloat(formData.weeklyTarget) / 100000000).toString();
+      
+      // Convert duration from weeks to seconds (assuming duration is in weeks)
+      const cycleDurationSeconds = parseInt(formData.duration) * 7 * 24 * 60 * 60;
+      
+      // Calculate total cycles (assuming we want weekly cycles for the duration)
+      const totalCycles = parseInt(formData.duration);
+      
+      // Create the pool on-chain using Wagmi
+      await createPool(
+        weeklyBtc,
+        cycleDurationSeconds,
+        totalCycles,
+        [] // No initial members, they can join later
+      );
+      
+    } catch (error) {
+      console.error('Error creating chama:', error);
+      toast({
+        title: "Creation Failed",
+        description: "Failed to create chama. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleSuccess = () => {

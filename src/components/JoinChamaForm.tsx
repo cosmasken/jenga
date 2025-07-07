@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { LoadingModal } from "@/components/ui/loading-modal";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/hooks/use-toast";
+import { useJoinPool } from "@/hooks/useWagmiContracts";
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { Loader2 } from "lucide-react";
 
 interface JoinChamaFormProps {
   isOpen: boolean;
@@ -15,37 +18,70 @@ interface JoinChamaFormProps {
 
 export const JoinChamaForm = ({ isOpen, onClose }: JoinChamaFormProps) => {
   const [formData, setFormData] = useState({
-    inviteCode: "",
+    poolId: "",
     nickname: ""
   });
-  const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
   const { toast } = useToast();
+  const { primaryWallet } = useDynamicContext();
+  const { joinPool, isLoading, isSuccess, hash } = useJoinPool();
+
+  // Handle successful transaction
+  useEffect(() => {
+    if (isSuccess && hash) {
+      toast({
+        title: "Successfully Joined Chama!",
+        description: `Transaction hash: ${hash.slice(0, 10)}...`,
+      });
+      
+      setShowSuccess(true);
+      
+      // Reset form
+      setFormData({
+        poolId: "",
+        nickname: ""
+      });
+    }
+  }, [isSuccess, hash, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.inviteCode) {
+    if (!formData.poolId) {
       toast({
         title: "Missing Information",
-        description: "Please enter the invite code",
+        description: "Please enter the pool ID",
       });
       return;
     }
 
-    setIsLoading(true);
-    
-    // Simulate API call with random success/failure
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const success = Math.random() > 0.3; // 70% success rate
-    
-    setIsLoading(false);
-    
-    if (success) {
-      setShowSuccess(true);
-    } else {
+    if (!primaryWallet) {
+      toast({
+        title: "Wallet Required",
+        description: "Please connect your wallet first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const poolId = parseInt(formData.poolId);
+      
+      // For now, we'll use a default contribution amount
+      // In a real app, you'd fetch the pool details first to get the required amount
+      const contributionAmount = "0.001"; // 0.001 BTC as default
+      
+      // Join the pool with the required contribution
+      await joinPool(poolId, contributionAmount);
+      
+    } catch (error) {
+      console.error('Error joining chama:', error);
+      toast({
+        title: "Join Failed",
+        description: "Failed to join chama. Please try again.",
+        variant: "destructive"
+      });
       setShowError(true);
     }
   };
@@ -54,7 +90,7 @@ export const JoinChamaForm = ({ isOpen, onClose }: JoinChamaFormProps) => {
     setShowSuccess(false);
     onClose();
     // Reset form
-    setFormData({ inviteCode: "", nickname: "" });
+    setFormData({ poolId: "", nickname: "" });
   };
 
   const handleError = () => {
@@ -73,15 +109,17 @@ export const JoinChamaForm = ({ isOpen, onClose }: JoinChamaFormProps) => {
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="inviteCode" className="text-foreground font-mono">Invite Code *</Label>
+              <Label htmlFor="poolId" className="text-foreground font-mono">Pool ID *</Label>
               <Input
-                id="inviteCode"
-                value={formData.inviteCode}
-                onChange={(e) => setFormData({...formData, inviteCode: e.target.value})}
-                placeholder="Enter 6-digit invite code"
+                id="poolId"
+                value={formData.poolId}
+                onChange={(e) => setFormData({...formData, poolId: e.target.value})}
+                placeholder="Enter pool ID (e.g., 0, 1, 2...)"
                 className="bg-background/50 border-orange-500/50 text-foreground font-mono text-center text-lg tracking-widest"
-                maxLength={6}
               />
+              <p className="text-xs text-muted-foreground font-mono mt-1">
+                Get the pool ID from the chama creator
+              </p>
             </div>
 
             <div>
@@ -97,7 +135,7 @@ export const JoinChamaForm = ({ isOpen, onClose }: JoinChamaFormProps) => {
 
             <div className="bg-blue-500/10 border border-blue-500/50 rounded-lg p-3">
               <p className="text-blue-400 text-xs font-mono">
-                {'>'} Make sure you trust the chama members before joining
+                {'>'} You'll need to pay the pool's contribution amount to join
               </p>
             </div>
 

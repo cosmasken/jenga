@@ -1,6 +1,5 @@
 
-import { useState } from "react";
-import { ethers } from "ethers";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,14 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LoadingModal } from "@/components/ui/loading-modal";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  getSaccoFactoryContract, 
-  switchToCitreaNetwork, 
-  formatTokenAmount, 
-  parseTokenAmount, 
-  checkAndApproveToken
-} from "@/utils/ethUtils";
-import { CONTRACT_ADDRESSES, CHAMA_ADDRESSES, TOKEN } from "@/config";
+import { useContributeToCycle } from "@/hooks/useWagmiContracts";
+import { CHAMA_ADDRESSES } from "@/config";
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { Loader2 } from "lucide-react";
 
 // Available chamas from the config
 const AVAILABLE_CHAMAS = Object.keys(CHAMA_ADDRESSES) as Array<keyof typeof CHAMA_ADDRESSES>;
@@ -28,20 +23,38 @@ interface ContributionFormProps {
 
 export const ContributionForm = ({ isOpen, onClose }: ContributionFormProps) => {
   const [formData, setFormData] = useState({
-    chama: "",
+    poolId: "",
     amount: "",
     note: ""
   });
-  const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const { toast } = useToast();
+  const { primaryWallet } = useDynamicContext();
+  const { contribute, isLoading, isSuccess, hash } = useContributeToCycle();
 
-  const chamas = AVAILABLE_CHAMAS;
+  // Handle successful transaction
+  useEffect(() => {
+    if (isSuccess && hash) {
+      toast({
+        title: "Contribution Successful!",
+        description: `Transaction hash: ${hash.slice(0, 10)}...`,
+      });
+      
+      setShowSuccess(true);
+      
+      // Reset form
+      setFormData({
+        poolId: "",
+        amount: "",
+        note: ""
+      });
+    }
+  }, [isSuccess, hash, toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.amount || !formData.chama) {
+    if (!formData.amount || !formData.poolId) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -49,41 +62,30 @@ export const ContributionForm = ({ isOpen, onClose }: ContributionFormProps) => 
       });
       return;
     }
-    
-    try {
-      setIsLoading(true);
-      const saccoFactory = await getSaccoFactoryContract(true);
-      const parsedAmount = parseTokenAmount(formData.amount);
-      const chamaAddress = CHAMA_ADDRESSES[formData.chama as keyof typeof CHAMA_ADDRESSES];
-      
-      // For native token (BTC) transfers, we don't need to approve
-      // Just send the transaction with the value
-      const tx = await saccoFactory.contributeToCycle(
-        chamaAddress,
-        { value: parsedAmount }
-      );
-      
-      // Wait for transaction confirmation
-      await tx.wait();
-      
-      // Show success message with transaction hash
+
+    if (!primaryWallet) {
       toast({
-        title: "Deposit Successful!",
-        description: `Your contribution of ${formData.amount} tokens has been submitted.`,
-      });
-      
-      setShowSuccess(true);
-      
-    } catch (error) {
-      console.error("Deposit failed:", error);
-      
-      toast({
-        title: "Deposit Failed",
-        description: error instanceof Error ? error.message : "An error occurred while processing your deposit",
+        title: "Wallet Required",
+        description: "Please connect your wallet first",
         variant: "destructive"
       });
-    } finally {
-      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Convert amount from sats to BTC
+      const amountBtc = (parseFloat(formData.amount) / 100000000).toString();
+      
+      // Contribute to the cycle using Wagmi
+      await contribute(parseInt(formData.poolId), amountBtc);
+      
+    } catch (error) {
+      console.error('Contribution error:', error);
+      toast({
+        title: "Contribution Failed",
+        description: error instanceof Error ? error.message : "Failed to contribute. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -91,7 +93,7 @@ export const ContributionForm = ({ isOpen, onClose }: ContributionFormProps) => 
     setShowSuccess(false);
     onClose();
     // Reset form
-    setFormData({ chama: "", amount: "", note: "" });
+    setFormData({ poolId: "", amount: "", note: "" });
   };
 
   return (
@@ -107,17 +109,15 @@ export const ContributionForm = ({ isOpen, onClose }: ContributionFormProps) => 
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="chama" className="text-foreground font-mono">Select Chama *</Label>
-              <Select onValueChange={(value) => setFormData({...formData, chama: value})}>
-                <SelectTrigger className="bg-background/50 border-orange-500/50 text-foreground font-mono">
-                  <SelectValue placeholder="Choose your chama" />
-                </SelectTrigger>
-                <SelectContent className="bg-card cyber-border">
-                  {chamas.map((chama) => (
-                    <SelectItem key={chama} value={chama}>{chama}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="poolId" className="text-foreground font-mono">Pool ID *</Label>
+              <Input
+                id="poolId"
+                type="number"
+                value={formData.poolId}
+                onChange={(e) => setFormData({...formData, poolId: e.target.value})}
+                placeholder="0"
+                className="bg-background/50 border-orange-500/50 text-foreground font-mono"
+              />
             </div>
 
             <div>
@@ -168,7 +168,7 @@ export const ContributionForm = ({ isOpen, onClose }: ContributionFormProps) => 
         title="Contribution Successful!"
         description="Your sats have been added to the chama pool"
         amount={`${formData.amount} sats`}
-        chamaName={formData.chama}
+        chamaName={`Pool ${formData.poolId}`}
       />
     </>
   );
