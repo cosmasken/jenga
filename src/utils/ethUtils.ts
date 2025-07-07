@@ -1,14 +1,19 @@
-import { ethers, BrowserProvider, JsonRpcProvider, Contract, Signer, InterfaceAbi } from 'ethers';
+import { Contract, BrowserProvider, JsonRpcProvider, Signer, InterfaceAbi, ethers } from 'ethers';
+import { CONTRACT_ADDRESSES, LOADING_MESSAGES } from '../config';
+
+// Import the required utils
+const { parseEther, formatUnits, parseUnits } = ethers;
 import JengaRegistryABI from '@/abi/JengaRegistry.json';
 import P2PTransfersABI from '@/abi/P2PTransfers.json';
 import SaccoFactoryABI from '@/abi/SaccoFactory.json';
 import StackingVaultABI from '@/abi/StackingVault.json';
+import MultiSignWalletABI from '@/abi/MultiSignWallet.json';
+
 import { DynamicWidget } from '@dynamic-labs/sdk-react-core';
 import { type Chain } from 'viem'
 
-
 // Citrea Testnet Configuration
- const citreaTestnet: Chain = {
+const citreaTestnet: Chain = {
   id: 5115,
   name: 'Citrea',
   nativeCurrency: {
@@ -33,15 +38,9 @@ const ERC20_ABI = [
   'function decimals() external view returns (uint8)'
 ];
 
-// Contract addresses - replace these with your actual deployed contract addresses
-export const CONTRACT_ADDRESSES = {
-  JENGA_REGISTRY: '0xBb53cb5d15Ca9dF45e7eD01a91871D4180399533', 
-  P2P_TRANSFERS: '0xEe9490dd80B60115678044C4186a2B923A2c3B0C',   
-  SACCO_FACTORY: '0x4bD4B0A3f0cbF78Ed4545147bd485fCB6c8cF982',   
-  STACKING_VAULT: '0x0c917Ccc38203734aC963152059439cd33EA57fF',
-  // Add your token contract address here (e.g., USDC on Citrea testnet)
-  TOKEN: '0x1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f'
-} as const;
+// Contract addresses are imported from config.ts
+// TODO: Add the actual MultiSignWallet address in CONTRACT_ADDRESSES
+// Example: CONTRACT_ADDRESSES.MULTISIG = '0x...';
 
 // Mock chama contract addresses - replace with actual chama contract addresses
 export const CHAMA_ADDRESSES = {
@@ -53,12 +52,140 @@ export const CHAMA_ADDRESSES = {
 // Initialize provider for read operations
 export const provider = new JsonRpcProvider(citreaTestnet.rpcUrls.default.http[0]);
 
-// Get signer for write operations
-export async function getSigner(): Promise<Signer | null> {
-  if (typeof window === 'undefined' || !window.ethereum) return null;
+// Re-export the utils for external use
+export { parseEther, formatUnits, parseUnits };
+
+// ================= MultiSignWallet (Multisig) =================
+
+/**
+ * Get MultiSignWallet contract instance
+ * @param withSigner boolean - if true, returns contract with signer for write operations
+ */
+export async function getMultiSignWalletContract(withSigner = false) {
+  const signerOrProvider = withSigner ? await getSigner() : provider;
+  if (!signerOrProvider) throw new Error('Provider not available');
   
-  const provider = new BrowserProvider(window.ethereum);
-  return await provider.getSigner();
+  return new Contract(
+    CONTRACT_ADDRESSES.MULTISIG,
+    MultiSignWalletABI,
+    signerOrProvider
+  );
+}
+
+/**
+ * Submit a new transaction to the multisig wallet
+ */
+export async function submitMultisigTransaction(to: string, value: string, data: string = '0x') {
+  return withLoading('Submitting transaction...', async () => {
+    const contract = await getMultiSignWalletContract(true);
+    const tx = await contract.submitTransaction(to, value, data);
+    return await tx.wait();
+  });
+}
+
+/**
+ * Confirm a pending multisig transaction
+ */
+export async function confirmMultisigTransaction(txIndex: number) {
+  return withLoading('Confirming transaction...', async () => {
+    const contract = await getMultiSignWalletContract(true);
+    const tx = await contract.confirmTransaction(txIndex);
+    return await tx.wait();
+  });
+}
+
+/**
+ * Revoke a confirmation for a multisig transaction
+ */
+export async function revokeMultisigConfirmation(txIndex: number) {
+  return withLoading('Revoking confirmation...', async () => {
+    const contract = await getMultiSignWalletContract(true);
+    const tx = await contract.revokeConfirmation(txIndex);
+    return await tx.wait();
+  });
+}
+
+/**
+ * Execute a multisig transaction (after enough confirmations)
+ */
+export async function executeMultisigTransaction(txIndex: number) {
+  return withLoading('Executing transaction...', async () => {
+    const contract = await getMultiSignWalletContract(true);
+    const tx = await contract.executeTransaction(txIndex);
+    return await tx.wait();
+  });
+}
+
+/**
+ * Get all owners of the multisig wallet
+ */
+export async function getMultisigOwners(): Promise<string[]> {
+  const contract = await getMultiSignWalletContract();
+  return contract.getOwners();
+}
+
+/**
+ * Get the number of transactions submitted to the multisig wallet
+ */
+export async function getMultisigTransactionCount(): Promise<number> {
+  const contract = await getMultiSignWalletContract();
+  return contract.getTransactionCount();
+}
+
+/**
+ * Get details of a specific multisig transaction
+ */
+export async function getMultisigTransaction(txIndex: number): Promise<{
+  to: string;
+  value: string;
+  data: string;
+  executed: boolean;
+  numConfirmations: number;
+}> {
+  const contract = await getMultiSignWalletContract();
+  const [to, value, data, executed, numConfirmations] = await contract.getTransaction(txIndex);
+  return { to, value, data, executed, numConfirmations };
+}
+
+/**
+ * Get the ETH balance of the multisig wallet
+ */
+export async function getMultisigBalance(): Promise<string> {
+  const contract = await getMultiSignWalletContract();
+  return contract.getBalance();
+}
+
+// Get signer for write operations using Dynamic
+export async function getSigner(): Promise<Signer | null> {
+  // This function should be called from components that have access to Dynamic context
+  // We'll create a separate function that takes the wallet as parameter
+  if (typeof window === 'undefined') return null;
+  
+  // Try to get provider from window.ethereum as fallback
+  if (window.ethereum) {
+    const provider = new BrowserProvider(window.ethereum);
+    return await provider.getSigner();
+  }
+  
+  return null;
+}
+
+// New function to get signer from Dynamic wallet
+export async function getSignerFromWallet(wallet: any): Promise<Signer | null> {
+  if (!wallet) return null;
+  
+  try {
+    // Get the provider from Dynamic wallet
+    const provider = await wallet.getWalletConnection();
+    if (!provider) return null;
+    
+    // Create ethers provider from the wallet connection
+    const ethersProvider = new BrowserProvider(provider);
+    return await ethersProvider.getSigner();
+  } catch (error) {
+    console.error('Error getting signer from wallet:', error);
+    return null;
+  }
 }
 
 // Get ERC20 token contract
@@ -67,7 +194,7 @@ export async function getTokenContract(tokenAddress: string, withSigner = false)
   if (!signerOrProvider) {
     throw new Error('No provider or signer available');
   }
-  return new ethers.Contract(tokenAddress, ERC20_ABI, signerOrProvider);
+  return new Contract(tokenAddress, ERC20_ABI, signerOrProvider);
 }
 
 /**
@@ -95,7 +222,45 @@ export async function checkAndApproveToken(
   }
 }
 
+// Loading state management
+let loadingHandler: ((message: string, isLoading: boolean) => void) | null = null;
+
+export const setLoadingHandler = (handler: (message: string, isLoading: boolean) => void) => {
+  loadingHandler = handler;
+};
+
+const withLoading = async <T>(
+  message: string,
+  action: () => Promise<T>
+): Promise<T> => {
+  try {
+    loadingHandler?.(message, true);
+    const result = await action();
+    return result;
+  } catch (error) {
+    console.error('Contract interaction failed:', error);
+    throw error;
+  } finally {
+    loadingHandler?.(message, false);
+  }
+};
+
 // Contract factory functions
+// Jenga Registry Functions
+export async function createProfile(username: string) {
+  return withLoading(LOADING_MESSAGES.CREATING_PROFILE, async () => {
+    const contract = await getJengaRegistryContract(true);
+    const tx = await contract.createProfile(username);
+    await tx.wait();
+    return tx.hash;
+  });
+}
+
+export async function getProfile(address: string) {
+  const contract = await getJengaRegistryContract();
+  return contract.profiles(address);
+}
+
 export async function getJengaRegistryContract(withSigner = false) {
   const signerOrProvider = withSigner ? await getSigner() : provider;
   if (!signerOrProvider) throw new Error('Provider not available');
@@ -118,8 +283,52 @@ export async function getP2PTransfersContract(withSigner = false) {
   );
 }
 
-export async function getSaccoFactoryContract(withSigner = false) {
-  const signerOrProvider = withSigner ? await getSigner() : provider;
+// Sacco Factory Functions
+export async function createPool(contribution: string, cycleDuration: number, totalCycles: number, initialMembers: string[] = [], wallet?: any) {
+  return withLoading(LOADING_MESSAGES.CREATING_POOL, async () => {
+    const contract = await getSaccoFactoryContract(true, wallet);
+    const tx = await contract.createPool(
+      parseEther(contribution),
+      cycleDuration,
+      totalCycles,
+      initialMembers
+    );
+    await tx.wait();
+    return tx.hash;
+  });
+}
+
+export async function joinPool(poolId: number, amount: string) {
+  return withLoading(LOADING_MESSAGES.JOINING_POOL, async () => {
+    const contract = await getSaccoFactoryContract(true);
+    const tx = await contract.joinPool(poolId, { value: parseEther(amount) });
+    await tx.wait();
+    return tx.hash;
+  });
+}
+
+export async function contributeToCycle(poolId: number, amount: string) {
+  return withLoading(LOADING_MESSAGES.CONTRIBUTING, async () => {
+    const contract = await getSaccoFactoryContract(true);
+    const tx = await contract.contributeToCycle(poolId, { value: parseEther(amount) });
+    await tx.wait();
+    return tx.hash;
+  });
+}
+
+export async function getSaccoFactoryContract(withSigner = false, wallet?: any) {
+  let signerOrProvider;
+  
+  if (withSigner) {
+    if (wallet) {
+      signerOrProvider = await getSignerFromWallet(wallet);
+    } else {
+      signerOrProvider = await getSigner();
+    }
+  } else {
+    signerOrProvider = provider;
+  }
+  
   if (!signerOrProvider) throw new Error('Provider not available');
   
   return new Contract(
@@ -127,6 +336,30 @@ export async function getSaccoFactoryContract(withSigner = false) {
     SaccoFactoryABI,
     signerOrProvider
   );
+}
+
+// Stacking Vault Functions
+export async function createStackingGoal(dailyAmount: string) {
+  return withLoading(LOADING_MESSAGES.CREATING_GOAL, async () => {
+    const contract = await getStackingVaultContract(true);
+    const tx = await contract.createStackingGoal(parseEther(dailyAmount));
+    await tx.wait();
+    return tx.hash;
+  });
+}
+
+export async function makeDeposit(amount: string) {
+  return withLoading(LOADING_MESSAGES.PROCESSING_DEPOSIT, async () => {
+    const contract = await getStackingVaultContract(true);
+    const tx = await contract.makeDeposit({ value: parseEther(amount) });
+    await tx.wait();
+    return tx.hash;
+  });
+}
+
+export async function getStackingGoal(address: string) {
+  const contract = await getStackingVaultContract();
+  return contract.goals(address);
 }
 
 export async function getStackingVaultContract(withSigner = false) {
@@ -232,12 +465,12 @@ export async function exampleContractInteraction() {
 
 // Utility to format token amounts (e.g., from wei to ether)
 export function formatTokenAmount(amount: bigint, decimals: number = 18): string {
-  return ethers.formatUnits(amount, decimals);
+  return formatUnits(amount.toString(), decimals);
 }
 
 // Utility to parse token amounts (e.g., from ether to wei)
 export function parseTokenAmount(amount: string, decimals: number = 18): bigint {
-  return ethers.parseUnits(amount, decimals);
+  return BigInt(parseUnits(amount, decimals).toString());
 }
 
 // Utility to get the current block number

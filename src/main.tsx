@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
 import { DynamicWagmiConnector } from "@dynamic-labs/wagmi-connector";
+import { ZeroDevSmartWalletConnectors } from "@dynamic-labs/ethereum-aa";
 import { createConfig, WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type Chain } from 'viem'
@@ -57,24 +58,6 @@ const evmNetworks = [
   }
 ]
 
-// // Citrea Testnet configuration for Dynamic
-// const citreaNetworkConfig = {
-//   blockExplorerUrls: ['https://explorer.testnet.citrea.xyz/'],
-//   chainId: 5115,
-//   chainName: 'Citrea',
-//   iconUrls: ['https://app.dynamic.xyz/assets/networks/eth.svg'],
-//   name: 'Citrea',
-//   nativeCurrency: {
-//     decimals: 18,
-//     name: 'Citrea BTC',
-//     symbol: 'cBTC',
-//   },
-//   networkId: 5115,
-//   rpcUrls: ['https://rpc.testnet.citrea.xyz'],
-//   vanityName: 'Citrea Testnet',
-//   isTestnet: true
-// };
-
 const config = createConfig({
   chains: [citreaTestnet],
   multiInjectedProviderDiscovery: false,
@@ -90,7 +73,10 @@ createRoot(document.getElementById("root")!).render(
     <DynamicContextProvider
       settings={{
         environmentId: import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID,
-        walletConnectors: [EthereumWalletConnectors],
+        walletConnectors: [
+          EthereumWalletConnectors,
+          ZeroDevSmartWalletConnectors,
+        ],
         initialAuthenticationMode: 'connect-only',
         overrides: { evmNetworks },
       }}
