@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,8 +21,15 @@ import {
   Target,
   DollarSign
 } from 'lucide-react';
+import { EmptyGasSponsorship, EmptyWalletConnection, EmptyNetworkError } from '@/components/ui/empty-state';
+import { DashboardSkeleton } from '@/components/ui/skeleton';
+import { useAccount } from 'wagmi';
 
 export const GasSponsorshipDashboard = () => {
+  const { isConnected } = useAccount();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   const { 
     userLevel, 
     userStats,
@@ -30,6 +38,57 @@ export const GasSponsorshipDashboard = () => {
     userLevels,
     progressToNextLevel 
   } = useGasSponsorshipInfo();
+
+  useEffect(() => {
+    // Simulate loading gas sponsorship data
+    const loadGasData = async () => {
+      setIsLoading(true);
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setError(null);
+      } catch (err) {
+        setError('Failed to load gas sponsorship data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (isConnected) {
+      loadGasData();
+    } else {
+      setIsLoading(false);
+    }
+  }, [isConnected]);
+
+  const handleRetry = () => {
+    setError(null);
+    setIsLoading(true);
+    setTimeout(() => setIsLoading(false), 1500);
+  };
+
+  // Show appropriate states
+  if (!isConnected) {
+    return (
+      <EmptyWalletConnection 
+        onConnect={() => console.log('Connect wallet')}
+      />
+    );
+  }
+
+  if (error) {
+    return <EmptyNetworkError onRetry={handleRetry} />;
+  }
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  // Check if user has any gas sponsorship data
+  const hasGasData = userStats && (userStats.totalTransactions > 0 || userStats.totalGasSponsored > 0);
+  
+  if (!hasGasData) {
+    return <EmptyGasSponsorship onRefresh={handleRetry} />;
+  }
 
   const currentLevelConfig = userLevels[userLevel];
 

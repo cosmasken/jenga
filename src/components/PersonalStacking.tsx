@@ -10,54 +10,89 @@ import { AchievementMintModal } from "@/components/AchievementMintModal";
 import { Target, Zap, Shield, Gift, Calendar, TrendingUp, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useStackingVault, useFormattedStackingData } from "@/hooks/useJengaContracts";
+import { EmptyStacking, EmptyWalletConnection, EmptyNetworkError } from "@/components/ui/empty-state";
+import { DashboardSkeleton } from "@/components/ui/skeleton";
+import { useTranslation } from 'react-i18next';
 
 export const PersonalStacking = () => {
+  const { t } = useTranslation();
   const [stackAmount, setStackAmount] = useState("100");
   const [showStackingModal, setShowStackingModal] = useState(false);
   const [showZKVault, setShowZKVault] = useState(false);
   const [selectedVault, setSelectedVault] = useState<"emergency" | "vacation">("emergency");
   const [showAchievementMint, setShowAchievementMint] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   
   // Use the new hooks
   const { deposit, isLoading, isConnected } = useStackingVault();
-  const { dailyGoalSats, totalStackedSats } = useFormattedStackingData();
+  const { dailyGoalSats, totalStackedSats, isLoading: isDataLoading } = useFormattedStackingData();
   
-  // Calculate current progress (simplified - in real app, track daily progress)
-  const currentSats = Math.min(dailyGoalSats * 0.65, dailyGoalSats);
+  // Calculate current progress - only if we have real data
+  const hasStackingData = totalStackedSats > 0 || dailyGoalSats > 0;
+  const currentSats = hasStackingData ? Math.min(dailyGoalSats * 0.65, dailyGoalSats) : 0;
   const progressPercentage = dailyGoalSats > 0 ? (currentSats / dailyGoalSats) * 100 : 0;
 
   const handleStackSats = async (amount = 100) => {
     if (!isConnected) {
       toast({
-        title: "Wallet Required",
-        description: "Please connect your wallet first",
+        title: t('wallet.notConnected'),
+        description: t('stacking.connectWallet'),
         variant: "destructive"
       });
       return;
     }
 
-    // Convert sats to BTC
-    const amountBtc = (amount / 100000000).toString();
-    
-    // Make deposit using the hook
-    const result = await deposit(amountBtc);
-    
-    if (result) {
-      // Show stacking success modal
-      setShowStackingModal(true);
-      
-      const newAmount = currentSats + amount;
-      if (newAmount >= dailyGoalSats) {
-        setTimeout(() => {
-          toast({
-            title: "🎉 Daily Goal Achieved!",
-            description: "You've hit your stacking target. Streak continues!",
-          });
-        }, 1500);
-      }
+    try {
+      setError(null);
+      await deposit(amount);
+      toast({
+        title: t('stacking.stackingSuccess'),
+        description: t('stacking.addedSats', { amount }),
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : t('stacking.stackingFailed');
+      setError(errorMessage);
+      toast({
+        title: t('stacking.stackingFailed'),
+        description: errorMessage,
+        variant: "destructive"
+      });
     }
   };
+
+  const handleRetry = () => {
+    setError(null);
+    // Trigger data refresh if needed
+  };
+
+  // Show appropriate states
+  if (!isConnected) {
+    return (
+      <EmptyWalletConnection 
+        onConnect={() => toast({
+          title: "Connect Wallet",
+          description: "Please connect your wallet using the button in the header"
+        })}
+      />
+    );
+  }
+
+  if (error) {
+    return <EmptyNetworkError onRetry={handleRetry} />;
+  }
+
+  if (isDataLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (!hasStackingData) {
+    return (
+      <EmptyStacking 
+        onStartStacking={() => setShowStackingModal(true)}
+      />
+    );
+  }
 
   const handleCustomStack = async () => {
     const amount = parseInt(stackAmount);

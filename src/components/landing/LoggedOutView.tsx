@@ -1,9 +1,12 @@
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import { Wallet, Users, Shield, Coins } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Wallet, Users, Shield, Coins, ArrowRight } from 'lucide-react';
 
 export const LoggedOutView = () => {
   const { setShowAuthFlow } = useDynamicContext();
+  const { t } = useTranslation();
 
   return (
     <div className="w-full">
@@ -14,13 +17,13 @@ export const LoggedOutView = () => {
             <Coins className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-5xl md:text-6xl font-bold mb-4 text-white font-mono">
-            JENGA
+            {t('app.name')}
           </h1>
           <p className="text-xl md:text-2xl text-white/90 font-mono mb-2">
             STACK • CIRCLE • SEND
           </p>
           <p className="text-lg text-white/80 max-w-2xl mx-auto">
-            Bitcoin-Native Community Lending Circles on Citrea
+            {t('app.tagline')}
           </p>
         </div>
       </div>
@@ -46,54 +49,70 @@ export const LoggedOutView = () => {
             </div>
           </div>
 
-          {/* Login Card */}
+          {/* Simplified Connect Card */}
           <div className="max-w-md mx-auto">
-            <div className="bg-card/90 backdrop-blur-sm border border-orange-500/20 shadow-xl rounded-xl p-8">
-              <h2 className="text-2xl font-bold text-center mb-2">Get Started</h2>
-              <p className="text-muted-foreground text-center mb-8">
-                Connect your wallet to start stacking sats with your community
-              </p>
-              
-              <Button 
-                onClick={() => setShowAuthFlow(true)}
-                className="w-full py-6 text-lg bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg hover:shadow-xl transition-all duration-200"
-              >
-                <Wallet className="w-5 h-5 mr-2" />
-                Connect Wallet
-              </Button>
-              
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-border" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">
-                    OR
-                  </span>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="grid gap-2">
-                  <label htmlFor="email" className="text-xs font-mono text-muted-foreground">
-                    EMAIL
-                  </label>
-                  <input 
-                    id="email" 
-                    type="email" 
-                    placeholder="name@example.com" 
-                    className="w-full px-3 py-2 bg-background border border-border rounded-md font-mono text-sm focus:border-orange-500 focus:ring-1 focus:ring-orange-500 transition-colors"
-                  />
-                </div>
-                <Button variant="outline" className="w-full font-mono border-orange-500/20 hover:border-orange-500 hover:bg-orange-500/10">
-                  Continue with Email
+            <Card className="border-orange-500/20 shadow-lg">
+              <CardHeader className="text-center">
+                <CardTitle className="flex items-center justify-center gap-2 text-2xl">
+                  <Wallet className="w-6 h-6 text-orange-500" />
+                  Get Started
+                </CardTitle>
+                <p className="text-muted-foreground">
+                  Connect your wallet to start your Bitcoin savings journey
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Button 
+                  onClick={() => setShowAuthFlow(true)}
+                  className="w-full bg-gradient-to-r from-orange-500 to-orange-400 hover:from-orange-600 hover:to-orange-500 text-white font-semibold py-3 text-lg"
+                  size="lg"
+                >
+                  <Wallet className="w-5 h-5 mr-2" />
+                  {t('wallet.connect')}
+                  <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
+                
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Secure • Non-custodial • Bitcoin-native
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* How it Works */}
+          <div className="mt-16">
+            <h2 className="text-3xl font-bold text-center mb-8">How Jenga Works</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl">
+                  1
+                </div>
+                <h3 className="font-semibold mb-2">Connect Wallet</h3>
+                <p className="text-sm text-muted-foreground">
+                  Connect your Bitcoin wallet to get started with Jenga
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl">
+                  2
+                </div>
+                <h3 className="font-semibold mb-2">Join or Create</h3>
+                <p className="text-sm text-muted-foreground">
+                  Join existing chamas or create your own savings circle
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold text-xl">
+                  3
+                </div>
+                <h3 className="font-semibold mb-2">Save & Earn</h3>
+                <p className="text-sm text-muted-foreground">
+                  Contribute regularly and receive payouts in rotation
+                </p>
               </div>
             </div>
-            
-            <p className="text-center mt-6 text-sm text-muted-foreground">
-              By connecting, you agree to our Terms of Service and Privacy Policy
-            </p>
           </div>
         </div>
       </div>

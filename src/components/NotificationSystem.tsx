@@ -11,9 +11,12 @@ import {
   TrendingUp,
   AlertCircle,
   CheckCircle,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { EmptyNotifications, EmptyWalletConnection } from '@/components/ui/empty-state';
+import { useAccount } from 'wagmi';
 
 interface Notification {
   id: string;
@@ -36,34 +39,10 @@ interface NotificationSettings {
 }
 
 export const NotificationSystem = () => {
-  const [notifications, setNotifications] = useState<Notification[]>([
-    {
-      id: '1',
-      type: 'reminder',
-      title: 'Weekly Contribution Due',
-      message: 'Your contribution to Women Farmers Circle is due in 2 days',
-      timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-      read: false,
-      actionable: true,
-      actionText: 'Contribute Now'
-    },
-    {
-      id: '2',
-      type: 'achievement',
-      title: 'Streak Achievement!',
-      message: 'You\'ve maintained a 4-week contribution streak. +25 reputation points!',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2), // 2 hours ago
-      read: false
-    },
-    {
-      id: '3',
-      type: 'chama',
-      title: 'New Member Joined',
-      message: 'Sarah joined your Tech Builders Fund chama',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24), // 1 day ago
-      read: true
-    }
-  ]);
+  const { isConnected } = useAccount();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [settings, setSettings] = useState<NotificationSettings>({
     weeklyReminders: true,
@@ -75,16 +54,57 @@ export const NotificationSystem = () => {
 
   const [showSettings, setShowSettings] = useState(false);
 
+  // Load notifications from API or local storage
+  useEffect(() => {
+    if (isConnected) {
+      loadNotifications();
+    }
+  }, [isConnected]);
+
+  const loadNotifications = async () => {
+    setIsLoading(true);
+    try {
+      // In a real app, this would fetch from your API
+      // For now, we'll just simulate loading
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Load from localStorage or API
+      const stored = localStorage.getItem('jenga-notifications');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setNotifications(parsed.map((n: any) => ({
+          ...n,
+          timestamp: new Date(n.timestamp)
+        })));
+      }
+    } catch (err) {
+      setError('Failed to load notifications');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setError(null);
+    await loadNotifications();
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const markAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
+    setNotifications(prev => {
+      const updated = prev.map(n => n.id === id ? { ...n, read: true } : n);
+      localStorage.setItem('jenga-notifications', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const dismissNotification = (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    setNotifications(prev => {
+      const updated = prev.filter(n => n.id !== id);
+      localStorage.setItem('jenga-notifications', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const getNotificationIcon = (type: string) => {
@@ -125,6 +145,30 @@ export const NotificationSystem = () => {
       Notification.requestPermission();
     }
   }, [settings.pushNotifications]);
+
+  // Show appropriate states
+  if (!isConnected) {
+    return (
+      <EmptyWalletConnection 
+        onConnect={() => console.log('Connect wallet')}
+      />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <RefreshCw className="w-8 h-8 mx-auto mb-4 text-muted-foreground animate-spin" />
+          <p className="text-muted-foreground">Loading notifications...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (notifications.length === 0) {
+    return <EmptyNotifications onRefresh={handleRefresh} />;
+  }
 
   return (
     <div className="space-y-4">

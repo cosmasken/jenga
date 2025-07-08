@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { OnboardingService, ONBOARDING_STEPS, type UserProfile } from '@/lib/onboarding';
 import { useAccount } from 'wagmi';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { toast } from 'sonner';
 
 interface OnboardingWizardProps {
@@ -36,6 +37,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   onClose
 }) => {
   const { address } = useAccount();
+  const { dynamicUserProfile } = useDynamicContext();
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [formData, setFormData] = useState({
@@ -47,6 +49,21 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     interests: [] as string[]
   });
   const [isLoading, setIsLoading] = useState(false);
+
+  // Initialize form data with Dynamic user info
+  useEffect(() => {
+    if (dynamicUserProfile && !formData.displayName) {
+      const firstName = (dynamicUserProfile as any)?.firstName || '';
+      const lastName = (dynamicUserProfile as any)?.lastName || '';
+      const email = (dynamicUserProfile as any)?.email || '';
+      
+      setFormData(prev => ({
+        ...prev,
+        displayName: firstName && lastName ? `${firstName} ${lastName}` : firstName || `User ${address?.slice(0, 6)}`,
+        email: email
+      }));
+    }
+  }, [dynamicUserProfile, address, formData.displayName]);
 
   useEffect(() => {
     if (address && isOpen) {
@@ -67,8 +84,17 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         setCurrentStepIndex(stepIndex);
       }
     } else {
-      // Create new profile
-      const newProfile = await OnboardingService.createUserProfile(address);
+      // Create new profile with Dynamic user data
+      const dynamicEmail = (dynamicUserProfile as any)?.email;
+      const firstName = (dynamicUserProfile as any)?.firstName || '';
+      const lastName = (dynamicUserProfile as any)?.lastName || '';
+      const defaultDisplayName = firstName && lastName ? `${firstName} ${lastName}` : `User ${address.slice(0, 6)}`;
+      
+      const newProfile = await OnboardingService.createUserProfile(
+        address, 
+        dynamicEmail, 
+        defaultDisplayName
+      );
       setUserProfile(newProfile);
     }
   };
@@ -78,10 +104,27 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
     setIsLoading(true);
     const currentStep = ONBOARDING_STEPS[currentStepIndex];
+    
+    // If completing profile step, update display name
+    if (currentStep.id === 'profile_creation' && formData.displayName) {
+      await OnboardingService.updateUserProfile(address, {
+        display_name: formData.displayName
+      });
+    }
+    
+    // If completing preferences step, save preferences
+    if (currentStep.id === 'first_contribution') {
+      await OnboardingService.updateUserPreferences(address, {
+        preferred_contribution_amount: formData.contributionAmount ? parseInt(formData.contributionAmount) : undefined,
+        preferred_frequency: formData.frequency,
+        risk_tolerance: formData.riskTolerance
+      });
+    }
+    
     const success = await OnboardingService.completeOnboardingStep(
       address, 
       currentStep.id, 
-      metadata
+      { ...metadata, formData }
     );
 
     if (success) {
@@ -176,9 +219,9 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
           <div className="space-y-6">
             <div className="text-center">
               <User className="w-16 h-16 mx-auto mb-4 text-orange-500" />
-              <h2 className="text-2xl font-bold mb-2">Create Your Profile</h2>
+              <h2 className="text-2xl font-bold mb-2">Complete Your Profile</h2>
               <p className="text-muted-foreground">
-                Tell us a bit about yourself to personalize your experience
+                Customize your Jenga experience
               </p>
             </div>
             <div className="space-y-4">
@@ -190,16 +233,23 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                   onChange={(e) => setFormData({...formData, displayName: e.target.value})}
                   placeholder="How should we call you?"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  This will be shown to other members in your chamas
+                </p>
               </div>
-              <div>
-                <Label htmlFor="email">Email (Optional)</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  placeholder="your@email.com"
-                />
+              
+              {/* Show current Dynamic user info if available */}
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <h4 className="text-sm font-medium mb-2">Connected Account</h4>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>Wallet: {address?.slice(0, 8)}...{address?.slice(-6)}</p>
+                  {dynamicUserProfile?.email && (
+                    <p>Email: {dynamicUserProfile.email}</p>
+                  )}
+                  {dynamicUserProfile?.firstName && (
+                    <p>Name: {dynamicUserProfile.firstName} {dynamicUserProfile.lastName}</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>

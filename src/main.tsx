@@ -12,6 +12,7 @@ import { type Chain } from 'viem'
 import { http } from 'viem'
 import "./index.css";
 import "./styles/dynamic-theme.css"; // Import the custom theme
+import "./lib/i18n"; // Initialize i18n
 import Index from "./pages/Index";
 
 // Add Google Fonts to the document head
