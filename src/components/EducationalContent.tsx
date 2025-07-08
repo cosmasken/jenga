@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,9 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { EmptyEducation, EmptyWalletConnection } from '@/components/ui/empty-state';
+import { DashboardSkeleton } from '@/components/ui/skeleton';
+import { useAccount } from 'wagmi';
 
 interface LearningModule {
   id: string;
@@ -26,6 +29,7 @@ interface LearningModule {
   reward: number; // reputation points
 }
 
+// Remove mocked data - will be loaded from API/CMS
 const learningModules: LearningModule[] = [
   {
     id: 'bitcoin-basics',
@@ -70,7 +74,52 @@ const learningModules: LearningModule[] = [
 ];
 
 export const EducationalContent = () => {
+  const { isConnected } = useAccount();
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [modules, setModules] = useState<LearningModule[]>([]);
+  
+  useEffect(() => {
+    const loadEducationalContent = async () => {
+      setIsLoading(true);
+      try {
+        // In a real app, fetch from your CMS/API
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // For now, set empty array - content would come from API
+        setModules([]);
+      } catch (error) {
+        console.error('Failed to load educational content:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadEducationalContent();
+  }, []);
+
+  const handleRefresh = () => {
+    setIsLoading(true);
+    // Reload content
+    setTimeout(() => setIsLoading(false), 1000);
+  };
+
+  // Show appropriate states
+  if (!isConnected) {
+    return (
+      <EmptyWalletConnection 
+        onConnect={() => console.log('Connect wallet')}
+      />
+    );
+  }
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (modules.length === 0) {
+    return <EmptyEducation onRefresh={handleRefresh} />;
+  }
   
   const completedModules = learningModules.filter(m => m.completed).length;
   const totalRewards = learningModules

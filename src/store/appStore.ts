@@ -1,32 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
-// Define types for our app store
-export type UserRole = 'admin' | 'member';
-
-// Base user properties
-// Define user properties
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  walletAddress?: string;
-  isFirstTime: boolean;
-  dynamicUserId?: string; // Store Dynamic user ID for reference
-  avatar?: string;
-  createdAt?: number;
-  lastLogin?: number;
-  // Allow additional properties with specific types
-  [key: string]: string | number | boolean | undefined | null;
-
-}
-
-// App user type is the same as User
-export type AppUser = User;
-
-
-
+// Define types for our app store (UI state only, auth handled by authBridge)
 export interface Chama {
   id: number;
   name: string;
@@ -59,49 +34,29 @@ export interface AppSettings {
   notifications: boolean;
 }
 
-// Define the shape of our app store
+// Define the shape of our app store (UI state only)
 export interface AppStore {
-  // User data
-  user: AppUser | null;
-  isAuthenticated: boolean;
-  
-  // Chamas (savings groups) data
+  // App data
   chamas: Chama[];
-  
-  // Available networks
   networks: Network[];
-  
-  // App settings
   settings: AppSettings;
   
-  // Loading and error states
+  // UI state
+  currentView: string;
   isLoading: boolean;
   error: string | null;
   
   // Actions
-  setUser: (user: User | null) => void;
-  updateUser: (updates: Partial<User>) => void;
-  completeOnboarding: () => void;
-  resetOnboarding: () => void;
-  
-  // Auth actions
-  login: (userData: Omit<User, 'isFirstTime' | 'role'> & { role?: UserRole }) => void;
-  logout: () => void;
-  
-  // Settings actions
+  setCurrentView: (view: string) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
-  
-  // Utility actions
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
-};
+}
 
 // Initial static data
 const initialData = {
-  // State
-  user: null as User | null,
-  isAuthenticated: false,
+  currentView: 'dashboard',
   isLoading: false,
   error: null as string | null,
   
@@ -132,7 +87,7 @@ const initialData = {
     {
       id: 'citrea',
       name: 'Citrea L2',
-      chainId: 12345,
+      chainId: 5115,
       nativeCurrency: {
         name: 'Bitcoin',
         symbol: 'BTC',
@@ -164,73 +119,14 @@ const initialData = {
   }
 };
 
-// Create the store with persistence
+// Create the store with persistence (UI state only)
 export const useAppStore = create<AppStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       ...initialData,
       
-      // User actions
-      setUser: (user) => ({
-        user: user ? { 
-          ...user,
-          isFirstTime: user.isFirstTime ?? true
-        } : null,
-        isAuthenticated: !!user
-      }),
-      
-      updateUser: (updates) => set((state) => {
-        if (!state.user) return state;
-        return { 
-          user: { 
-            ...state.user, 
-            ...updates,
-            updatedAt: Date.now()
-          } 
-        };
-      }),
-      
-      completeOnboarding: () => set((state) => ({
-        user: state.user ? { 
-          ...state.user, 
-          isFirstTime: false,
-          lastLogin: Date.now()
-        } : null
-      })),
-      
-      resetOnboarding: () => set((state) => ({
-        user: state.user ? { 
-          ...state.user, 
-          isFirstTime: true 
-        } : null
-      })),
-      
-      // Auth actions
-      login: (userData: Omit<User, 'isFirstTime' | 'role'> & { role?: UserRole }) => {
-        const currentUser = get().user;
-        return {
-          user: { 
-            id: userData.id || `user-${Date.now()}`,
-            name: userData.name || 'Anonymous',
-            email: userData.email || '',
-            role: userData.role || 'member',
-            walletAddress: userData.walletAddress,
-            isFirstTime: currentUser ? currentUser.isFirstTime : true,
-            dynamicUserId: userData.dynamicUserId,
-            avatar: userData.avatar,
-            createdAt: userData.createdAt || Date.now(),
-            lastLogin: Date.now(),
-            ...userData // Include any additional properties
-          },
-          isAuthenticated: true,
-          error: null
-        };
-      },
-      
-      logout: () => set({
-        user: null,
-        isAuthenticated: false
-      }),
+      // UI actions
+      setCurrentView: (view) => set({ currentView: view }),
       
       // Settings actions
       updateSettings: (settings) => set((state) => ({
@@ -249,12 +145,12 @@ export const useAppStore = create<AppStore>()(
       name: 'jenga-app-storage',
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        user: state.user,
         settings: state.settings,
+        currentView: state.currentView,
       }),
     }
   )
 );
 
-// Export the store and any utility functions
+// Export the store
 export default useAppStore;

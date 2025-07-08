@@ -315,8 +315,6 @@ export const createZeroDevClients = async (privateKey?: `0x${string}`) => {
     };
   }
 };
-  };
-};
 
 // Enhanced sponsorship eligibility checker
 export const shouldSponsorGas = (

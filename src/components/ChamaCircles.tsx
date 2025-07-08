@@ -4,12 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Users, Plus, Vote, Shield, TrendingUp, UserPlus, Loader2, AlertCircle, Wallet } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Users, Plus, Vote, Shield, TrendingUp, UserPlus, Loader2, AlertCircle, Wallet, Search, Filter, MapPin, Clock, RefreshCw } from "lucide-react";
 import { ChamaCreationForm } from "@/components/ChamaCreationForm";
 import { ContributionForm } from "@/components/ContributionForm";
 import { VotingForm } from "@/components/VotingForm";
 import { JoinChamaForm } from "@/components/JoinChamaForm";
 import { useSaccoFactory } from "@/hooks/useSaccoFactory";
+import { useLoadingStates } from "@/hooks/useLoadingStates";
+import { useSmartFormDefaults, useLocationBasedSuggestions } from "@/lib/smartDefaults";
+import { ChamaSkeleton } from "@/components/ui/skeleton";
+import { useMobile } from "@/hooks/useMobile";
+import { PullToRefreshWrapper } from "./MobileOptimized";
+import { EmptyChamas, EmptyWalletConnection, EmptyNetworkError } from "@/components/ui/empty-state";
+import { toast } from 'sonner';
 
 export const ChamaCircles = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -17,6 +25,11 @@ export const ChamaCircles = () => {
   const [showVotingForm, setShowVotingForm] = useState(false);
   const [showJoinForm, setShowJoinForm] = useState(false);
   const [selectedChama, setSelectedChama] = useState<any>(null);
+  
+  // New UX state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterBy, setFilterBy] = useState<'all' | 'available' | 'joined'>('all');
+  const [sortBy, setSortBy] = useState<'newest' | 'popular' | 'location'>('popular');
 
   // Use the real SaccoFactory hook
   const { 
@@ -27,8 +40,66 @@ export const ChamaCircles = () => {
     isJoining,
     isContributing,
     refreshPools,
-    isConnected 
+    isConnected
   } = useSaccoFactory();
+
+  // New UX hooks
+  const { loadingStates, setLoading, withLoading } = useLoadingStates();
+  const { getFormDefaults, location } = useSmartFormDefaults();
+  const { isMobile } = useMobile();
+
+  // Error state
+  const [error, setError] = useState<string | null>(null);
+
+  // Enhanced refresh with loading state and error handling
+  const handleRefresh = async () => {
+    try {
+      setError(null);
+      await withLoading('refresh', async () => {
+        await refreshPools();
+        toast.success('Chamas refreshed!');
+      });
+    } catch (err) {
+      setError('Failed to refresh chamas. Please try again.');
+      toast.error('Failed to refresh chamas');
+    }
+  };
+
+  // Clear search
+  const handleClearSearch = () => {
+    setSearchTerm('');
+    setFilterBy('all');
+  };
+
+  // Smart filtering and sorting
+  const filteredChamas = chamas
+    .filter(chama => {
+      if (searchTerm) {
+        return chama.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               chama.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      }
+      return true;
+    })
+    .filter(chama => {
+      switch (filterBy) {
+        case 'available':
+          return chama.memberCount < chama.maxMembers;
+        case 'joined':
+          return chama.isJoined;
+        default:
+          return true;
+      }
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        case 'location':
+          return a.location?.localeCompare(b.location || '') || 0;
+        default: // popular
+          return (b.memberCount || 0) - (a.memberCount || 0);
+      }
+    });
 
   const handleContribute = (chama: any) => {
     setSelectedChama(chama);
@@ -63,52 +134,163 @@ export const ChamaCircles = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header with Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 cyber-border neon-glow">
-          <CardContent className="p-4 text-center">
-            <Users className="w-8 h-8 mx-auto mb-2" />
-            <div className="text-2xl font-bold font-mono">{poolCount}</div>
-            <div className="text-sm text-blue-100 font-mono">Total Chamas</div>
-          </CardContent>
-        </Card>
+    <PullToRefreshWrapper onRefresh={handleRefresh}>
+      <div className="space-y-6">
+        {/* Enhanced Header with Search and Filters */}
+        <div className="space-y-4">
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 cyber-border neon-glow">
+              <CardContent className="p-4 text-center">
+                <Users className="w-8 h-8 mx-auto mb-2" />
+                <div className="text-2xl font-bold font-mono">{poolCount}</div>
+                <div className="text-sm text-blue-100 font-mono">Total Chamas</div>
+              </CardContent>
+            </Card>
 
-        <Card className="bg-gradient-to-r from-green-600 to-emerald-600 text-white border-0 cyber-border neon-glow">
-          <CardContent className="p-4 text-center">
-            <Shield className="w-8 h-8 mx-auto mb-2" />
-            <div className="text-2xl font-bold font-mono">{chamas.filter(c => c.state === 'Active').length}</div>
-            <div className="text-sm text-green-100 font-mono">Active Circles</div>
-          </CardContent>
-        </Card>
+            <Card className="bg-gradient-to-r from-green-600 to-emerald-600 text-white border-0 cyber-border neon-glow">
+              <CardContent className="p-4 text-center">
+                <Shield className="w-8 h-8 mx-auto mb-2" />
+                <div className="text-2xl font-bold font-mono">{chamas.filter(c => c.state === 'Active').length}</div>
+                <div className="text-sm text-green-100 font-mono">Active Circles</div>
+              </CardContent>
+            </Card>
 
-        <Card className="bg-gradient-to-r from-orange-600 to-red-600 text-white border-0 cyber-border neon-glow">
-          <CardContent className="p-4 text-center">
-            <TrendingUp className="w-8 h-8 mx-auto mb-2" />
-            <div className="text-2xl font-bold font-mono">{chamas.filter(c => c.role !== 'Non-member').length}</div>
-            <div className="text-sm text-orange-100 font-mono">My Chamas</div>
-          </CardContent>
-        </Card>
+            <Card className="bg-gradient-to-r from-orange-600 to-red-600 text-white border-0 cyber-border neon-glow">
+              <CardContent className="p-4 text-center">
+                <TrendingUp className="w-8 h-8 mx-auto mb-2" />
+                <div className="text-2xl font-bold font-mono">{chamas.filter(c => c.role !== 'Non-member').length}</div>
+                <div className="text-sm text-orange-100 font-mono">My Chamas</div>
+              </CardContent>
+            </Card>
 
-        <Card className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 cyber-border neon-glow">
-          <CardContent className="p-4 text-center">
-            <Plus className="w-8 h-8 mx-auto mb-2" />
-            <Button 
-              onClick={() => setShowCreateForm(true)}
-              disabled={!isConnected || isCreating}
-              className="w-full bg-white text-purple-600 hover:bg-purple-50 cyber-button font-mono"
-            >
-              {isCreating ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                'Create Chama'
+            <Card className="bg-gradient-to-r from-purple-600 to-pink-600 text-white border-0 cyber-border neon-glow">
+              <CardContent className="p-4 text-center">
+                <Plus className="w-8 h-8 mx-auto mb-2" />
+                <Button 
+                  onClick={() => setShowCreateForm(true)}
+                  disabled={!isConnected || isCreating}
+                  className="w-full bg-white text-purple-600 hover:bg-purple-50 cyber-button font-mono"
+                >
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Chama'
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Search and Filter Bar */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                {/* Search */}
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                  <Input
+                    placeholder="Search chamas by name or description..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                {/* Filters */}
+                <div className="flex gap-2">
+                  <Button
+                    variant={filterBy === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilterBy('all')}
+                  >
+                    All
+                  </Button>
+                  <Button
+                    variant={filterBy === 'available' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilterBy('available')}
+                  >
+                    Available
+                  </Button>
+                  <Button
+                    variant={filterBy === 'joined' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilterBy('joined')}
+                  >
+                    Joined
+                  </Button>
+                </div>
+
+                {/* Sort */}
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSortBy(sortBy === 'popular' ? 'newest' : sortBy === 'newest' ? 'location' : 'popular')}
+                  >
+                    <Filter className="w-4 h-4 mr-1" />
+                    {sortBy === 'popular' ? 'Popular' : sortBy === 'newest' ? 'Newest' : 'Location'}
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefresh}
+                    disabled={loadingStates.refresh}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loadingStates.refresh ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Location suggestion */}
+              {location.city && (
+                <div className="mt-3 flex items-center text-sm text-muted-foreground">
+                  <MapPin className="w-4 h-4 mr-1" />
+                  Showing chamas near {location.city}
+                </div>
               )}
-            </Button>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Chama Cards with Loading States and Error Handling */}
+        {!isConnected ? (
+          <EmptyWalletConnection 
+            onConnect={() => toast.info('Please connect your wallet using the button in the header')}
+          />
+        ) : error ? (
+          <EmptyNetworkError onRetry={handleRefresh} />
+        ) : isLoadingPools ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <ChamaSkeleton key={i} />
+            ))}
+          </div>
+        ) : filteredChamas.length === 0 ? (
+          <EmptyChamas
+            onCreateChama={() => setShowCreateForm(true)}
+            onRefresh={searchTerm ? handleClearSearch : handleRefresh}
+            isSearching={!!searchTerm}
+            searchTerm={searchTerm}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredChamas.map((chama) => (
+              <ChamaCard
+                key={chama.id}
+                chama={chama}
+                onJoin={() => handleJoinChama(chama.id)}
+                onViewDetails={() => setSelectedChama(chama)}
+                isJoining={loadingStates[`join-${chama.id}`]}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Connection Status */}
@@ -183,7 +365,7 @@ export const ChamaCircles = () => {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {chamas.map((chama) => (
+            {filteredChamas.map((chama) => (
               <Card key={chama.id} className="bg-card cyber-border hover:shadow-lg transition-all">
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -312,6 +494,6 @@ export const ChamaCircles = () => {
         onClose={() => setShowJoinForm(false)}
         chama={selectedChama}
       />
-    </div>
+    </PullToRefreshWrapper>
   );
 };

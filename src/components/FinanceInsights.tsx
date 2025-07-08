@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -11,70 +12,80 @@ import {
   Award
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell } from 'recharts';
+import { EmptyInsights, EmptyWalletConnection } from '@/components/ui/empty-state';
+import { DashboardSkeleton } from '@/components/ui/skeleton';
+import { useAccount } from 'wagmi';
 
-// Mock data - replace with real data
-const savingsData = [
-  { month: 'Jan', amount: 0.01 },
-  { month: 'Feb', amount: 0.025 },
-  { month: 'Mar', amount: 0.04 },
-  { month: 'Apr', amount: 0.052 },
-];
-
-const chamaBreakdown = [
-  { name: 'Women Farmers', value: 40, color: '#f97316' },
-  { name: 'Tech Builders', value: 35, color: '#3b82f6' },
-  { name: 'Family Fund', value: 25, color: '#10b981' },
-];
-
-const insights = [
-  {
-    title: 'Savings Velocity',
-    value: '+23%',
-    description: 'Your savings rate increased this month',
-    trend: 'up',
-    icon: <TrendingUp className="w-4 h-4" />
-  },
-  {
-    title: 'Goal Progress',
-    value: '68%',
-    description: 'On track to reach your annual goal',
-    trend: 'up',
-    icon: <Target className="w-4 h-4" />
-  },
-  {
-    title: 'Consistency Score',
-    value: '92%',
-    description: 'Excellent contribution consistency',
-    trend: 'up',
-    icon: <Award className="w-4 h-4" />
-  }
-];
+// Remove mocked data - use real data from contracts/API
+const savingsData: Array<{ month: string; amount: number }> = [];
+const chamaBreakdown: Array<{ name: string; value: number; color: string }> = [];
 
 export const FinanceInsights = () => {
+  const { isConnected } = useAccount();
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasData, setHasData] = useState(false);
+
+  useEffect(() => {
+    // Simulate loading real data
+    const loadInsights = async () => {
+      setIsLoading(true);
+      try {
+        // In a real app, fetch from your contracts/API
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Check if user has any financial data
+        const hasFinancialActivity = savingsData.length > 0 || chamaBreakdown.length > 0;
+        setHasData(hasFinancialActivity);
+      } catch (error) {
+        console.error('Failed to load insights:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (isConnected) {
+      loadInsights();
+    } else {
+      setIsLoading(false);
+    }
+  }, [isConnected]);
+
   const formatBTC = (amount: number) => `₿ ${amount.toFixed(6)}`;
   const formatUSD = (amount: number) => `$${(amount * 45000).toFixed(2)}`;
 
+  // Show appropriate states
+  if (!isConnected) {
+    return (
+      <EmptyWalletConnection 
+        onConnect={() => console.log('Connect wallet')}
+      />
+    );
+  }
+
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  if (!hasData) {
+    return (
+      <EmptyInsights 
+        onJoinChama={() => console.log('Navigate to chamas')}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {/* Key Insights */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {insights.map((insight, index) => (
-          <Card key={index}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="p-2 rounded-full bg-orange-100 text-orange-600">
-                  {insight.icon}
-                </div>
-                <Badge variant={insight.trend === 'up' ? 'default' : 'secondary'}>
-                  {insight.value}
-                </Badge>
-              </div>
-              <h3 className="font-semibold text-sm">{insight.title}</h3>
-              <p className="text-xs text-muted-foreground">{insight.description}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* This would render actual insights when data is available */}
+      <Card>
+        <CardContent className="p-8 text-center">
+          <BarChart3 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-semibold mb-2">Insights Coming Soon</h3>
+          <p className="text-muted-foreground">
+            Your financial insights will appear here once you have more activity data.
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Savings Growth Chart */}
       <Card>

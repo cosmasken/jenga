@@ -8,11 +8,14 @@ import { RedEnvelopeForm } from "@/components/RedEnvelopeForm";
 import { useP2PHistory } from "@/hooks/useP2PSending";
 import { useAccount, useBalance } from "wagmi";
 import { formatUnits } from "viem";
-import { Clock, Send, Gift, Zap, ArrowUpRight, ArrowDownLeft, TrendingUp, Wallet, AlertCircle } from "lucide-react";
+import { Clock, Send, Gift, Zap, ArrowUpRight, ArrowDownLeft, TrendingUp, Wallet, AlertCircle, RefreshCw } from "lucide-react";
+import { EmptyTransactions, EmptyWalletConnection, EmptyNetworkError } from "@/components/ui/empty-state";
+import { TransactionSkeleton } from "@/components/ui/skeleton";
 
 export const P2PSending = () => {
   const [showSendForm, setShowSendForm] = useState(false);
   const [showRedEnvelopeForm, setShowRedEnvelopeForm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   const { address, isConnected } = useAccount();
   const { data: balance } = useBalance({ address });
@@ -21,29 +24,24 @@ export const P2PSending = () => {
   // Load transaction history when component mounts
   useEffect(() => {
     if (isConnected) {
-      loadHistory();
+      loadHistory().catch((err) => {
+        setError('Failed to load transaction history');
+        console.error('Failed to load history:', err);
+      });
     }
   }, [isConnected, loadHistory]);
 
-  // Mock active envelopes (you can replace this with real data)
-  const activeEnvelopes = [
-    {
-      id: 1,
-      message: "Happy Stacking!",
-      amount: 100000,
-      total: 10,
-      claimed: 7,
-      createdAt: "2024-08-01"
-    },
-    {
-      id: 2,
-      message: "Bitcoin is Freedom",
-      amount: 50000,
-      total: 5,
-      claimed: 2,
-      createdAt: "2024-07-30"
+  const handleRefresh = async () => {
+    try {
+      setError(null);
+      await loadHistory();
+    } catch (err) {
+      setError('Failed to refresh transactions');
     }
-  ];
+  };
+
+  // Remove mocked data - use only real transactions
+  const activeEnvelopes = []; // Remove mocked envelopes
 
   const formatBalance = () => {
     if (!balance) return "0 cBTC";
@@ -78,6 +76,19 @@ export const P2PSending = () => {
   };
 
   const stats = getTransactionStats();
+
+  // Show appropriate states
+  if (!isConnected) {
+    return (
+      <EmptyWalletConnection 
+        onConnect={() => console.log('Connect wallet')}
+      />
+    );
+  }
+
+  if (error) {
+    return <EmptyNetworkError onRetry={handleRefresh} />;
+  }
 
   return (
     <div className="space-y-6">
@@ -161,21 +172,18 @@ export const P2PSending = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {!isConnected ? (
-            <div className="text-center py-8">
-              <Wallet className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground font-mono">Connect your wallet to view transaction history</p>
-            </div>
-          ) : isLoadingHistory ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
-              <p className="text-muted-foreground font-mono">Loading transaction history...</p>
+          {isLoadingHistory ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <TransactionSkeleton key={i} />
+              ))}
             </div>
           ) : transactions.length === 0 ? (
-            <div className="text-center py-8">
-              <Send className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-muted-foreground font-mono">No transactions yet</p>
-              <p className="text-sm text-muted-foreground font-mono">Send your first Bitcoin to get started!</p>
+            <div className="p-4">
+              <EmptyTransactions 
+                onSendMoney={() => setShowSendForm(true)}
+                onRefresh={handleRefresh}
+              />
             </div>
           ) : (
             <div className="space-y-3">
