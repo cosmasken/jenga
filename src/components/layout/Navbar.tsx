@@ -15,9 +15,6 @@ export const Navbar: React.FC = () => {
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: Home },
-    { path: '/achievements', label: 'Achievements', icon: Trophy },
-    { path: '/red-envelopes', label: 'Red Envelopes', icon: Gift },
-    { path: '/settings', label: 'Settings', icon: Settings },
   ];
 
   const isActive = (path: string) => location.pathname === path;
