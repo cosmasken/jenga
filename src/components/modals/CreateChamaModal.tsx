@@ -8,8 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Bitcoin, Info, ExternalLink, CheckCircle, XCircle, AlertTriangle, ArrowLeft, ArrowRight, Zap } from 'lucide-react';
 import { useCreateChama } from '../../hooks/useJengaContract';
-import { useAccount, useSimulateContract, useEstimateGas } from 'wagmi';
-import { parseEther, formatEther } from 'viem';
+import { useAccount, useSimulateContract, useEstimateGas, useBalance } from 'wagmi';
+import { parseEther, formatEther, parseUnits, formatUnits } from 'viem';
 import { JENGA_CONTRACT } from '../../contracts/jenga-contract';
 import { citreaTestnet } from '../../wagmi';
 
@@ -22,8 +22,8 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   const [currentStep, setCurrentStep] = useState<'form' | 'simulation' | 'transaction'>('form');
   const [formData, setFormData] = useState({
     name: '',
-    contributionAmount: '',
-    cycleDuration: '',
+    contributionSats: '', // Amount in sats (will be converted to 18 decimals)
+    payoutPeriodDays: '', // Payout period in days
     maxMembers: ''
   });
   const [showAdvancedDetails, setShowAdvancedDetails] = useState(false);
@@ -32,17 +32,60 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   const { t } = useTranslation();
   const { isConnected, address } = useAccount();
   
+  // Fetch user's balance
+  const { data: balance, isLoading: isBalanceLoading, error: balanceError } = useBalance({
+    address,
+    chainId: citreaTestnet.id,
+    query: {
+      enabled: !!address && isConnected,
+      refetchInterval: 10000, // Refetch every 10 seconds
+    },
+  });
+
+  // Validate form inputs
+  const formValidation = React.useMemo(() => {
+    if (!formData.contributionSats) {
+      return { isValid: true, error: null };
+    }
+
+    try {
+      const contributionSats = parseInt(formData.contributionSats);
+      
+      // Validate minimum contribution (10,000 sats)
+      if (contributionSats < 10000) {
+        return {
+          isValid: false,
+          error: 'Minimum contribution is 10,000 sats',
+          shortError: 'Below minimum'
+        };
+      }
+      
+      return { 
+        isValid: true, 
+        error: null
+      };
+    } catch {
+      return { isValid: true, error: null };
+    }
+  }, [formData.contributionSats]);
+  
   // Prepare contract arguments for simulation
   const contractArgs = React.useMemo(() => {
-    if (!formData.name || !formData.contributionAmount || !formData.cycleDuration || !formData.maxMembers) {
+    if (!formData.name || !formData.contributionSats || !formData.payoutPeriodDays || !formData.maxMembers) {
       return null;
     }
-    
     try {
+      const contributionSats = parseInt(formData.contributionSats, 10);
+      const payoutPeriodDays = parseInt(formData.payoutPeriodDays, 10);
+      if (contributionSats < 10000 || payoutPeriodDays < 7) {
+        return null;
+      }
+      // Convert sats (integer) to 18 decimals: 1 sat = 1e10 units
+      const contributionAmount = BigInt(contributionSats) * 10n ** 10n;
       return [
         formData.name,
-        parseEther(formData.contributionAmount),
-        BigInt(parseInt(formData.cycleDuration) * 30 * 24 * 60 * 60), // Convert months to seconds
+        contributionAmount,
+        BigInt(payoutPeriodDays * 24 * 60 * 60),
         BigInt(formData.maxMembers)
       ] as const;
     } catch {
@@ -60,9 +103,13 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     ...JENGA_CONTRACT,
     functionName: 'createChama',
     args: contractArgs,
+    // No value needed for createChama
     chainId: citreaTestnet.id,
     query: {
-      enabled: currentStep === 'simulation' && !!contractArgs && isConnected,
+      enabled: currentStep === 'simulation' && 
+               !!contractArgs && 
+               isConnected && 
+               formValidation.isValid,
       retry: 2,
       retryDelay: 1000,
     },
@@ -77,9 +124,13 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     ...JENGA_CONTRACT,
     functionName: 'createChama',
     args: contractArgs,
+    // No value needed for createChama
     chainId: citreaTestnet.id,
     query: {
-      enabled: currentStep === 'simulation' && !!contractArgs && isConnected,
+      enabled: currentStep === 'simulation' && 
+               !!contractArgs && 
+               isConnected && 
+               formValidation.isValid,
       retry: 2,
     },
   });
@@ -140,39 +191,48 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
   // Reset modal state
   const resetModal = () => {
-    setFormData({ name: '', contributionAmount: '', cycleDuration: '', maxMembers: '' });
+    setFormData({ name: '', contributionSats: '', payoutPeriodDays: '', maxMembers: '' });
     setCurrentStep('form');
     setShowAdvancedDetails(false);
     onOpenChange(false);
   };
 
   // Handle form submission (go to simulation step)
-  const handleFormSubmit = async (e: React.FormEvent) => {
+  const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!isConnected) {
       toast({
-        title: t('wallet.notConnected'),
-        description: t('wallet.connectToCreateChama'),
-        variant: "destructive",
+        title: 'Wallet not connected',
+        description: 'Please connect your wallet to create a chama.',
+        variant: 'destructive',
       });
       return;
     }
-
-    // Move to simulation step
+    
+    if (!formValidation.isValid) {
+      toast({
+        title: 'Invalid input',
+        description: formValidation.error || 'Please check your input values.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setCurrentStep('simulation');
   };
 
   // Handle actual transaction submission
-  const handleTransactionSubmit = async () => {
+  const handleTransactionSubmit = () => {
     if (!contractArgs) return;
-
+    
     try {
       setCurrentStep('transaction');
+      
       createChama(
         formData.name,
-        formData.contributionAmount,
-        BigInt(parseInt(formData.cycleDuration) * 30 * 24 * 60 * 60), // Convert months to seconds
+        parseInt(formData.contributionSats),
+        BigInt(parseInt(formData.payoutPeriodDays) * 24 * 60 * 60), // Convert days to seconds
         BigInt(formData.maxMembers)
       );
     } catch (err) {
@@ -241,34 +301,100 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="contribution" className="text-gray-700 dark:text-gray-300">{t('chama.monthlyContribution')}</Label>
-            <Select value={formData.contributionAmount} onValueChange={(value) => setFormData(prev => ({ ...prev, contributionAmount: value }))}>
-              <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
-                <SelectValue placeholder={t('chama.selectAmount')} />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-                <SelectItem value="0.01" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">0.01 {t('currency.cbtc')}</SelectItem>
-                <SelectItem value="0.02" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">0.02 {t('currency.cbtc')}</SelectItem>
-                <SelectItem value="0.03" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">0.03 {t('currency.cbtc')}</SelectItem>
-                <SelectItem value="0.05" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">0.05 {t('currency.cbtc')}</SelectItem>
-                <SelectItem value="0.1" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">0.1 {t('currency.cbtc')}</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="contribution" className="text-gray-700 dark:text-gray-300">Contribution Amount (sats)</Label>
+            <div className="relative">
+              <Input
+                id="contribution"
+                type="number"
+                value={formData.contributionSats}
+                onChange={(e) => setFormData(prev => ({ ...prev, contributionSats: e.target.value }))}
+                placeholder="Enter amount in sats (min: 10,000)"
+                min="10000"
+                className={`bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 pr-16 ${
+                  !formValidation.isValid ? 'border-red-500 focus:border-red-500' : ''
+                }`}
+                disabled={isLoading}
+              />
+              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 dark:text-gray-400">
+                sats
+              </span>
+            </div>
+            
+            {/* Conversion Display */}
+            {formData.contributionSats && parseInt(formData.contributionSats) >= 10000 && (
+              <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+                <Info className="w-3 h-3" />
+                <span>≈ {formatEther(BigInt(parseInt(formData.contributionSats)) * 10n ** 10n)} cBTC per round</span>
+              </div>
+            )}
+            
+            {/* Minimum validation */}
+            {formData.contributionSats && parseInt(formData.contributionSats) < 10000 && (
+              <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                <XCircle className="w-4 h-4" />
+                <span>Minimum contribution is 10,000 sats</span>
+              </div>
+            )}
+            
+            {/* Balance Display */}
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">Your Balance:</span>
+              <span className="font-mono text-gray-900 dark:text-white">
+                {isBalanceLoading ? (
+                  <div className="flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Loading...
+                  </div>
+                ) : balance ? (
+                  `${formatEther(balance.value)} cBTC`
+                ) : (
+                  'Unable to load'
+                )}
+              </span>
+            </div>
+            
+            {/* Form Validation Error */}
+            {!formValidation.isValid && (
+              <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                <XCircle className="w-4 h-4" />
+                <span>{formValidation.shortError}</span>
+              </div>
+            )}
+            
+            {/* Balance Error */}
+            {balanceError && (
+              <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                <XCircle className="w-4 h-4" />
+                <span>Failed to load balance</span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="duration" className="text-gray-700 dark:text-gray-300">{t('chama.cycleDuration')}</Label>
-            <Select value={formData.cycleDuration} onValueChange={(value) => setFormData(prev => ({ ...prev, cycleDuration: value }))}>
-              <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
-                <SelectValue placeholder={t('chama.selectDuration')} />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-                <SelectItem value="3" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">{t('chama.months', { count: 3 })}</SelectItem>
-                <SelectItem value="6" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">{t('chama.months', { count: 6 })}</SelectItem>
-                <SelectItem value="9" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">{t('chama.months', { count: 9 })}</SelectItem>
-                <SelectItem value="12" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">{t('chama.months', { count: 12 })}</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label htmlFor="duration" className="text-gray-700 dark:text-gray-300">Payout Period (days)</Label>
+            <div className="relative">
+              <Input
+                id="duration"
+                type="number"
+                value={formData.payoutPeriodDays}
+                onChange={(e) => setFormData(prev => ({ ...prev, payoutPeriodDays: e.target.value }))}
+                placeholder="Enter period in days (min: 7)"
+                min="7"
+                className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 pr-16"
+                disabled={isLoading}
+              />
+              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 dark:text-gray-400">
+                days
+              </span>
+            </div>
+            
+            {/* Minimum validation */}
+            {formData.payoutPeriodDays && parseInt(formData.payoutPeriodDays) < 7 && (
+              <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+                <XCircle className="w-4 h-4" />
+                <span>Minimum payout period is 7 days</span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -315,10 +441,33 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
             <Button
               type="submit"
               className="flex-1 btn-primary"
-              disabled={isLoading || !formData.name || !formData.contributionAmount || !formData.cycleDuration || !formData.maxMembers || !isConnected}
+              disabled={isLoading || 
+                       !formData.name || 
+                       !formData.contributionSats || 
+                       !formData.payoutPeriodDays || 
+                       !formData.maxMembers || 
+                       !isConnected || 
+                       !formValidation.isValid || 
+                       isBalanceLoading ||
+                       parseInt(formData.contributionSats || '0') < 10000 ||
+                       parseInt(formData.payoutPeriodDays || '0') < 7}
             >
-              <ArrowRight className="w-4 h-4 mr-2" />
-              Next: Preview
+              {!formValidation.isValid ? (
+                <>
+                  <XCircle className="w-4 h-4 mr-2" />
+                  {formValidation.shortError || 'Invalid Input'}
+                </>
+              ) : isBalanceLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Checking Balance...
+                </>
+              ) : (
+                <>
+                  <ArrowRight className="w-4 h-4 mr-2" />
+                  Next: Preview
+                </>
+              )}
             </Button>
           </div>
         </form>
@@ -338,14 +487,18 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
             {/* Simulation Status */}
             <div className={`p-4 rounded-lg border-2 ${
-              isSimulating 
-                ? 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950' 
-                : simulationData && !simulationError
-                  ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950'
-                  : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950'
+              !formValidation.isValid
+                ? 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950'
+                : isSimulating 
+                  ? 'border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950' 
+                  : simulationData && !simulationError
+                    ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950'
+                    : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950'
             }`}>
               <div className="flex items-center gap-3">
-                {isSimulating ? (
+                {!formValidation.isValid ? (
+                  <XCircle className="w-5 h-5 text-red-600" />
+                ) : isSimulating ? (
                   <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
                 ) : simulationData && !simulationError ? (
                   <CheckCircle className="w-5 h-5 text-green-600" />
@@ -355,14 +508,20 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                 
                 <div className="flex-1">
                   <div className="font-medium text-sm">
-                    {isSimulating 
-                      ? 'Simulating transaction...' 
-                      : simulationData && !simulationError
-                        ? 'Transaction will succeed' 
-                        : 'Transaction will fail'
+                    {!formValidation.isValid
+                      ? 'Invalid Input'
+                      : isSimulating 
+                        ? 'Simulating transaction...' 
+                        : simulationData && !simulationError
+                          ? 'Transaction will succeed' 
+                          : 'Transaction will fail'
                     }
                   </div>
-                  {simulationError && (
+                  {!formValidation.isValid ? (
+                    <div className="text-xs text-red-600 dark:text-red-400 mt-1">
+                      {formValidation.error}
+                    </div>
+                  ) : simulationError && (
                     <div className="text-xs text-red-600 dark:text-red-400 mt-1">
                       {simulationError.message.includes('execution reverted') 
                         ? 'Smart contract rejected the transaction. Please check your inputs.'
@@ -421,19 +580,30 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   <span className="font-medium text-gray-900 dark:text-white">{formData.name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Contribution:</span>
+                  <span className="text-gray-600 dark:text-gray-400">Per Round:</span>
                   <span className="font-mono text-gray-900 dark:text-white">
-                    {formData.contributionAmount} cBTC
+                    {formData.contributionSats ? parseInt(formData.contributionSats).toLocaleString() : '0'} sats
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Duration:</span>
-                  <span className="text-gray-900 dark:text-white">{formData.cycleDuration} months</span>
+                  <span className="text-gray-600 dark:text-gray-400">Payout Period:</span>
+                  <span className="text-gray-900 dark:text-white">{formData.payoutPeriodDays} days</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Max Members:</span>
                   <span className="text-gray-900 dark:text-white">{formData.maxMembers} members</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Creation Info */}
+            <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="font-medium text-sm text-blue-900 dark:text-blue-100 mb-3 flex items-center gap-2">
+                <Info className="w-4 h-4" />
+                Chama Creation
+              </div>
+              <div className="text-sm text-blue-700 dark:text-blue-300">
+                Creating a chama is free. Members will contribute {formData.contributionSats ? parseInt(formData.contributionSats).toLocaleString() : '0'} sats per round after joining.
               </div>
             </div>
 
@@ -455,7 +625,11 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   <div className="mt-3 p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs font-mono">
                     <div className="text-gray-600 dark:text-gray-400 mb-2">Contract Call Data:</div>
                     <div className="text-gray-900 dark:text-white break-all">
-                      Function: createChama("{formData.name}", {formData.contributionAmount} cBTC, {formData.cycleDuration} months, {formData.maxMembers} members)
+                      Function: createChama("{formData.name}", {formData.contributionSats} sats, {formData.payoutPeriodDays} days, {formData.maxMembers} members)
+                    </div>
+                    <div className="text-gray-600 dark:text-gray-400 mt-2 mb-1">Value Sent:</div>
+                    <div className="text-gray-900 dark:text-white">
+                      {formData.contributionSats ? (parseInt(formData.contributionSats) * 2).toLocaleString() : '0'} sats (deposit + first round)
                     </div>
                   </div>
                 )}
@@ -478,9 +652,14 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                 type="button"
                 onClick={handleTransactionSubmit}
                 className="flex-1 btn-primary"
-                disabled={!simulationData || simulationError || isLoading}
+                // disabled={!simulationData || simulationError || isLoading || !formValidation.isValid}
               >
-                {simulationData && !simulationError ? (
+                {!formValidation.isValid ? (
+                  <>
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Invalid Input
+                  </>
+                ) : simulationData && !simulationError ? (
                   <>
                     <CheckCircle className="w-4 h-4 mr-2" />
                     Submit Transaction
@@ -558,14 +737,14 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   <span className="font-medium text-gray-900 dark:text-white">{formData.name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Contribution:</span>
+                  <span className="text-gray-600 dark:text-gray-400">Per Round:</span>
                   <span className="font-mono text-gray-900 dark:text-white">
-                    {formData.contributionAmount} cBTC
+                    {formData.contributionSats ? parseInt(formData.contributionSats).toLocaleString() : '0'} sats
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600 dark:text-gray-400">Duration:</span>
-                  <span className="text-gray-900 dark:text-white">{formData.cycleDuration} months</span>
+                  <span className="text-gray-600 dark:text-gray-400">Payout Period:</span>
+                  <span className="text-gray-900 dark:text-white">{formData.payoutPeriodDays} days</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600 dark:text-gray-400">Max Members:</span>

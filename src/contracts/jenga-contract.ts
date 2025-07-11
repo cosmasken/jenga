@@ -7,48 +7,47 @@ export const JENGA_CONTRACT = {
   abi: JengaABI,
 } as const;
 
-// Type-safe contract functions
+// Type-safe contract functions based on actual Jenga.sol
 export type JengaContractFunctions = {
   // Read functions
-  getChamaInfo: readonly [bigint];
-  getUserChamas: readonly [Address];
-  getChamaMembers: readonly [bigint];
-  getUserScore: readonly [Address];
+  chamas: readonly [bigint]; // Returns chama details by ID
+  scores: readonly [Address]; // Returns user score
+  chamaCount: readonly []; // Returns total number of chamas
+  contributions: readonly [bigint, Address]; // Returns user contributions for a chama
   
   // Write functions
-  createChama: readonly [string, bigint, bigint, bigint];
-  joinChama: readonly [bigint];
-  contribute: readonly [bigint];
-  requestPayout: readonly [bigint];
-  closeChamaEarly: readonly [bigint];
+  createChama: readonly [string, bigint, bigint, bigint]; // name, contributionAmount, cycleDuration, maxMembers
+  joinChama: readonly [bigint]; // chamaId
+  stackBTC: readonly [bigint]; // chamaId (payable)
 };
 
-// Event types
+// Event types based on actual contract
 export type ChamaCreatedEvent = {
   chamaId: bigint;
-  creator: Address;
   name: string;
-  contributionAmount: bigint;
-  cycleDuration: bigint;
-  maxMembers: bigint;
+  creator: Address;
 };
 
-export type ChamaMemberJoinedEvent = {
+export type ChamaJoinedEvent = {
   chamaId: bigint;
   member: Address;
-  memberCount: bigint;
 };
 
 export type ContributionMadeEvent = {
   chamaId: bigint;
-  member: Address;
+  user: Address;
   amount: bigint;
-  cycle: bigint;
 };
 
-export type PayoutRequestedEvent = {
-  chamaId: bigint;
-  member: Address;
-  amount: bigint;
-  cycle: bigint;
+// Chama struct type based on contract
+export type ChamaInfo = {
+  name: string;
+  contributionAmount: bigint;
+  cycleDuration: bigint;
+  maxMembers: bigint;
+  members: Address[];
+  active: boolean;
+  currentCycle: bigint;
+  currentRecipientIndex: bigint;
+  lastCycleTimestamp: bigint;
 };

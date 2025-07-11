@@ -13,12 +13,12 @@ export function truncateAddress(aaWalletAddress: string) {
 export const decodeError = (error: any): string => {
   const errorMessages = {
     InvalidTokenAddress: "Selected token is not allowed.",
-    NEROTransferFailed: "Failed to transfer NERO.",
+    CBTCTransferFailed: "Failed to transfer cBTC.",
     TokenTransferFailed: "Failed to transfer tokens.",
-    NotCreator: "Only the tournament creator can perform this action.",
+    NotChamaMember: "Only chama members can perform this action.",
     NotDemoMode: "This action is only available in demo mode.",
-    InactiveTournament: "The tournament is not active.",
-    TournamentEnded: "The tournament has already ended.",
+    InactiveChama: "The chama is not active.",
+    ChamaClosed: "The chama has already closed.",
     DisputePeriodActive: "Dispute period is still active.",
     AlreadyDistributed: "Prizes have already been distributed."
   };
