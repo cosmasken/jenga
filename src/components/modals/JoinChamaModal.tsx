@@ -1,274 +1,268 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, Bitcoin, Clock, TrendingUp, Search, ExternalLink } from 'lucide-react';
+import { Loader2, Users, Bitcoin, Clock, TrendingUp, ExternalLink } from 'lucide-react';
 import { useAccount } from 'wagmi';
-import { useJoinChama, useGetChamaInfo, useGetChamaCount, formatChamaInfo } from '../../hooks/useJengaContract';
+import { useJoinChama, useGetChamaInfo, useGetChamaCount, useGetChamaMembers, formatChamaInfo, formatSatsFromWei } from '../../hooks/useJengaContract';
 import { formatUnits } from 'viem';
 import { useTranslation } from 'react-i18next';
 
 interface JoinChamaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  chamaId?: bigint; // Optional pre-selected chama ID
 }
 
-export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({ open, onOpenChange }) => {
-  const [chamaId, setChamaId] = useState('');
-  const [selectedChamaId, setSelectedChamaId] = useState<bigint | null>(null);
+export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({ open, onOpenChange, chamaId: preselectedChamaId }) => {
+  const [selectedChamaId, setSelectedChamaId] = useState<string>('');
   const { toast } = useToast();
   const { t } = useTranslation();
   const { isConnected } = useAccount();
 
-  // Get chama info for the entered ID
+  // Get total chama count
+  const { data: chamaCount, isLoading: countLoading } = useGetChamaCount();
+
+  // Set preselected chama ID when modal opens
+  useEffect(() => {
+    if (preselectedChamaId && open) {
+      setSelectedChamaId(preselectedChamaId.toString());
+    }
+  }, [preselectedChamaId, open]);
+
+  // Get selected chama info
   const { data: chamaData, isLoading: isLoadingChama, error: chamaError } = useGetChamaInfo(
-    chamaId ? BigInt(chamaId) : 0n
+    selectedChamaId ? BigInt(selectedChamaId) : 0n
+  );
+
+  // Get selected chama members
+  const { data: chamaMembers, isLoading: membersLoading } = useGetChamaMembers(
+    selectedChamaId ? BigInt(selectedChamaId) : 0n
   );
 
   // Join chama hook
   const { joinChama, hash, error, isPending, isConfirming, isConfirmed } = useJoinChama();
 
   const chamaInfo = formatChamaInfo(chamaData);
-  const isLoading = isPending || isConfirming;
 
-  // Handle successful transaction
+  // Generate list of available chamas (first 10)
+  const availableChamas = [];
+  const maxChamas = Math.min(Number(chamaCount || 0), 10);
+  
+  for (let i = 1; i <= maxChamas; i++) {
+    availableChamas.push(i);
+  }
+
+  // Handle success
   useEffect(() => {
     if (isConfirmed && hash) {
       toast({
-        title: t('chama.joinSuccess'),
+        title: 'Successfully Joined!',
         description: (
-          <div className="flex items-center gap-2">
-            <span>Successfully joined the chama!</span>
-            <a
+          <div className="space-y-2">
+            <p>You have successfully joined the chama!</p>
+            <a 
               href={`https://explorer.testnet.citrea.xyz/tx/${hash}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 underline"
+              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 underline text-sm"
             >
               <ExternalLink className="w-3 h-3" />
-              View
+              View Transaction
             </a>
           </div>
         ),
       });
-      
-      // Reset modal after success
-      setTimeout(() => {
-        setChamaId('');
-        setSelectedChamaId(null);
-        onOpenChange(false);
-      }, 2000);
+      onOpenChange(false);
+      setSelectedChamaId('');
     }
-  }, [isConfirmed, hash, toast, t, onOpenChange]);
+  }, [isConfirmed, hash, toast, onOpenChange]);
 
-  // Handle join chama
-  const handleJoin = async () => {
-    if (!chamaId || !chamaInfo) return;
+  // Handle error
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: 'Join Failed',
+        description: error.message.includes('execution reverted') 
+          ? 'Failed to join chama. You may already be a member or the chama may be full.'
+          : error.message.split('\n')[0],
+        variant: 'destructive',
+      });
+    }
+  }, [error, toast]);
 
+  const handleJoin = () => {
+    if (!selectedChamaId || !chamaInfo) return;
+    
     try {
-      setSelectedChamaId(BigInt(chamaId));
-      joinChama(BigInt(chamaId));
+      // Pass collateral amount equal to contribution amount
+      joinChama(BigInt(selectedChamaId), chamaInfo.contributionAmount);
     } catch (err) {
       console.error('Error joining chama:', err);
       toast({
-        title: t('chama.joinFailed'),
-        description: 'An unexpected error occurred. Please try again.',
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to join chama',
+        variant: 'destructive',
       });
-      setSelectedChamaId(null);
     }
   };
 
-  const handleSearch = () => {
-    if (!chamaId) {
-      toast({
-        title: 'Enter Chama ID',
-        description: 'Please enter a chama ID to search.',
-        variant: "destructive",
-      });
-    }
+  const resetModal = () => {
+    setSelectedChamaId('');
   };
+
+  const isLoading = isPending || isConfirming;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] bg-white dark:bg-card border border-gray-200 dark:border-border">
+    <Dialog open={open} onOpenChange={(open) => {
+      onOpenChange(open);
+      if (!open) resetModal();
+    }}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-gray-900 dark:text-white">Join a Chama</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-500" />
+            Join a Chama
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Search Section */}
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="chamaId" className="text-gray-700 dark:text-gray-300">
-                Chama ID
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  id="chamaId"
-                  type="number"
-                  value={chamaId}
-                  onChange={(e) => setChamaId(e.target.value)}
-                  placeholder="Enter chama ID (e.g., 1, 2, 3...)"
-                  className="flex-1 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-                  disabled={isLoading}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleSearch}
-                  disabled={!chamaId || isLoadingChama}
-                  className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-                >
-                  {isLoadingChama ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Search className="w-4 h-4" />
-                  )}
-                </Button>
+        <div className="space-y-4">
+          {/* Chama Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="chama-select">Select a Chama</Label>
+            {countLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <span className="text-sm text-gray-500">Loading available chamas...</span>
               </div>
-            </div>
-
-            {/* Error State */}
-            {chamaError && chamaId && (
-              <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
-                <p className="text-sm text-red-700 dark:text-red-300">
-                  Chama not found or error loading chama data.
+            ) : availableChamas.length > 0 ? (
+              <Select value={selectedChamaId} onValueChange={setSelectedChamaId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a chama to join" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableChamas.map((chamaId) => (
+                    <ChamaSelectItem key={chamaId} chamaId={BigInt(chamaId)} />
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No chamas available to join at the moment.
                 </p>
               </div>
             )}
-
-            {/* Chama Info Display */}
-            {chamaInfo && chamaId && !chamaError && (
-              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
-                      {chamaInfo.name}
-                    </h3>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      chamaInfo.active 
-                        ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                    }`}>
-                      {chamaInfo.active ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Bitcoin className="w-4 h-4 text-orange-500" />
-                      <div>
-                        <div className="text-gray-600 dark:text-gray-400">Contribution</div>
-                        <div className="font-mono text-gray-900 dark:text-white">
-                          {formatUnits(chamaInfo.contributionAmount, 18)} cBTC
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-blue-500" />
-                      <div>
-                        <div className="text-gray-600 dark:text-gray-400">Cycle Duration</div>
-                        <div className="text-gray-900 dark:text-white">
-                          {Number(chamaInfo.cycleDuration) / (24 * 60 * 60)} days
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-green-500" />
-                      <div>
-                        <div className="text-gray-600 dark:text-gray-400">Members</div>
-                        <div className="text-gray-900 dark:text-white">
-                          ? / {Number(chamaInfo.maxMembers)}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-purple-500" />
-                      <div>
-                        <div className="text-gray-600 dark:text-gray-400">Current Cycle</div>
-                        <div className="text-gray-900 dark:text-white">
-                          {Number(chamaInfo.currentCycle)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {!chamaInfo.active && (
-                    <div className="p-2 bg-yellow-50 dark:bg-yellow-900 rounded border border-yellow-200 dark:border-yellow-800">
-                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                        This chama is not currently active.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              className="flex-1 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-              disabled={isLoading}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleJoin}
-              className="flex-1 btn-primary"
-              disabled={!chamaInfo || !chamaInfo.active || !isConnected || isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {isPending ? 'Confirming...' : 'Joining...'}
-                </>
-              ) : (
-                <>
-                  <Users className="w-4 h-4 mr-2" />
-                  Join Chama
-                </>
-              )}
-            </Button>
-          </div>
+          {/* Loading State */}
+          {isLoadingChama && selectedChamaId && (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              <span className="text-sm text-gray-500">Loading chama details...</span>
+            </div>
+          )}
 
-          {/* Transaction Status */}
-          {hash && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
-              <p className="text-sm text-blue-700 dark:text-blue-300">
-                Transaction submitted!{' '}
-                <a
-                  href={`https://explorer.testnet.citrea.xyz/tx/${hash}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 underline"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  View on Explorer
-                </a>
+          {/* Error State */}
+          {chamaError && selectedChamaId && (
+            <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
+              <p className="text-sm text-red-700 dark:text-red-300">
+                Error loading chama data. Please try selecting a different chama.
               </p>
             </div>
           )}
 
-          {/* Error Display */}
-          {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
-              <p className="text-sm text-red-700 dark:text-red-300">
-                {error.message.includes('execution reverted') 
-                  ? 'Transaction failed. The chama may be full or inactive.'
-                  : error.message.split('\n')[0]
-                }
-              </p>
+          {/* Chama Info Display */}
+          {chamaInfo && selectedChamaId && !chamaError && (
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    {chamaInfo.name}
+                  </h3>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    chamaInfo.active 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                  }`}>
+                    {chamaInfo.active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Bitcoin className="w-4 h-4 text-orange-500" />
+                    <div>
+                      <div className="text-gray-600 dark:text-gray-400">Contribution</div>
+                      <div className="font-mono text-gray-900 dark:text-white">
+                        {formatSatsFromWei(chamaInfo.contributionAmount).toLocaleString()} sats
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-blue-500" />
+                    <div>
+                      <div className="text-gray-600 dark:text-gray-400">Cycle Duration</div>
+                      <div className="text-gray-900 dark:text-white">
+                        {Number(chamaInfo.cycleDuration) / (24 * 60 * 60)} days
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-green-500" />
+                    <div>
+                      <div className="text-gray-600 dark:text-gray-400">Members</div>
+                      <div className="text-gray-900 dark:text-white">
+                        {membersLoading ? '...' : (chamaMembers?.length || 0)} / {Number(chamaInfo.maxMembers)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-purple-500" />
+                    <div>
+                      <div className="text-gray-600 dark:text-gray-400">Current Cycle</div>
+                      <div className="text-gray-900 dark:text-white">
+                        {Number(chamaInfo.currentCycle)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Collateral Information */}
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <div className="flex items-start gap-2">
+                    <TrendingUp className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-yellow-700 dark:text-yellow-300">
+                      <div className="font-medium mb-1">Security Deposit Required</div>
+                      <div>
+                        You'll need to deposit <strong>{formatSatsFromWei(chamaInfo.contributionAmount).toLocaleString()} sats</strong> as collateral. 
+                        This deposit will be returned after you complete all cycles successfully.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {!chamaInfo.active && (
+                  <div className="p-2 bg-yellow-50 dark:bg-yellow-900 rounded border border-yellow-200 dark:border-yellow-800">
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                      This chama is not currently active.
+                    </p>
+                  </div>
+                )}
+
+                {Number(chamaInfo.currentCycle) > 0 && (
+                  <div className="p-2 bg-red-50 dark:bg-red-900 rounded border border-red-200 dark:border-red-800">
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      This chama has already started. You cannot join after the first cycle begins.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -280,9 +274,80 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({ open, onOpenChan
               </p>
             </div>
           )}
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="flex-1"
+              disabled={isLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleJoin}
+              className="flex-1 btn-primary"
+              disabled={
+                isLoading || 
+                !isConnected || 
+                !selectedChamaId || 
+                !chamaInfo?.active ||
+                Number(chamaInfo?.currentCycle || 0) > 0
+              }
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {isPending ? 'Joining...' : 'Confirming...'}
+                </>
+              ) : (
+                <>
+                  <Users className="w-4 h-4 mr-2" />
+                  Join Chama
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
   );
 };
 
+// Component for individual chama select items
+const ChamaSelectItem: React.FC<{ chamaId: bigint }> = ({ chamaId }) => {
+  const { data: chamaData } = useGetChamaInfo(chamaId);
+  const { data: chamaMembers } = useGetChamaMembers(chamaId);
+  
+  const chamaInfo = formatChamaInfo(chamaData);
+  
+  if (!chamaInfo) {
+    return (
+      <SelectItem value={chamaId.toString()} disabled>
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          <span>Loading...</span>
+        </div>
+      </SelectItem>
+    );
+  }
+
+  const memberCount = chamaMembers?.length || 0;
+  const isJoinable = chamaInfo.active && Number(chamaInfo.currentCycle) === 0 && memberCount < Number(chamaInfo.maxMembers);
+
+  return (
+    <SelectItem value={chamaId.toString()} disabled={!isJoinable}>
+      <div className="flex items-center justify-between w-full">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${isJoinable ? 'bg-green-500' : 'bg-gray-400'}`} />
+          <span className="font-medium">{chamaInfo.name}</span>
+        </div>
+        <div className="text-xs text-gray-500 ml-2">
+          {memberCount}/{Number(chamaInfo.maxMembers)} • {formatSatsFromWei(chamaInfo.contributionAmount).toLocaleString()} sats
+        </div>
+      </div>
+    </SelectItem>
+  );
+};

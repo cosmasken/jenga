@@ -23,7 +23,7 @@ export const TESTNET_CONFIG: {
     explorer: 'https://explorer.testnet.citrea.xyz',
   },
   smartContracts: {
-    jenga: '0xbCd9c60030c34dF782eec0249b931851BD941235', 
+    jenga: '0x57431659DB91Eae1EAfAF8aB3Fd1CE53A095c30b', 
   },
 };
 

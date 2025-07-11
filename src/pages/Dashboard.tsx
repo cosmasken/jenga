@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { formatEther } from 'viem';
 import { useGetUserChamas, useGetUserScore } from '../hooks/useJengaContract';
 import { citreaTestnet } from '../wagmi';
-import { ChamaCard } from '../components/chama/ChamaCard';
+import { EnhancedChamaCard } from '../components/chama/EnhancedChamaCard';
 import { StatsCard } from '../components/dashboard/StatsCard';
 import { LoadingSkeleton } from '../components/ui/LoadingSkeleton';
 import { CreateChamaModal } from '../components/modals/CreateChamaModal';
@@ -181,7 +181,7 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* My Chamas */}
+      {/* Available Chamas */}
       <div className="stats-card">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-foreground">{t('dashboard.myChamas')}</h2>
@@ -224,22 +224,9 @@ export const Dashboard: React.FC = () => {
             ) : userChamas && userChamas.length > 0 ? (
               <div className="responsive-grid">
                 {userChamas.map((chama: any) => (
-                  <ChamaCard 
+                  <EnhancedChamaCard 
                     key={chama.id.toString()} 
-                    chama={{
-                      // id: Number(chama.id),
-                      name: chama.name,
-                      contributionAmount: Number(formatEther(chama.contributionAmount)),
-                      cycleDuration: Number(chama.cycleDuration) / (24 * 60 * 60), // Convert seconds to days
-                      maxMembers: Number(chama.maxMembers),
-                      members: [], // We don't have member list from contract
-                      active: chama.active,
-                      currentCycle: Number(chama.currentCycle),
-                      currentRecipientIndex: Number(chama.currentRecipientIndex),
-                      lastCycleTimestamp: Number(chama.lastCycleTimestamp),
-                      // totalContributions: '0', // Would need to calculate this
-                      // nextPayoutDate: new Date(Date.now() + Number(chama.cycleDuration) * 1000).toISOString(),
-                    }}
+                    chama={chama}
                   />
                 ))}
               </div>

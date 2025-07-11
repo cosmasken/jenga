@@ -50,6 +50,118 @@ export function useGetUserContributions(chamaId: bigint, userAddress: Address) {
   });
 }
 
+// Check if user has contributed in current cycle
+export function useHasContributedThisCycle(chamaId: bigint, userAddress: Address) {
+  return useReadContract({
+    ...JENGA_CONTRACT,
+    functionName: 'hasContributedThisCycle',
+    args: [chamaId, userAddress],
+    chainId: citreaTestnet.id,
+    query: {
+      enabled: !!userAddress && chamaId > 0n,
+    },
+  });
+}
+
+// Check last contribution timestamp
+export function useLastContributionTimestamp(chamaId: bigint, userAddress: Address) {
+  return useReadContract({
+    ...JENGA_CONTRACT,
+    functionName: 'lastContributionTimestamp',
+    args: [chamaId, userAddress],
+    chainId: citreaTestnet.id,
+    query: {
+      enabled: !!userAddress && chamaId > 0n,
+    },
+  });
+}
+
+// New ROSCA-specific hooks
+// New collateral-related hooks
+export function useGetMemberCollateral(chamaId: bigint, userAddress: Address) {
+  return useReadContract({
+    ...JENGA_CONTRACT,
+    functionName: 'getMemberCollateral',
+    args: [chamaId, userAddress],
+    chainId: citreaTestnet.id,
+    query: {
+      enabled: !!userAddress && chamaId > 0n,
+    },
+  });
+}
+
+export function useIsCollateralReturned(chamaId: bigint, userAddress: Address) {
+  return useReadContract({
+    ...JENGA_CONTRACT,
+    functionName: 'isCollateralReturned',
+    args: [chamaId, userAddress],
+    chainId: citreaTestnet.id,
+    query: {
+      enabled: !!userAddress && chamaId > 0n,
+    },
+  });
+}
+
+export function useGetTotalCollateral(chamaId: bigint) {
+  return useReadContract({
+    ...JENGA_CONTRACT,
+    functionName: 'getTotalCollateral',
+    args: [chamaId],
+    chainId: citreaTestnet.id,
+    query: {
+      enabled: chamaId > 0n,
+    },
+  });
+}
+
+export function useGetChamaMembers(chamaId: bigint) {
+  return useReadContract({
+    ...JENGA_CONTRACT,
+    functionName: 'getChamaMembers',
+    args: [chamaId],
+    chainId: citreaTestnet.id,
+    query: {
+      enabled: chamaId > 0n,
+    },
+  });
+}
+
+export function useGetMemberPayoutPosition(chamaId: bigint, userAddress: Address) {
+  return useReadContract({
+    ...JENGA_CONTRACT,
+    functionName: 'getMemberPayoutPosition',
+    args: [chamaId, userAddress],
+    chainId: citreaTestnet.id,
+    query: {
+      enabled: !!userAddress && chamaId > 0n,
+    },
+  });
+}
+
+export function useHasMemberReceivedPayout(chamaId: bigint, userAddress: Address) {
+  return useReadContract({
+    ...JENGA_CONTRACT,
+    functionName: 'hasMemberReceivedPayout',
+    args: [chamaId, userAddress],
+    chainId: citreaTestnet.id,
+    query: {
+      enabled: !!userAddress && chamaId > 0n,
+    },
+  });
+}
+
+export function useGetCycleInfo(chamaId: bigint, cycle: bigint) {
+  return useReadContract({
+    ...JENGA_CONTRACT,
+    functionName: 'getCycleInfo',
+    args: [chamaId, cycle],
+    chainId: citreaTestnet.id,
+    query: {
+      enabled: chamaId > 0n && cycle > 0n,
+    },
+  });
+}
+
 // Note: The actual Jenga.sol contract doesn't have a getUserChamas function
 // This implementation fetches chama count and checks membership for each chama
 export function useGetUserChamas(userAddress: Address) {
@@ -85,7 +197,7 @@ export function useGetUserChamas(userAddress: Address) {
       const query = chamaQueries[i];
       if (query.data) {
         const chamaInfo = formatChamaInfo(query.data);
-        if (chamaInfo && chamaInfo.active) {
+        if (chamaInfo) {
           // Add the chama ID to the info
           chamas.push({
             id: BigInt(i + 1),
@@ -132,6 +244,7 @@ export function useCreateChama() {
       ...JENGA_CONTRACT,
       functionName: 'createChama',
       args: [name, contributionAmount, payoutPeriodSeconds, maxMembers],
+      value: contributionAmount, // Send collateral equal to contribution amount
       chain: citreaTestnet,
       account: address,
     });
@@ -155,11 +268,12 @@ export function useJoinChama() {
     hash,
   });
 
-  const joinChama = (chamaId: bigint) => {
+  const joinChama = (chamaId: bigint, collateralAmount: bigint) => {
     writeContract({
       ...JENGA_CONTRACT,
       functionName: 'joinChama',
       args: [chamaId],
+      value: collateralAmount, // Send collateral equal to contribution amount
       chain: citreaTestnet,
       account: address,
     });
@@ -207,6 +321,35 @@ export function useStackBTC() {
   };
 }
 
+// New hook for processing missed contributions
+export function useProcessMissedContributions() {
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+  const { address } = useAccount();
+  
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const processMissedContributions = (chamaId: bigint) => {
+    writeContract({
+      ...JENGA_CONTRACT,
+      functionName: 'processMissedContributions',
+      args: [chamaId],
+      chain: citreaTestnet,
+      account: address,
+    });
+  };
+
+  return {
+    processMissedContributions,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isConfirmed,
+  };
+}
+
 // Legacy function names for backward compatibility
 export const useContribute = useStackBTC;
 
@@ -219,12 +362,12 @@ export function formatChamaInfo(data: any) {
     contributionAmount: data[1] || 0n,
     cycleDuration: data[2] || 0n,
     maxMembers: data[3] || 0n,
-    // Note: members array is not returned by the chamas mapping
-    // You would need to track this separately or use events
-    active: data[4] || false,
-    currentCycle: data[5] || 0n,
-    currentRecipientIndex: data[6] || 0n,
-    lastCycleTimestamp: data[7] || 0n,
+    members: data[4] || [], // This might be empty from the mapping
+    active: data[5] || false,
+    currentCycle: data[6] || 0n,
+    currentRecipientIndex: data[7] || 0n,
+    lastCycleTimestamp: data[8] || 0n,
+    totalPool: data[9] || 0n,
   };
 }
 
@@ -237,4 +380,43 @@ export function formatSatsFromWei(weiAmount: bigint): number {
 // Helper function to format sats for display
 export function formatSats(sats: number): string {
   return sats.toLocaleString() + ' sats';
+}
+
+// Helper function to determine user's status in a chama
+export function getChamaUserStatus(
+  chamaInfo: any,
+  userAddress: Address,
+  hasContributed: boolean,
+  hasReceivedPayout: boolean,
+  memberPosition: number,
+  chamaMembers: Address[] | undefined
+) {
+  // Use chamaMembers from getChamaMembers hook instead of chamaInfo.members
+  const members = chamaMembers || [];
+  
+  if (!members.includes(userAddress)) {
+    return 'not_member';
+  }
+  
+  if (!chamaInfo.active) {
+    return 'completed';
+  }
+  
+  if (chamaInfo.currentCycle === 0) {
+    return 'waiting_to_start';
+  }
+  
+  if (hasReceivedPayout) {
+    return 'received_payout';
+  }
+  
+  if (chamaInfo.currentRecipientIndex === memberPosition) {
+    return 'current_recipient';
+  }
+  
+  if (hasContributed) {
+    return 'contributed_this_cycle';
+  }
+  
+  return 'needs_to_contribute';
 }

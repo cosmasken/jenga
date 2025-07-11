@@ -12,6 +12,7 @@ import { useAccount, useSimulateContract, useEstimateGas, useBalance } from 'wag
 import { parseEther, formatEther, parseUnits, formatUnits } from 'viem';
 import { JENGA_CONTRACT } from '../../contracts/jenga-contract';
 import { citreaTestnet } from '../../wagmi';
+import { truncateAddress } from '@/lib/utils';
 
 interface CreateChamaModalProps {
   open: boolean;
@@ -68,6 +69,37 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       return { isValid: true, error: null };
     }
   }, [formData.contributionSats]);
+
+  // Validate balance for collateral requirement
+  const balanceValidation = React.useMemo(() => {
+    if (!formData.contributionSats || !balance || isBalanceLoading) {
+      return { isValid: true, error: null };
+    }
+
+    try {
+      const contributionSats = parseInt(formData.contributionSats);
+      const contributionAmount = BigInt(contributionSats) * 10n ** 10n; // Convert to wei
+      
+      // Check if user has enough balance for collateral + gas
+      const requiredBalance = contributionAmount + parseEther('0.001'); // Add some buffer for gas
+      
+      if (balance.value < requiredBalance) {
+        const requiredCBTC = formatEther(contributionAmount);
+        return {
+          isValid: false,
+          error: `Insufficient balance. You need ${requiredCBTC} cBTC for collateral plus gas fees.`,
+          shortError: 'Insufficient balance'
+        };
+      }
+      
+      return { 
+        isValid: true, 
+        error: null
+      };
+    } catch {
+      return { isValid: true, error: null };
+    }
+  }, [formData.contributionSats, balance, isBalanceLoading]);
   
   // Prepare contract arguments for simulation
   const contractArgs = React.useMemo(() => {
@@ -82,12 +114,15 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       }
       // Convert sats (integer) to 18 decimals: 1 sat = 1e10 units
       const contributionAmount = BigInt(contributionSats) * 10n ** 10n;
-      return [
-        formData.name,
-        contributionAmount,
-        BigInt(payoutPeriodDays * 24 * 60 * 60),
-        BigInt(formData.maxMembers)
-      ] as const;
+      return {
+        args: [
+          formData.name,
+          contributionAmount,
+          BigInt(payoutPeriodDays * 24 * 60 * 60),
+          BigInt(formData.maxMembers)
+        ] as const,
+        value: contributionAmount // Collateral payment equal to contribution amount
+      };
     } catch {
       return null;
     }
@@ -102,14 +137,15 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   } = useSimulateContract({
     ...JENGA_CONTRACT,
     functionName: 'createChama',
-    args: contractArgs,
-    // No value needed for createChama
+    args: contractArgs?.args,
+    value: contractArgs?.value, // Include collateral payment
     chainId: citreaTestnet.id,
     query: {
       enabled: currentStep === 'simulation' && 
                !!contractArgs && 
                isConnected && 
-               formValidation.isValid,
+               formValidation.isValid &&
+               balanceValidation.isValid,
       retry: 2,
       retryDelay: 1000,
     },
@@ -123,14 +159,15 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   } = useEstimateGas({
     ...JENGA_CONTRACT,
     functionName: 'createChama',
-    args: contractArgs,
-    // No value needed for createChama
+    args: contractArgs?.args,
+    value: contractArgs?.value, // Include collateral payment
     chainId: citreaTestnet.id,
     query: {
       enabled: currentStep === 'simulation' && 
                !!contractArgs && 
                isConnected && 
-               formValidation.isValid,
+               formValidation.isValid &&
+               balanceValidation.isValid,
       retry: 2,
     },
   });
@@ -322,9 +359,41 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
             
             {/* Conversion Display */}
             {formData.contributionSats && parseInt(formData.contributionSats) >= 10000 && (
-              <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
-                <Info className="w-3 h-3" />
-                <span>≈ {formatEther(BigInt(parseInt(formData.contributionSats)) * 10n ** 10n)} cBTC per round</span>
+              <div className="space-y-2">
+                <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">
+                  <Info className="w-3 h-3" />
+                  <span>≈ {formatEther(BigInt(parseInt(formData.contributionSats)) * 10n ** 10n)} cBTC per round</span>
+                </div>
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-yellow-700 dark:text-yellow-300">
+                      <div className="font-medium mb-1">Security Deposit Required</div>
+                      <div className="space-y-2">
+                        <div>You'll need to deposit <strong>{parseInt(formData.contributionSats).toLocaleString()} sats</strong> as collateral when creating this chama.</div>
+                        <div className="text-xs">
+                          • This deposit equals one cycle contribution<br/>
+                          • Returned after successfully completing all cycles<br/>
+                          • Ensures commitment from all members<br/>
+                          • Total upfront cost: {parseInt(formData.contributionSats).toLocaleString()} sats + gas fees
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Balance Validation Error */}
+                {!balanceValidation.isValid && (
+                  <div className="p-3 bg-red-50 dark:bg-red-950 rounded-lg border border-red-200 dark:border-red-800">
+                    <div className="flex items-start gap-2">
+                      <XCircle className="w-4 h-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-red-700 dark:text-red-300">
+                        <div className="font-medium mb-1">Insufficient Balance</div>
+                        <div>{balanceValidation.error}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             
@@ -448,6 +517,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                        !formData.maxMembers || 
                        !isConnected || 
                        !formValidation.isValid || 
+                       !balanceValidation.isValid ||
                        isBalanceLoading ||
                        parseInt(formData.contributionSats || '0') < 10000 ||
                        parseInt(formData.payoutPeriodDays || '0') < 7}
@@ -456,6 +526,11 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                 <>
                   <XCircle className="w-4 h-4 mr-2" />
                   {formValidation.shortError || 'Invalid Input'}
+                </>
+              ) : !balanceValidation.isValid ? (
+                <>
+                  <XCircle className="w-4 h-4 mr-2" />
+                  {balanceValidation.shortError || 'Insufficient Balance'}
                 </>
               ) : isBalanceLoading ? (
                 <>
@@ -593,6 +668,17 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   <span className="text-gray-600 dark:text-gray-400">Max Members:</span>
                   <span className="text-gray-900 dark:text-white">{formData.maxMembers} members</span>
                 </div>
+                <div className="border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
+                  <div className="flex justify-between font-medium">
+                    <span className="text-gray-600 dark:text-gray-400">Security Deposit:</span>
+                    <span className="font-mono text-orange-600 dark:text-orange-400">
+                      {formData.contributionSats ? parseInt(formData.contributionSats).toLocaleString() : '0'} sats
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Returned after completing all cycles
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -652,12 +738,17 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                 type="button"
                 onClick={handleTransactionSubmit}
                 className="flex-1 btn-primary"
-                // disabled={!simulationData || simulationError || isLoading || !formValidation.isValid}
+                disabled={!simulationData || simulationError || isLoading || !formValidation.isValid || !balanceValidation.isValid}
               >
                 {!formValidation.isValid ? (
                   <>
                     <XCircle className="w-4 h-4 mr-2" />
                     Invalid Input
+                  </>
+                ) : !balanceValidation.isValid ? (
+                  <>
+                    <XCircle className="w-4 h-4 mr-2" />
+                    Insufficient Balance
                   </>
                 ) : simulationData && !simulationError ? (
                   <>
@@ -711,7 +802,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                 </p>
                 <div className="flex items-center gap-2">
                   <code className="text-xs font-mono bg-white dark:bg-gray-900 px-2 py-1 rounded border flex-1 truncate">
-                    {hash}
+                    {truncateAddress(hash)}
                   </code>
                   <a 
                     href={`https://explorer.testnet.citrea.xyz/tx/${hash}`}
