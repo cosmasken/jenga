@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Bitcoin } from 'lucide-react';
+import { useCreateChama } from '../../hooks/useJengaContract';
+import { useAccount } from 'wagmi';
 
 interface CreateChamaModalProps {
   open: boolean;
@@ -13,42 +15,72 @@ interface CreateChamaModalProps {
 }
 
 export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpenChange }) => {
-  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     contributionAmount: '',
     cycleDuration: '',
     maxMembers: ''
   });
+  
   const { toast } = useToast();
+  const { isConnected } = useAccount();
+  const { 
+    createChama, 
+    isPending, 
+    isConfirming, 
+    isConfirmed, 
+    error,
+    hash 
+  } = useCreateChama();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-
-    // Mock API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Mock success/failure (80% success rate)
-    const isSuccess = Math.random() > 0.2;
-
-    if (isSuccess) {
+  // Handle transaction success
+  useEffect(() => {
+    if (isConfirmed) {
       toast({
         title: "Chama Created Successfully! 🎉",
         description: `"${formData.name}" is now live and ready for members to join.`,
       });
       setFormData({ name: '', contributionAmount: '', cycleDuration: '', maxMembers: '' });
       onOpenChange(false);
-    } else {
+    }
+  }, [isConfirmed, formData.name, toast, onOpenChange]);
+
+  // Handle transaction error
+  useEffect(() => {
+    if (error) {
       toast({
         title: "Failed to Create Chama",
-        description: "Transaction failed. Please check your wallet and try again.",
+        description: error.message || "Transaction failed. Please check your wallet and try again.",
         variant: "destructive",
       });
     }
+  }, [error, toast]);
 
-    setIsLoading(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!isConnected) {
+      toast({
+        title: "Wallet Not Connected",
+        description: "Please connect your wallet to create a chama.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      createChama(
+        formData.name,
+        formData.contributionAmount,
+        BigInt(parseInt(formData.cycleDuration) * 30 * 24 * 60 * 60), // Convert months to seconds
+        BigInt(formData.maxMembers)
+      );
+    } catch (err) {
+      console.error('Error creating chama:', err);
+    }
   };
+
+  const isLoading = isPending || isConfirming;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -73,17 +105,17 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="contribution">Monthly Contribution (BTC)</Label>
+            <Label htmlFor="contribution">Monthly Contribution (cBTC)</Label>
             <Select value={formData.contributionAmount} onValueChange={(value) => setFormData(prev => ({ ...prev, contributionAmount: value }))}>
               <SelectTrigger>
                 <SelectValue placeholder="Select amount" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="0.01">0.01 BTC</SelectItem>
-                <SelectItem value="0.02">0.02 BTC</SelectItem>
-                <SelectItem value="0.03">0.03 BTC</SelectItem>
-                <SelectItem value="0.05">0.05 BTC</SelectItem>
-                <SelectItem value="0.1">0.1 BTC</SelectItem>
+                <SelectItem value="0.01">0.01 cBTC</SelectItem>
+                <SelectItem value="0.02">0.02 cBTC</SelectItem>
+                <SelectItem value="0.03">0.03 cBTC</SelectItem>
+                <SelectItem value="0.05">0.05 cBTC</SelectItem>
+                <SelectItem value="0.1">0.1 cBTC</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -118,6 +150,22 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
             </Select>
           </div>
 
+          {hash && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+              <p className="text-sm text-blue-700 dark:text-blue-300">
+                Transaction submitted: 
+                <a 
+                  href={`https://explorer.testnet.citrea.xyz/tx/${hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-1 underline hover:no-underline"
+                >
+                  View on Explorer
+                </a>
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-4">
             <Button
               type="button"
@@ -131,12 +179,12 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
             <Button
               type="submit"
               className="flex-1 bg-gradient-to-r from-orange-400 to-yellow-500 hover:from-orange-500 hover:to-yellow-600"
-              disabled={isLoading || !formData.name || !formData.contributionAmount || !formData.cycleDuration || !formData.maxMembers}
+              disabled={isLoading || !formData.name || !formData.contributionAmount || !formData.cycleDuration || !formData.maxMembers || !isConnected}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
+                  {isPending ? 'Confirming...' : 'Creating...'}
                 </>
               ) : (
                 'Create Chama'

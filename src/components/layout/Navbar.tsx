@@ -1,28 +1,20 @@
 
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Home, CreditCard, User, Trophy, Gift, Settings, LogOut } from 'lucide-react';
-import useWallet from '../../stores/useWallet';
-import { useUserStore } from '../../stores/userStore';
-import {shortenAddress} from '../../utils/ethUtils'
-import { UserMenu } from './UserMenu';
+import { Menu, X, Home } from 'lucide-react';
+import { useAccount } from 'wagmi';
+import { WalletConnect } from '../WalletConnect';
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
-  const { isConnected, disconnect,address } = useWallet();
-  const { profile } = useUserStore();
+  const { isConnected } = useAccount();
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: Home },
   ];
 
   const isActive = (path: string) => location.pathname === path;
-
-  const handleLogout = () => {
-    disconnect();
-    setIsOpen(false);
-  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 bg-white border-b border-orange-200 z-50">
@@ -54,19 +46,9 @@ export const Navbar: React.FC = () => {
             ))}
           </div>
 
-          {/* User Menu */}
-          <div className="hidden md:flex items-center space-x-4">
-            {/* <div className="text-sm text-gray-600">
-              {shortenAddress(address || '')}
-            </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center space-x-1 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Logout</span>
-            </button> */}
-            <UserMenu/>
+          {/* Wallet Connection */}
+          <div className="hidden md:flex items-center">
+            <WalletConnect />
           </div>
 
           {/* Mobile menu button */}
@@ -100,16 +82,9 @@ export const Navbar: React.FC = () => {
             ))}
             
             <div className="border-t border-gray-200 pt-4 mt-4">
-              <div className="px-3 py-2 text-sm text-gray-600">
-                {/* {profile?.username || shortenAddress(connection?.address || '')} */}
+              <div className="px-3">
+                <WalletConnect />
               </div>
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-3 px-3 py-3 text-base font-medium text-red-600 hover:bg-red-50 rounded-md transition-colors w-full"
-              >
-                <LogOut className="w-5 h-5" />
-                <span>Logout</span>
-              </button>
             </div>
           </div>
         </div>

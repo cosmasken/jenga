@@ -1,11 +1,12 @@
 
 import React from 'react';
 import { Outlet } from 'react-router-dom';
+import { useAccount } from 'wagmi';
 import { Navbar } from './Navbar';
-import useWallet from '../../stores/useWallet';
+import { WalletConnect } from '../WalletConnect';
 
 export const Layout: React.FC = () => {
-  const { isConnected,connect } = useWallet();
+  const { isConnected } = useAccount();
 
   if (!isConnected) {
     return (
@@ -19,9 +20,7 @@ export const Layout: React.FC = () => {
             Stack Bitcoin together with your friends in rotating savings circles (Chamas)
           </p>
           <div className="space-y-4">
-            <button onClick={connect} className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-semibold py-3 px-6 rounded-lg hover:from-yellow-500 hover:to-orange-600 transition-all transform hover:scale-105">
-              Connect Wallet
-            </button>
+            <WalletConnect />
             <p className="text-sm text-gray-500">
               Need testnet funds? Visit the{' '}
               <a 
