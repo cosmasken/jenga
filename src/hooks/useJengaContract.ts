@@ -368,6 +368,9 @@ export function formatChamaInfo(data: any) {
     currentRecipientIndex: data[7] || 0n,
     lastCycleTimestamp: data[8] || 0n,
     totalPool: data[9] || 0n,
+    // Note: membersPaid array might be at data[10] but could be empty
+    // totalCollateral might be at data[11] or later depending on what's returned
+    totalCollateral: data[11] || data[10] || 0n,
   };
 }
 

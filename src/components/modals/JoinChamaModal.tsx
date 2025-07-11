@@ -247,7 +247,8 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({ open, onOpenChan
                   </div>
                 </div>
 
-                {!chamaInfo.active && (
+                {/* Status warnings - but don't block joining if chama hasn't started */}
+                {!chamaInfo.active && Number(chamaInfo.currentCycle) > 0 && (
                   <div className="p-2 bg-yellow-50 dark:bg-yellow-900 rounded border border-yellow-200 dark:border-yellow-800">
                     <p className="text-sm text-yellow-700 dark:text-yellow-300">
                       This chama is not currently active.
@@ -259,6 +260,25 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({ open, onOpenChan
                   <div className="p-2 bg-red-50 dark:bg-red-900 rounded border border-red-200 dark:border-red-800">
                     <p className="text-sm text-red-700 dark:text-red-300">
                       This chama has already started. You cannot join after the first cycle begins.
+                    </p>
+                  </div>
+                )}
+
+                {chamaMembers && chamaMembers.length >= Number(chamaInfo.maxMembers) && (
+                  <div className="p-2 bg-red-50 dark:bg-red-900 rounded border border-red-200 dark:border-red-800">
+                    <p className="text-sm text-red-700 dark:text-red-300">
+                      This chama is full. All member slots have been taken.
+                    </p>
+                  </div>
+                )}
+
+                {/* Show positive message if chama is joinable */}
+                {Number(chamaInfo.currentCycle) === 0 && 
+                 chamaMembers && 
+                 chamaMembers.length < Number(chamaInfo.maxMembers) && (
+                  <div className="p-2 bg-green-50 dark:bg-green-900 rounded border border-green-200 dark:border-green-800">
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      ✅ This chama is accepting new members! You can join now.
                     </p>
                   </div>
                 )}
@@ -293,14 +313,34 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({ open, onOpenChan
                 isLoading || 
                 !isConnected || 
                 !selectedChamaId || 
-                !chamaInfo?.active ||
-                Number(chamaInfo?.currentCycle || 0) > 0
+                Number(chamaInfo?.currentCycle || 0) > 0 ||
+                (chamaMembers && chamaMembers.length >= Number(chamaInfo?.maxMembers || 0))
               }
             >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   {isPending ? 'Joining...' : 'Confirming...'}
+                </>
+              ) : !isConnected ? (
+                <>
+                  <Users className="w-4 h-4 mr-2" />
+                  Connect Wallet
+                </>
+              ) : !selectedChamaId ? (
+                <>
+                  <Users className="w-4 h-4 mr-2" />
+                  Select a Chama
+                </>
+              ) : Number(chamaInfo?.currentCycle || 0) > 0 ? (
+                <>
+                  <Users className="w-4 h-4 mr-2" />
+                  Already Started
+                </>
+              ) : (chamaMembers && chamaMembers.length >= Number(chamaInfo?.maxMembers || 0)) ? (
+                <>
+                  <Users className="w-4 h-4 mr-2" />
+                  Chama Full
                 </>
               ) : (
                 <>
@@ -325,27 +365,48 @@ const ChamaSelectItem: React.FC<{ chamaId: bigint }> = ({ chamaId }) => {
   
   if (!chamaInfo) {
     return (
-      <SelectItem value={chamaId.toString()} disabled>
+      <SelectItem value={chamaId.toString()}>
         <div className="flex items-center gap-2">
           <Loader2 className="w-3 h-3 animate-spin" />
-          <span>Loading...</span>
+          <span>Loading Chama {chamaId.toString()}...</span>
         </div>
       </SelectItem>
     );
   }
 
   const memberCount = chamaMembers?.length || 0;
-  const isJoinable = chamaInfo.active && Number(chamaInfo.currentCycle) === 0 && memberCount < Number(chamaInfo.maxMembers);
+  // Focus on key criteria: hasn't started (cycle 0) and not full
+  const isJoinable = Number(chamaInfo.currentCycle) === 0 && memberCount < Number(chamaInfo.maxMembers);
+  
+  // Get status text
+  const getStatusText = () => {
+    if (Number(chamaInfo.currentCycle) > 0) return 'Started';
+    if (memberCount >= Number(chamaInfo.maxMembers)) return 'Full';
+    if (!chamaInfo.active && Number(chamaInfo.currentCycle) > 0) return 'Inactive';
+    return 'Open';
+  };
+
+  const statusText = getStatusText();
 
   return (
-    <SelectItem value={chamaId.toString()} disabled={!isJoinable}>
+    <SelectItem value={chamaId.toString()}>
       <div className="flex items-center justify-between w-full">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${isJoinable ? 'bg-green-500' : 'bg-gray-400'}`} />
           <span className="font-medium">{chamaInfo.name}</span>
         </div>
-        <div className="text-xs text-gray-500 ml-2">
-          {memberCount}/{Number(chamaInfo.maxMembers)} • {formatSatsFromWei(chamaInfo.contributionAmount).toLocaleString()} sats
+        <div className="text-xs text-gray-500 ml-2 flex items-center gap-2">
+          <span>{memberCount}/{Number(chamaInfo.maxMembers)}</span>
+          <span>•</span>
+          <span>{formatSatsFromWei(chamaInfo.contributionAmount).toLocaleString()} sats</span>
+          <span>•</span>
+          <span className={`px-1 py-0.5 rounded text-xs ${
+            isJoinable 
+              ? 'bg-green-100 text-green-700' 
+              : 'bg-gray-100 text-gray-600'
+          }`}>
+            {statusText}
+          </span>
         </div>
       </div>
     </SelectItem>
