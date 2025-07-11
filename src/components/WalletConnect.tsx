@@ -41,7 +41,7 @@ export const WalletConnect: React.FC = () => {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="flex items-center gap-2">
+          <Button variant="outline" className="flex items-center gap-2 hover:bg-orange-50 hover:border-orange-200 dark:hover:bg-orange-950">
             <Wallet className="w-4 h-4" />
             {formatAddress(address)}
           </Button>
@@ -63,7 +63,7 @@ export const WalletConnect: React.FC = () => {
           <DropdownMenuSeparator />
           <DropdownMenuItem 
             onClick={() => disconnect()} 
-            className="cursor-pointer text-red-600 focus:text-red-600"
+            className="cursor-pointer text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
           >
             <LogOut className="w-4 h-4 mr-2" />
             Disconnect
@@ -74,7 +74,7 @@ export const WalletConnect: React.FC = () => {
   }
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 flex-wrap">
       {connectors.map((connector) => (
         <Button
           key={connector.uid}
@@ -82,8 +82,8 @@ export const WalletConnect: React.FC = () => {
           disabled={isPending}
           variant={connector.name === 'Web3Auth' ? 'default' : 'outline'}
           className={connector.name === 'Web3Auth' ? 
-            'bg-gradient-to-r from-orange-400 to-yellow-500 hover:from-orange-500 hover:to-yellow-600' : 
-            ''
+            'btn-primary' : 
+            'btn-secondary'
           }
         >
           <Wallet className="w-4 h-4 mr-2" />

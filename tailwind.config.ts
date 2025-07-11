@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -53,30 +52,71 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
-				purple: {
-					500: '#c864ff',
-					600: '#b347ff',
-					700: '#9e2aff'
+				// Clean orange-yellow palette matching Create Chama
+				orange: {
+					50: '#fff7ed',
+					100: '#ffedd5',
+					200: '#fed7aa',
+					300: '#fdba74',
+					400: '#fb923c', // Primary orange
+					500: '#f97316', // Main orange
+					600: '#ea580c',
+					700: '#c2410c',
+					800: '#9a3412',
+					900: '#7c2d12',
 				},
-				blue: {
-					500: '#64b5ff',
-					600: '#4798ff'
+				yellow: {
+					50: '#fefce8',
+					100: '#fef9c3',
+					200: '#fef08a',
+					300: '#fde047',
+					400: '#facc15',
+					500: '#eab308', // Accent yellow
+					600: '#ca8a04',
+					700: '#a16207',
+					800: '#854d0e',
+					900: '#713f12',
 				},
-				neon: {
-					pink: '#ff64c8',
-					blue: '#64c8ff',
-					green: '#64ff64',
-					purple: '#c864ff'
+				// Clean grays
+				gray: {
+					50: '#f9fafb',
+					100: '#f3f4f6',
+					200: '#e5e7eb',
+					300: '#d1d5db',
+					400: '#9ca3af',
+					500: '#6b7280',
+					600: '#4b5563',
+					700: '#374151',
+					800: '#1f2937',
+					900: '#111827',
 				}
 			},
 			fontFamily: {
-				'orbitron': ['Orbitron', 'monospace'],
-				'arcade': ['Press Start 2P', 'monospace'],
+				sans: [
+					'-apple-system',
+					'BlinkMacSystemFont',
+					'"Segoe UI"',
+					'Roboto',
+					'"Helvetica Neue"',
+					'Arial',
+					'sans-serif'
+				],
+				mono: [
+					'"SF Mono"',
+					'Monaco',
+					'Inconsolata',
+					'"Roboto Mono"',
+					'monospace'
+				]
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
+			},
+			spacing: {
+				'18': '4.5rem',
+				'88': '22rem',
 			},
 			keyframes: {
 				'accordion-down': {
@@ -115,20 +155,48 @@ export default {
 						opacity: '1'
 					}
 				},
-				'neon-pulse': {
-					'0%, 100%': {
-						textShadow: '0 0 5px currentColor, 0 0 10px currentColor, 0 0 15px currentColor'
+				'slide-up': {
+					'0%': {
+						transform: 'translateY(100%)',
+						opacity: '0'
 					},
-					'50%': {
-						textShadow: '0 0 2px currentColor, 0 0 5px currentColor, 0 0 8px currentColor'
+					'100%': {
+						transform: 'translateY(0)',
+						opacity: '1'
 					}
 				},
-				'glow': {
+				'slide-down': {
+					'0%': {
+						transform: 'translateY(-100%)',
+						opacity: '0'
+					},
+					'100%': {
+						transform: 'translateY(0)',
+						opacity: '1'
+					}
+				},
+				'pulse-orange': {
 					'0%, 100%': {
-						boxShadow: '0 0 20px rgba(200, 100, 255, 0.3)'
+						boxShadow: '0 0 0 0 rgba(249, 115, 22, 0.7)'
+					},
+					'70%': {
+						boxShadow: '0 0 0 10px rgba(249, 115, 22, 0)'
+					}
+				},
+				'bounce-in': {
+					'0%': {
+						transform: 'scale(0.3)',
+						opacity: '0'
 					},
 					'50%': {
-						boxShadow: '0 0 30px rgba(200, 100, 255, 0.5)'
+						transform: 'scale(1.05)'
+					},
+					'70%': {
+						transform: 'scale(0.9)'
+					},
+					'100%': {
+						transform: 'scale(1)',
+						opacity: '1'
 					}
 				}
 			},
@@ -137,8 +205,17 @@ export default {
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'fade-in': 'fade-in 0.3s ease-out',
 				'scale-in': 'scale-in 0.2s ease-out',
-				'neon-pulse': 'neon-pulse 2s ease-in-out infinite',
-				'glow': 'glow 3s ease-in-out infinite'
+				'slide-up': 'slide-up 0.3s ease-out',
+				'slide-down': 'slide-down 0.3s ease-out',
+				'pulse-orange': 'pulse-orange 2s infinite',
+				'bounce-in': 'bounce-in 0.6s ease-out'
+			},
+			boxShadow: {
+				'soft': '0 2px 8px 0 rgba(0, 0, 0, 0.1)',
+				'medium': '0 4px 12px 0 rgba(0, 0, 0, 0.15)',
+				'strong': '0 8px 24px 0 rgba(0, 0, 0, 0.2)',
+				'orange': '0 4px 14px 0 rgba(249, 115, 22, 0.25)',
+				'orange-lg': '0 8px 24px 0 rgba(249, 115, 22, 0.35)',
 			}
 		}
 	},

@@ -1,81 +1,92 @@
-
 @import url('./styles/enhanced-ui.css');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Cyberpunk Freedom Theme - Definition of the design system */
+/* Jenga Clean Design System - Based on Create Chama Component */
 
 @layer base {
   :root {
-    --background: 12 12% 4%;
-    --foreground: 39 100% 85%;
+    /* Light theme - primary theme matching Create Chama */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
 
-    --card: 12 12% 6%;
-    --card-foreground: 39 100% 85%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
 
-    --popover: 12 12% 6%;
-    --popover-foreground: 39 100% 85%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 25 95% 53%;
-    --primary-foreground: 12 12% 4%;
+    --primary: 24.6 95% 53.1%; /* Orange-500 */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 12 12% 12%;
-    --secondary-foreground: 39 100% 85%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
 
-    --muted: 12 12% 12%;
-    --muted-foreground: 39 50% 65%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
 
-    --accent: 39 100% 55%;
-    --accent-foreground: 12 12% 4%;
+    --accent: 45 93% 47%; /* Yellow-500 for accents */
+    --accent-foreground: 222.2 84% 4.9%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 12 12% 15%;
-    --input: 12 12% 15%;
-    --ring: 25 95% 53%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 24.6 95% 53.1%; /* Orange ring */
 
     --radius: 0.5rem;
 
-    --sidebar-background: 12 12% 4%;
-    --sidebar-foreground: 39 100% 85%;
-    --sidebar-primary: 25 95% 53%;
-    --sidebar-primary-foreground: 12 12% 4%;
-    --sidebar-accent: 12 12% 12%;
-    --sidebar-accent-foreground: 39 100% 85%;
-    --sidebar-border: 12 12% 15%;
-    --sidebar-ring: 25 95% 53%;
+    /* Sidebar colors */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 222.2 84% 4.9%;
+    --sidebar-primary: 24.6 95% 53.1%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 40% 96%;
+    --sidebar-accent-foreground: 222.2 84% 4.9%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 24.6 95% 53.1%;
   }
 
   .dark {
-    --background: 12 12% 4%;
-    --foreground: 39 100% 85%;
-    --card: 12 12% 6%;
-    --card-foreground: 39 100% 85%;
-    --popover: 12 12% 6%;
-    --popover-foreground: 39 100% 85%;
-    --primary: 25 95% 53%;
-    --primary-foreground: 12 12% 4%;
-    --secondary: 12 12% 12%;
-    --secondary-foreground: 39 100% 85%;
-    --muted: 12 12% 12%;
-    --muted-foreground: 39 50% 65%;
-    --accent: 39 100% 55%;
-    --accent-foreground: 12 12% 4%;
-    --destructive: 0 84.2% 60.2%;
+    /* Dark theme - clean dark version */
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 24.6 95% 53.1%;
+    --primary-foreground: 222.2 84% 4.9%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 45 93% 47%;
+    --accent-foreground: 222.2 84% 4.9%;
+
+    --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 12 12% 15%;
-    --input: 12 12% 15%;
-    --ring: 25 95% 53%;
-    --sidebar-background: 12 12% 4%;
-    --sidebar-foreground: 39 100% 85%;
-    --sidebar-primary: 25 95% 53%;
-    --sidebar-primary-foreground: 12 12% 4%;
-    --sidebar-accent: 12 12% 12%;
-    --sidebar-accent-foreground: 39 100% 85%;
-    --sidebar-border: 12 12% 15%;
-    --sidebar-ring: 25 95% 53%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 24.6 95% 53.1%;
+
+    --sidebar-background: 222.2 84% 4.9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 24.6 95% 53.1%;
+    --sidebar-primary-foreground: 222.2 84% 4.9%;
+    --sidebar-accent: 217.2 32.6% 17.5%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 24.6 95% 53.1%;
   }
 }
 
@@ -86,106 +97,181 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
-    background-image: 
-      radial-gradient(circle at 25% 25%, rgba(255, 140, 0, 0.1) 0%, transparent 50%),
-      radial-gradient(circle at 75% 75%, rgba(255, 165, 0, 0.05) 0%, transparent 50%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-bold;
-    text-shadow: 0 0 10px rgba(255, 140, 0, 0.3);
+    @apply font-semibold tracking-tight;
+  }
+
+  h1 {
+    @apply text-3xl font-bold;
+  }
+
+  h2 {
+    @apply text-2xl font-semibold;
+  }
+
+  h3 {
+    @apply text-xl font-semibold;
   }
 }
 
 @layer components {
-  .cyber-border {
-    border: 1px solid;
-    border-image: linear-gradient(45deg, #ff8c00, #ffa500, #ff8c00) 1;
-    position: relative;
-  }
-  
-  .cyber-border::before {
-    content: '';
-    position: absolute;
-    top: -1px;
-    left: -1px;
-    right: -1px;
-    bottom: -1px;
-    background: linear-gradient(45deg, #ff8c00, #ffa500, #ff8c00);
-    border-radius: inherit;
-    z-index: -1;
-    opacity: 0.2;
+  /* Primary gradient button - matching Create Chama */
+  .btn-primary {
+    @apply bg-gradient-to-r from-orange-400 to-yellow-500 hover:from-orange-500 hover:to-yellow-600 text-white font-medium px-4 py-2 rounded-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2;
   }
 
-  .neon-glow {
-    box-shadow: 
-      0 0 5px rgba(255, 140, 0, 0.5),
-      0 0 10px rgba(255, 140, 0, 0.3),
-      0 0 15px rgba(255, 140, 0, 0.2);
+  /* Secondary button */
+  .btn-secondary {
+    @apply bg-white border border-gray-300 text-gray-700 font-medium px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2;
   }
 
-  .cyber-grid {
-    background-image: 
-      linear-gradient(rgba(255, 140, 0, 0.1) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 140, 0, 0.1) 1px, transparent 1px);
-    background-size: 20px 20px;
+  /* Outline button */
+  .btn-outline {
+    @apply border border-input bg-background hover:bg-accent hover:text-accent-foreground font-medium px-4 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2;
   }
 
-  .glitch-text {
-    position: relative;
-    animation: glitch 2s infinite;
+  /* Card component */
+  .card {
+    @apply bg-card text-card-foreground rounded-lg border shadow-sm;
   }
 
-  @keyframes glitch {
-    0%, 100% { transform: translate(0); }
-    10% { transform: translate(-1px, -1px); }
-    20% { transform: translate(1px, 1px); }
-    30% { transform: translate(-1px, 1px); }
-    40% { transform: translate(1px, -1px); }
-    50% { transform: translate(-1px, -1px); }
-    60% { transform: translate(1px, 1px); }
-    70% { transform: translate(-1px, 1px); }
-    80% { transform: translate(1px, -1px); }
-    90% { transform: translate(-1px, -1px); }
+  /* Form input */
+  .form-input {
+    @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
   }
 
-  .pulse-orange {
-    animation: pulse-orange 2s infinite;
+  /* Form label */
+  .form-label {
+    @apply text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70;
   }
 
-  @keyframes pulse-orange {
-    0%, 100% { box-shadow: 0 0 5px rgba(255, 140, 0, 0.5); }
-    50% { box-shadow: 0 0 20px rgba(255, 140, 0, 0.8), 0 0 30px rgba(255, 140, 0, 0.6); }
+  /* Success state */
+  .success-state {
+    @apply bg-green-50 border-green-200 text-green-800;
   }
 
-  .cyber-button {
-    background: linear-gradient(45deg, #1a1a1a, #2d2d2d);
-    border: 1px solid #ff8c00;
-    color: #ff8c00;
-    transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
+  .dark .success-state {
+    @apply bg-green-950 border-green-800 text-green-200;
   }
 
-  .cyber-button::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 140, 0, 0.2), transparent);
-    transition: left 0.5s;
+  /* Error state */
+  .error-state {
+    @apply bg-red-50 border-red-200 text-red-800;
   }
 
-  .cyber-button:hover::before {
-    left: 100%;
+  .dark .error-state {
+    @apply bg-red-950 border-red-800 text-red-200;
   }
 
-  .cyber-button:hover {
-    background: linear-gradient(45deg, #2d2d2d, #3d3d3d);
-    box-shadow: 0 0 15px rgba(255, 140, 0, 0.5);
-    transform: translateY(-1px);
+  /* Info state */
+  .info-state {
+    @apply bg-blue-50 border-blue-200 text-blue-800;
+  }
+
+  .dark .info-state {
+    @apply bg-blue-950 border-blue-800 text-blue-200;
+  }
+
+  /* Loading skeleton */
+  .skeleton {
+    @apply animate-pulse bg-muted rounded;
+  }
+
+  /* Stats card */
+  .stats-card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200;
+  }
+
+  .dark .stats-card {
+    @apply bg-card border-border;
+  }
+
+  /* Quick action button */
+  .quick-action {
+    @apply flex items-center gap-3 p-4 rounded-lg transition-colors duration-200;
+  }
+
+  .quick-action-orange {
+    @apply bg-gradient-to-r from-orange-50 to-yellow-50 hover:from-orange-100 hover:to-yellow-100;
+  }
+
+  .quick-action-blue {
+    @apply bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100;
+  }
+
+  .quick-action-red {
+    @apply bg-gradient-to-r from-red-50 to-pink-50 hover:from-red-100 hover:to-pink-100;
+  }
+
+  .quick-action-yellow {
+    @apply bg-gradient-to-r from-yellow-50 to-orange-50 hover:from-yellow-100 hover:to-orange-100;
+  }
+
+  /* Icon containers for quick actions */
+  .quick-action-icon {
+    @apply w-10 h-10 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-200;
+  }
+
+  .quick-action-icon-orange {
+    @apply bg-gradient-to-r from-orange-400 to-yellow-500;
+  }
+
+  .quick-action-icon-blue {
+    @apply bg-gradient-to-r from-blue-400 to-indigo-500;
+  }
+
+  .quick-action-icon-red {
+    @apply bg-gradient-to-r from-red-400 to-pink-500;
+  }
+
+  .quick-action-icon-yellow {
+    @apply bg-gradient-to-r from-yellow-400 to-orange-500;
+  }
+
+  /* Navigation styles */
+  .nav-link {
+    @apply flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200;
+  }
+
+  .nav-link-active {
+    @apply text-orange-600 bg-orange-50;
+  }
+
+  .nav-link-inactive {
+    @apply text-gray-600 hover:text-orange-600 hover:bg-orange-50;
+  }
+
+  /* Welcome screen styles */
+  .welcome-container {
+    @apply min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center p-4;
+  }
+
+  .welcome-logo {
+    @apply w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center;
+  }
+
+  /* Modal and dialog styles */
+  .modal-content {
+    @apply bg-background border border-border rounded-lg shadow-lg;
+  }
+
+  /* Transaction status */
+  .tx-status {
+    @apply p-3 rounded-lg;
+  }
+
+  .tx-status-pending {
+    @apply bg-blue-50 dark:bg-blue-950;
+  }
+
+  .tx-status-success {
+    @apply bg-green-50 dark:bg-green-950;
+  }
+
+  .tx-status-error {
+    @apply bg-red-50 dark:bg-red-950;
   }
 }
