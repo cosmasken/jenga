@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { useTranslation } from 'react-i18next';
 import { Button } from './ui/button';
 import { Wallet, LogOut, Copy, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -16,13 +17,14 @@ export const WalletConnect: React.FC = () => {
   const { connect, connectors, isPending } = useConnect();
   const { disconnect } = useDisconnect();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const copyAddress = () => {
     if (address) {
       navigator.clipboard.writeText(address);
       toast({
-        title: "Address Copied",
-        description: "Wallet address copied to clipboard",
+        title: t('wallet.addressCopied'),
+        description: t('wallet.addressCopiedDesc'),
       });
     }
   };
@@ -48,17 +50,17 @@ export const WalletConnect: React.FC = () => {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <div className="px-2 py-1.5">
-            <p className="text-sm font-medium">Connected with {connector?.name}</p>
+            <p className="text-sm font-medium">{t('wallet.connectedWith', { connector: connector?.name })}</p>
             <p className="text-xs text-muted-foreground">{address}</p>
           </div>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={copyAddress} className="cursor-pointer">
             <Copy className="w-4 h-4 mr-2" />
-            Copy Address
+            {t('wallet.copyAddress')}
           </DropdownMenuItem>
           <DropdownMenuItem onClick={openExplorer} className="cursor-pointer">
             <ExternalLink className="w-4 h-4 mr-2" />
-            View on Explorer
+            {t('wallet.viewOnExplorer')}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem 
@@ -66,7 +68,7 @@ export const WalletConnect: React.FC = () => {
             className="cursor-pointer text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
           >
             <LogOut className="w-4 h-4 mr-2" />
-            Disconnect
+            {t('wallet.disconnect')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -87,7 +89,7 @@ export const WalletConnect: React.FC = () => {
           }
         >
           <Wallet className="w-4 h-4 mr-2" />
-          {connector.name === 'Web3Auth' ? 'Connect with Social' : `Connect ${connector.name}`}
+          {connector.name === 'Web3Auth' ? t('wallet.connectWithSocial') : `${t('wallet.connect')} ${connector.name}`}
         </Button>
       ))}
     </div>

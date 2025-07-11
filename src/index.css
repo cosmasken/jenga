@@ -244,11 +244,7 @@
     @apply text-gray-600 hover:text-orange-600 hover:bg-orange-50;
   }
 
-  /* Welcome screen styles */
-  .welcome-container {
-    @apply min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center p-4;
-  }
-
+  /* Welcome screen styles - removed to avoid conflicts with Layout component */
   .welcome-logo {
     @apply w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center;
   }

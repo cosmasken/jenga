@@ -3,15 +3,19 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Home } from 'lucide-react';
 import { useAccount } from 'wagmi';
+import { useTranslation } from 'react-i18next';
 import { WalletConnect } from '../WalletConnect';
+import { ThemeToggle } from '../ThemeToggle';
+import { LanguageSwitcher } from '../LanguageSwitcher';
 
 export const Navbar: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const { isConnected } = useAccount();
+  const { t } = useTranslation();
 
   const navItems = [
-    { path: '/', label: 'Dashboard', icon: Home },
+    { path: '/', label: t('navigation.dashboard'), icon: Home },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -46,8 +50,10 @@ export const Navbar: React.FC = () => {
             ))}
           </div>
 
-          {/* Wallet Connection */}
-          <div className="hidden md:flex items-center">
+          {/* Desktop Actions */}
+          <div className="hidden md:flex items-center space-x-3">
+            <LanguageSwitcher />
+            <ThemeToggle />
             <WalletConnect />
           </div>
 
@@ -81,7 +87,15 @@ export const Navbar: React.FC = () => {
               </Link>
             ))}
             
-            <div className="border-t border-gray-200 dark:border-border pt-4 mt-4">
+            <div className="border-t border-gray-200 dark:border-border pt-4 mt-4 space-y-3">
+              <div className="px-3 flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700 dark:text-foreground">{t('language.changeLanguage')}</span>
+                <LanguageSwitcher />
+              </div>
+              <div className="px-3 flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700 dark:text-foreground">{t('theme.toggleTheme')}</span>
+                <ThemeToggle />
+              </div>
               <div className="px-3">
                 <WalletConnect />
               </div>

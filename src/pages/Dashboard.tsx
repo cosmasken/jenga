@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Users, TrendingUp, Gift, Bitcoin, Trophy } from 'lucide-react';
 import { useAccount, useBalance } from 'wagmi';
+import { useTranslation } from 'react-i18next';
 import { formatEther } from 'viem';
 import { useGetUserChamas, useGetUserScore } from '../hooks/useJengaContract';
 import { citreaTestnet } from '../wagmi';
@@ -20,6 +21,7 @@ export const Dashboard: React.FC = () => {
   const [stackBTCOpen, setStackBTCOpen] = useState(false);
 
   const { address, isConnected } = useAccount();
+  const { t } = useTranslation();
   
   // Get user balance
   const { data: balance } = useBalance({
@@ -49,28 +51,28 @@ export const Dashboard: React.FC = () => {
 
   const stats = [
     {
-      title: 'Total Balance',
-      value: `${formatBalance(balance?.value)} cBTC`,
+      title: t('dashboard.totalBalance'),
+      value: `${formatBalance(balance?.value)} ${t('currency.cbtc')}`,
       icon: Bitcoin,
       color: 'text-orange-500',
       bgColor: 'bg-orange-50 dark:bg-orange-950',
     },
     {
-      title: 'Active Chamas',
+      title: t('dashboard.activeChamas'),
       value: userChamas?.length?.toString() || '0',
       icon: Users,
       color: 'text-blue-500',
       bgColor: 'bg-blue-50 dark:bg-blue-950',
     },
     {
-      title: 'Jenga Score',
+      title: t('dashboard.jengaScore'),
       value: userScore?.toString() || '0',
       icon: Trophy,
       color: 'text-yellow-500',
       bgColor: 'bg-yellow-50 dark:bg-yellow-950',
     },
     {
-      title: 'Monthly Growth',
+      title: t('dashboard.monthlyGrowth'),
       value: '+12.5%',
       icon: TrendingUp,
       color: 'text-green-500',
@@ -91,9 +93,9 @@ export const Dashboard: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-foreground mb-2">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-foreground mb-2">{t('dashboard.title')}</h1>
           <p className="text-gray-600 dark:text-muted-foreground">
-            Welcome back! Here's your Jenga overview.
+            {t('dashboard.subtitle')}
           </p>
         </div>
         <div className="flex flex-wrap gap-3 mt-4 sm:mt-0">
@@ -102,14 +104,14 @@ export const Dashboard: React.FC = () => {
             className="btn-primary flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
-            Create Chama
+            {t('chama.create')}
           </button>
           <button
             onClick={() => setJoinChamaOpen(true)}
             className="btn-secondary flex items-center gap-2"
           >
             <Users className="w-4 h-4" />
-            Join Chama
+            {t('chama.join')}
           </button>
         </div>
       </div>
@@ -123,7 +125,7 @@ export const Dashboard: React.FC = () => {
 
       {/* Quick Actions */}
       <div className="stats-card mb-8">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-foreground mb-4">Quick Actions</h2>
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-foreground mb-4">{t('dashboard.quickActions')}</h2>
         <div className="responsive-grid">
           <button
             onClick={() => setCreateChamaOpen(true)}
@@ -133,8 +135,8 @@ export const Dashboard: React.FC = () => {
               <Plus className="w-5 h-5 text-white" />
             </div>
             <div className="text-left">
-              <p className="font-medium text-gray-900 dark:text-foreground">Create Chama</p>
-              <p className="text-sm text-gray-600 dark:text-muted-foreground">Start a new group</p>
+              <p className="font-medium text-gray-900 dark:text-foreground">{t('chama.create')}</p>
+              <p className="text-sm text-gray-600 dark:text-muted-foreground">{t('chama.startNewGroup')}</p>
             </div>
           </button>
 
@@ -146,8 +148,8 @@ export const Dashboard: React.FC = () => {
               <Users className="w-5 h-5 text-white" />
             </div>
             <div className="text-left">
-              <p className="font-medium text-gray-900 dark:text-foreground">Join Chama</p>
-              <p className="text-sm text-gray-600 dark:text-muted-foreground">Find existing groups</p>
+              <p className="font-medium text-gray-900 dark:text-foreground">{t('chama.join')}</p>
+              <p className="text-sm text-gray-600 dark:text-muted-foreground">{t('chama.findExistingGroups')}</p>
             </div>
           </button>
 
@@ -159,8 +161,8 @@ export const Dashboard: React.FC = () => {
               <Gift className="w-5 h-5 text-white" />
             </div>
             <div className="text-left">
-              <p className="font-medium text-gray-900 dark:text-foreground">Red Envelope</p>
-              <p className="text-sm text-gray-600 dark:text-muted-foreground">Send gifts</p>
+              <p className="font-medium text-gray-900 dark:text-foreground">{t('actions.redEnvelope')}</p>
+              <p className="text-sm text-gray-600 dark:text-muted-foreground">{t('actions.sendGifts')}</p>
             </div>
           </button>
 
@@ -172,8 +174,8 @@ export const Dashboard: React.FC = () => {
               <Bitcoin className="w-5 h-5 text-white" />
             </div>
             <div className="text-left">
-              <p className="font-medium text-gray-900 dark:text-foreground">Stack BTC</p>
-              <p className="text-sm text-gray-600 dark:text-muted-foreground">Auto-invest</p>
+              <p className="font-medium text-gray-900 dark:text-foreground">{t('actions.stackBTC')}</p>
+              <p className="text-sm text-gray-600 dark:text-muted-foreground">{t('actions.autoInvest')}</p>
             </div>
           </button>
         </div>
@@ -182,9 +184,9 @@ export const Dashboard: React.FC = () => {
       {/* My Chamas */}
       <div className="stats-card">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-foreground">My Chamas</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-foreground">{t('dashboard.myChamas')}</h2>
           <span className="text-sm text-gray-500 dark:text-muted-foreground">
-            {userChamas?.length || 0} active groups
+            {t('dashboard.activeGroups', { count: userChamas?.length || 0 })}
           </span>
         </div>
 
@@ -193,22 +195,22 @@ export const Dashboard: React.FC = () => {
             <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
               <Users className="w-8 h-8 text-gray-400" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-foreground mb-2">No Chamas Yet</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-foreground mb-2">{t('dashboard.noChamas')}</h3>
             <p className="text-gray-600 dark:text-muted-foreground mb-6">
-              Create your first chama or join an existing one to get started.
+              {t('dashboard.noChamasDesc')}
             </p>
             <div className="flex justify-center gap-4">
               <button
                 onClick={() => setCreateChamaOpen(true)}
                 className="btn-primary"
               >
-                Create Chama
+                {t('chama.create')}
               </button>
               <button
                 onClick={() => setJoinChamaOpen(true)}
                 className="btn-secondary"
               >
-                Join Chama
+                {t('chama.join')}
               </button>
             </div>
           </div>
@@ -216,7 +218,7 @@ export const Dashboard: React.FC = () => {
           <div className="responsive-grid">
             {/* This would be populated with actual chama data from the contract */}
             <div className="text-center py-8 text-gray-500 dark:text-muted-foreground">
-              Chama data will be displayed here once contract integration is complete
+              {t('dashboard.chamaDataPlaceholder')}
             </div>
           </div>
         )}
