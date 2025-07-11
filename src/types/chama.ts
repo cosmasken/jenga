@@ -1,16 +1,16 @@
 
 export interface Chama {
-  id: number;
   name: string;
-  contributionAmount: number; // in BTC (Wei equivalent for Citrea)
-  cycleDuration: number; // in months
+  contributionAmount: number; // in Wei
+  cycleDuration: number; // in seconds
   maxMembers: number;
   members: string[]; // wallet addresses
   active: boolean;
-  createdAt: number; // timestamp
-  nextPayout?: number; // timestamp
-  totalContributions: number;
+  currentCycle: number;
+  currentRecipientIndex: number;
+  lastCycleTimestamp: number;
 }
+
 
 export interface Contribution {
   id: string;

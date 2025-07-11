@@ -1,17 +1,11 @@
 
 export interface RedEnvelope {
-  id: string;
-  sender: string; // wallet address
-  recipients: string[]; // wallet addresses
-  totalAmount: number; // in Wei
-  amounts: number[]; // individual amounts in Wei
-  message: string;
-  theme: RedEnvelopeTheme;
-  mode: RedEnvelopeMode;
-  claimed: boolean[];
-  createdAt: number;
-  expiresAt: number;
-  txHash?: string;
+  sender: string;
+  recipients: string[];
+  totalAmount: number;
+  amounts: number[];
+  isRandom: boolean;
+  claimed: boolean;
 }
 
 export interface RedEnvelopeMode {
