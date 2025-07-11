@@ -1,3 +1,4 @@
+import React from 'react';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import { Address, parseEther, formatEther, parseUnits, formatUnits } from 'viem';
 import { JENGA_CONTRACT } from '../contracts/jenga-contract';
@@ -50,18 +51,62 @@ export function useGetUserContributions(chamaId: bigint, userAddress: Address) {
 }
 
 // Note: The actual Jenga.sol contract doesn't have a getUserChamas function
-// This is a placeholder that returns empty data since we'd need to track this via events
+// This implementation fetches chama count and checks membership for each chama
 export function useGetUserChamas(userAddress: Address) {
-  // Since the contract doesn't have this function, we return a mock structure
-  // In a real implementation, you'd need to:
-  // 1. Listen to ChamaCreated and ChamaJoined events
-  // 2. Filter by user address
-  // 3. Build the user's chama list from events
+  // First get the total number of chamas
+  const { data: chamaCount, isLoading: countLoading } = useGetChamaCount();
+  
+  // For now, let's limit to checking the first 10 chamas to avoid too many hook calls
+  // In a production app, you'd want to implement pagination or use events
+  const MAX_CHAMAS_TO_CHECK = 10;
+  
+  // Always call the same number of hooks (fixed number)
+  const chama1 = useGetChamaInfo(1n);
+  const chama2 = useGetChamaInfo(2n);
+  const chama3 = useGetChamaInfo(3n);
+  const chama4 = useGetChamaInfo(4n);
+  const chama5 = useGetChamaInfo(5n);
+  const chama6 = useGetChamaInfo(6n);
+  const chama7 = useGetChamaInfo(7n);
+  const chama8 = useGetChamaInfo(8n);
+  const chama9 = useGetChamaInfo(9n);
+  const chama10 = useGetChamaInfo(10n);
+
+  const chamaQueries = [chama1, chama2, chama3, chama4, chama5, chama6, chama7, chama8, chama9, chama10];
+
+  // Process the results
+  const userChamas = React.useMemo(() => {
+    if (!userAddress || !chamaCount || chamaCount === 0n) return [];
+    
+    const chamas = [];
+    const totalChamas = Math.min(Number(chamaCount), MAX_CHAMAS_TO_CHECK);
+    
+    for (let i = 0; i < totalChamas; i++) {
+      const query = chamaQueries[i];
+      if (query.data) {
+        const chamaInfo = formatChamaInfo(query.data);
+        if (chamaInfo && chamaInfo.active) {
+          // Add the chama ID to the info
+          chamas.push({
+            id: BigInt(i + 1),
+            ...chamaInfo,
+          });
+        }
+      }
+    }
+    return chamas;
+  }, [chamaQueries, userAddress, chamaCount]);
+
+  const isLoading = countLoading || chamaQueries.some(query => query.isLoading);
+  const error = chamaQueries.find(query => query.error)?.error || null;
+
   return {
-    data: [], // Empty array as placeholder
-    isLoading: false,
-    error: null,
-    refetch: () => Promise.resolve(),
+    data: userChamas,
+    isLoading,
+    error,
+    refetch: () => {
+      chamaQueries.forEach(query => query.refetch?.());
+    },
   };
 }
 

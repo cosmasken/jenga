@@ -215,11 +215,51 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="responsive-grid">
-            {/* This would be populated with actual chama data from the contract */}
-            <div className="text-center py-8 text-gray-500 dark:text-muted-foreground">
-              {t('dashboard.chamaDataPlaceholder')}
-            </div>
+          <div className="space-y-4">
+            {chamasLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                <p className="text-gray-500 dark:text-muted-foreground">Loading your chamas...</p>
+              </div>
+            ) : userChamas && userChamas.length > 0 ? (
+              <div className="responsive-grid">
+                {userChamas.map((chama: any) => (
+                  <ChamaCard 
+                    key={chama.id.toString()} 
+                    chama={{
+                      // id: Number(chama.id),
+                      name: chama.name,
+                      contributionAmount: Number(formatEther(chama.contributionAmount)),
+                      cycleDuration: Number(chama.cycleDuration) / (24 * 60 * 60), // Convert seconds to days
+                      maxMembers: Number(chama.maxMembers),
+                      members: [], // We don't have member list from contract
+                      active: chama.active,
+                      currentCycle: Number(chama.currentCycle),
+                      currentRecipientIndex: Number(chama.currentRecipientIndex),
+                      lastCycleTimestamp: Number(chama.lastCycleTimestamp),
+                      // totalContributions: '0', // Would need to calculate this
+                      // nextPayoutDate: new Date(Date.now() + Number(chama.cycleDuration) * 1000).toISOString(),
+                    }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-muted-foreground">
+                <p className="mb-4">You haven't joined any chamas yet.</p>
+                <button
+                  onClick={() => setCreateChamaOpen(true)}
+                  className="btn-primary mr-2"
+                >
+                  Create Your First Chama
+                </button>
+                <button
+                  onClick={() => setJoinChamaOpen(true)}
+                  className="btn-secondary"
+                >
+                  Join Existing Chama
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
