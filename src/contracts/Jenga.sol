@@ -112,7 +112,7 @@ contract Jenga {
         uint256 _maxMembers
     ) public payable {
         require(_contributionAmount > 0, "Contribution must be > 0");
-        require(_cycleDuration >= 7 days, "Cycle must be >= 7 days");
+        require(_cycleDuration >= 7 minutes, "Cycle must be >= 7 minutes");
         require(_maxMembers >= 3 && _maxMembers <= 20, "Members: 3-20");
         require(msg.value >= _contributionAmount, "Must deposit collateral equal to contribution amount");
         

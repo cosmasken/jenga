@@ -240,14 +240,43 @@ export function useCreateChama() {
     // Convert sats to wei: 1 sat = 1e10 wei (since 1 BTC = 1e8 sats and 1 BTC = 1e18 wei)
     const contributionAmount = BigInt(contributionSats) * 10n ** 10n;
     
-    writeContract({
-      ...JENGA_CONTRACT,
+    console.log('=== useCreateChama Debug ===');
+    console.log('Input parameters:', {
+      name,
+      contributionSats,
+      payoutPeriodSeconds: payoutPeriodSeconds.toString(),
+      maxMembers: maxMembers.toString()
+    });
+    
+    console.log('Calculated values:', {
+      contributionAmount: contributionAmount.toString(),
+      contributionAmountInEther: contributionAmount.toString(),
+      contractAddress: JENGA_CONTRACT.address,
+      chainId: citreaTestnet.id
+    });
+    
+    console.log('Final writeContract call:', {
+      contract: JENGA_CONTRACT.address,
       functionName: 'createChama',
       args: [name, contributionAmount, payoutPeriodSeconds, maxMembers],
-      value: contributionAmount, // Send collateral equal to contribution amount
-      chain: citreaTestnet,
-      account: address,
+      value: contributionAmount.toString(),
+      account: address
     });
+    
+    try {
+      writeContract({
+        ...JENGA_CONTRACT,
+        functionName: 'createChama',
+        args: [name, contributionAmount, payoutPeriodSeconds, maxMembers],
+        value: contributionAmount, // Send collateral equal to contribution amount
+        chain: citreaTestnet,
+        account: address,
+      });
+      console.log('writeContract called successfully');
+    } catch (error) {
+      console.error('Error in writeContract call:', error);
+      throw error;
+    }
   };
 
   return {
