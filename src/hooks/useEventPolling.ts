@@ -68,7 +68,8 @@ export function useEventPolling(enabled: boolean = true) {
         }
       }
     } catch (error) {
-      console.error('Error polling for events:', error);
+      // Silently handle polling errors to avoid console spam
+      // In production, this could be sent to an error monitoring service
     } finally {
       setIsPolling(false);
     }

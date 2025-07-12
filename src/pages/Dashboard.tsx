@@ -7,7 +7,7 @@ import { useGetUserChamas, useGetUserScore } from '../hooks/useJengaContract';
 import { useAutomatedCycles } from '../hooks/useAutomatedCycles';
 import { citreaTestnet } from '../wagmi';
 import { StatsCard } from '../components/dashboard/StatsCard';
-import { LoadingSkeleton } from '../components/ui/LoadingSkeleton';
+import { LoadingState, DashboardSkeleton, useLoadingState } from '../components/ui/LoadingStates';
 import { CreateChamaModal } from '../components/modals/CreateChamaModal';
 import { JoinChamaModal } from '../components/modals/JoinChamaModal';
 import { SendRedEnvelopeModal } from '../components/modals/SendRedEnvelopeModal';
@@ -19,7 +19,6 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 
 export const Dashboard: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(true);
   const [createChamaOpen, setCreateChamaOpen] = useState(false);
   const [joinChamaOpen, setJoinChamaOpen] = useState(false);
   const [redEnvelopeOpen, setRedEnvelopeOpen] = useState(false);
@@ -27,7 +26,7 @@ export const Dashboard: React.FC = () => {
   const [selectedChamaId, setSelectedChamaId] = useState<bigint | null>(null);
   const [showTestFlow, setShowTestFlow] = useState(false);
 
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, isConnecting } = useAccount();
   const { t } = useTranslation();
   
   // Automated cycle management
@@ -38,31 +37,57 @@ export const Dashboard: React.FC = () => {
     clearNotifications = () => {} 
   } = useAutomatedCycles();
   
-  // Get user balance
-  const { data: balance } = useBalance({
+  // Get user balance with loading and error states
+  const { 
+    data: balance, 
+    isLoading: balanceLoading, 
+    error: balanceError 
+  } = useBalance({
     address,
     chainId: citreaTestnet.id,
   });
 
-  // Get user chamas from contract
-  const { data: userChamas, isLoading: chamasLoading } = useGetUserChamas(address!);
+  // Get user chamas from contract with loading and error states
+  const { 
+    data: userChamas, 
+    isLoading: chamasLoading, 
+    error: chamasError 
+  } = useGetUserChamas(address!);
   
-  // Get user score from contract
-  const { data: userScore, isLoading: scoreLoading } = useGetUserScore(address!);
+  // Get user score from contract with loading and error states
+  const { 
+    data: userScore, 
+    isLoading: scoreLoading, 
+    error: scoreError 
+  } = useGetUserScore(address!);
 
-  useEffect(() => {
-    // Simulate loading delay for better UX
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, []);
+  // Overall loading and error states
+  const isLoading = isConnecting || balanceLoading || chamasLoading || scoreLoading;
+  const hasError = balanceError || chamasError || scoreError;
 
   const formatBalance = (balance: bigint | undefined) => {
     if (!balance) return '0.00';
     return parseFloat(formatEther(balance)).toFixed(4);
   };
+
+  // Show loading skeleton while data is loading
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
+  // Show error state if there are errors
+  if (hasError) {
+    return (
+      <div className="space-y-4">
+        <LoadingState
+          type="data"
+          state="error"
+          message="Failed to load dashboard data"
+          onRetry={() => window.location.reload()}
+        />
+      </div>
+    );
+  }
 
   const stats = [
     {
@@ -94,14 +119,6 @@ export const Dashboard: React.FC = () => {
       bgColor: 'bg-yellow-50 dark:bg-yellow-950',
     },
   ];
-
-  if (isLoading || chamasLoading || scoreLoading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <LoadingSkeleton />
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 fade-in">

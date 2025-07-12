@@ -354,29 +354,6 @@ export function useCreateChama() {
     // Convert sats to wei: 1 sat = 1e10 wei (since 1 BTC = 1e8 sats and 1 BTC = 1e18 wei)
     const contributionAmount = BigInt(contributionSats) * 10n ** 10n;
     
-    console.log('=== useCreateChama Debug ===');
-    console.log('Input parameters:', {
-      name,
-      contributionSats,
-      payoutPeriodSeconds: payoutPeriodSeconds.toString(),
-      maxMembers: maxMembers.toString()
-    });
-    
-    console.log('Calculated values:', {
-      contributionAmount: contributionAmount.toString(),
-      contributionAmountInEther: contributionAmount.toString(),
-      contractAddress: JENGA_CONTRACT.address,
-      chainId: citreaTestnet.id
-    });
-    
-    console.log('Final writeContract call:', {
-      contract: JENGA_CONTRACT.address,
-      functionName: 'createChama',
-      args: [name, contributionAmount, payoutPeriodSeconds, maxMembers],
-      value: contributionAmount.toString(),
-      account: address
-    });
-    
     try {
       writeContract({
         ...JENGA_CONTRACT,
@@ -386,9 +363,7 @@ export function useCreateChama() {
         chain: citreaTestnet,
         account: address,
       });
-      console.log('writeContract called successfully');
     } catch (error) {
-      console.error('Error in writeContract call:', error);
       throw error;
     }
   };
@@ -474,11 +449,6 @@ export function useStartChama() {
   });
 
   const startChama = (chamaId: bigint) => {
-    console.log('Starting chama:', {
-      chamaId: chamaId.toString(),
-      caller: address,
-    });
-
     writeContract({
       ...JENGA_CONTRACT,
       functionName: 'startChama', // This function needs to be added to contract
@@ -534,30 +504,47 @@ export const useContribute = useStackBTC;
 export function formatChamaInfo(data: any) {
   if (!data || !Array.isArray(data)) return null;
   
-  // Ensure members is always an array
-  let members = [];
-  if (Array.isArray(data[4])) {
-    members = data[4];
-  } else if (data[4]) {
-    // If it's not an array but has a value, try to convert it
-    console.warn('Members data is not an array:', data[4]);
-    members = [];
+  // Debug: Log the actual data structure (remove in production)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Raw chama data from contract:', {
+      length: data.length,
+      data: data.map((item, index) => ({
+        index,
+        value: item,
+        type: typeof item,
+        isArray: Array.isArray(item)
+      }))
+    });
   }
+  
+  // Correct field order based on Solidity struct:
+  // struct Chama {
+  //     string name;                    // data[0]
+  //     uint256 contributionAmount;     // data[1] 
+  //     uint256 cycleDuration;          // data[2]
+  //     uint256 maxMembers;             // data[3]
+  //     address[] members;              // ❌ NOT RETURNED by public mapping
+  //     bool active;                    // data[4] ← This is what we're getting as "true"
+  //     uint256 currentCycle;           // data[5]
+  //     uint256 currentRecipientIndex;  // data[6]
+  //     uint256 lastCycleTimestamp;     // data[7]
+  //     uint256 totalPool;              // data[8]
+  //     // bool[] membersPaid;          // ❌ NOT RETURNED
+  //     uint256 totalCollateral;        // data[9] (if returned)
+  // }
   
   return {
     name: data[0] || '',
     contributionAmount: data[1] || 0n,
     cycleDuration: data[2] || 0n,
     maxMembers: data[3] || 0n,
-    members: members, // Always an array
-    active: data[5] || false,
-    currentCycle: data[6] || 0n,
-    currentRecipientIndex: data[7] || 0n,
-    lastCycleTimestamp: data[8] || 0n,
-    totalPool: data[9] || 0n,
-    // Note: membersPaid array might be at data[10] but could be empty
-    // totalCollateral might be at data[11] or later depending on what's returned
-    totalCollateral: data[11] || data[10] || 0n,
+    members: [], // Will be populated separately via getChamaMembers
+    active: data[4] || false,
+    currentCycle: data[5] || 0n,
+    currentRecipientIndex: data[6] || 0n,
+    lastCycleTimestamp: data[7] || 0n,
+    totalPool: data[8] || 0n,
+    totalCollateral: data[9] || 0n,
   };
 }
 
