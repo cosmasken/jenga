@@ -71,6 +71,7 @@ contract Jenga {
     // Events
     event ChamaCreated(uint256 chamaId, string name, address creator, uint256 contributionAmount);
     event ChamaJoined(uint256 chamaId, address member);
+    event ChamaStarted(uint256 chamaId, address starter, uint256 timestamp);
     event ChamaClosed(uint256 chamaId);
     event ChamaCycleCompleted(uint256 chamaId, uint256 cycleNumber);
     event ChamaCyclePayout(uint256 chamaId, address recipient, uint256 amount, uint256 cycleNumber);
@@ -168,6 +169,17 @@ contract Jenga {
         if (chama.members.length == chama.maxMembers) {
             _startChama(_chamaId);
         }
+    }
+
+    // Public function for creator to manually start chama (one-time only)
+    function startChama(uint256 _chamaId) public chamaExists(_chamaId) chamaActive(_chamaId) {
+        Chama storage chama = chamas[_chamaId];
+        require(chama.currentCycle == 0, "Chama already started");
+        require(chama.members.length == chama.maxMembers, "Chama not full");
+        require(chama.members[0] == msg.sender, "Only creator can start chama");
+        
+        _startChama(_chamaId);
+        emit ChamaStarted(_chamaId, msg.sender, block.timestamp);
     }
 
     // Internal function to start a chama

@@ -181,6 +181,31 @@
 			{
 				"indexed": false,
 				"internalType": "address",
+				"name": "starter",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "timestamp",
+				"type": "uint256"
+			}
+		],
+		"name": "ChamaStarted",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "chamaId",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "address",
 				"name": "member",
 				"type": "address"
 			},
@@ -1052,6 +1077,19 @@
 		"name": "stackBTC",
 		"outputs": [],
 		"stateMutability": "payable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "uint256",
+				"name": "_chamaId",
+				"type": "uint256"
+			}
+		],
+		"name": "startChama",
+		"outputs": [],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{

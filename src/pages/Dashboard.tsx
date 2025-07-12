@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Users, TrendingUp, Gift, Bitcoin, Trophy } from 'lucide-react';
+import { Plus, Users, TrendingUp, Gift, Bitcoin, Trophy, Bell, AlertCircle } from 'lucide-react';
 import { useAccount, useBalance } from 'wagmi';
 import { useTranslation } from 'react-i18next';
 import { formatEther } from 'viem';
 import { useGetUserChamas, useGetUserScore } from '../hooks/useJengaContract';
+import { useAutomatedCycles } from '../hooks/useAutomatedCycles';
 import { citreaTestnet } from '../wagmi';
 import { StatsCard } from '../components/dashboard/StatsCard';
 import { LoadingSkeleton } from '../components/ui/LoadingSkeleton';
@@ -11,8 +12,11 @@ import { CreateChamaModal } from '../components/modals/CreateChamaModal';
 import { JoinChamaModal } from '../components/modals/JoinChamaModal';
 import { SendRedEnvelopeModal } from '../components/modals/SendRedEnvelopeModal';
 import { StackBTCModal } from '../components/modals/StackBTCModal';
-import { AllChamasBrowser } from '../components/AllChamasBrowser';
-import { TestFlowGuide } from '../components/TestFlowGuide';
+import { TeamFormation } from '../components/TeamFormation';
+import { InteractiveTestFlow } from '../components/InteractiveTestFlow';
+import { Alert, AlertDescription } from '../components/ui/alert';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
 
 export const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -21,9 +25,18 @@ export const Dashboard: React.FC = () => {
   const [redEnvelopeOpen, setRedEnvelopeOpen] = useState(false);
   const [stackBTCOpen, setStackBTCOpen] = useState(false);
   const [selectedChamaId, setSelectedChamaId] = useState<bigint | null>(null);
+  const [showTestFlow, setShowTestFlow] = useState(false);
 
   const { address, isConnected } = useAccount();
   const { t } = useTranslation();
+  
+  // Automated cycle management
+  const { 
+    notifications = [], 
+    urgentActions = [], 
+    summaryStats = { activeChamas: 0, pendingContributions: 0, completedCycles: 0, totalNotifications: 0 }, 
+    clearNotifications = () => {} 
+  } = useAutomatedCycles();
   
   // Get user balance
   const { data: balance } = useBalance({
@@ -60,11 +73,18 @@ export const Dashboard: React.FC = () => {
       bgColor: 'bg-orange-50 dark:bg-orange-950',
     },
     {
-      title: t('dashboard.activeChamas'),
-      value: userChamas?.length?.toString() || '0',
+      title: 'Active Chamas',
+      value: summaryStats.activeChamas.toString(),
       icon: Users,
       color: 'text-blue-500',
       bgColor: 'bg-blue-50 dark:bg-blue-950',
+    },
+    {
+      title: 'Pending Contributions',
+      value: summaryStats.pendingContributions.toString(),
+      icon: TrendingUp,
+      color: summaryStats.pendingContributions > 0 ? 'text-red-500' : 'text-green-500',
+      bgColor: summaryStats.pendingContributions > 0 ? 'bg-red-50 dark:bg-red-950' : 'bg-green-50 dark:bg-green-950',
     },
     {
       title: t('dashboard.jengaScore'),
@@ -72,13 +92,6 @@ export const Dashboard: React.FC = () => {
       icon: Trophy,
       color: 'text-yellow-500',
       bgColor: 'bg-yellow-50 dark:bg-yellow-950',
-    },
-    {
-      title: t('dashboard.monthlyGrowth'),
-      value: '+12.5%',
-      icon: TrendingUp,
-      color: 'text-green-500',
-      bgColor: 'bg-green-50 dark:bg-green-950',
     },
   ];
 
@@ -183,24 +196,107 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Test Flow Guide */}
-      <TestFlowGuide
-        onCreateChama={() => setCreateChamaOpen(true)}
-        onJoinChama={() => setJoinChamaOpen(true)}
-        onContribute={() => setStackBTCOpen(true)}
-      />
+      {/* Urgent Actions Alert */}
+      {urgentActions.length > 0 && (
+        <Alert className="border-red-500 bg-red-50 dark:bg-red-950">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <strong>Action Required:</strong> You have {urgentActions.length} pending contribution{urgentActions.length > 1 ? 's' : ''}
+              </div>
+              <Badge variant="destructive">
+                {urgentActions.filter(a => a.urgent).length} urgent
+              </Badge>
+            </div>
+            <div className="mt-2 space-y-1">
+              {urgentActions.slice(0, 3).map(action => (
+                <div key={action.chamaId.toString()} className="text-sm">
+                  • <strong>{action.chamaName}</strong> - 
+                  {action.timeLeft > 3600 
+                    ? ` ${Math.floor(action.timeLeft / 3600)}h ${Math.floor((action.timeLeft % 3600) / 60)}m left`
+                    : ` ${Math.floor(action.timeLeft / 60)}m left`
+                  }
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="ml-2 h-6 text-xs"
+                    onClick={() => {
+                      setSelectedChamaId(action.chamaId);
+                      setStackBTCOpen(true);
+                    }}
+                  >
+                    Contribute Now
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
 
-      {/* All Chamas Browser */}
-      <AllChamasBrowser
-        onJoinChama={(chamaId) => {
-          setSelectedChamaId(chamaId);
-          setJoinChamaOpen(true);
-        }}
-        onContribute={(chamaId) => {
-          setSelectedChamaId(chamaId);
-          setStackBTCOpen(true);
-        }}
-      />
+      {/* Notifications */}
+      {notifications.length > 0 && (
+        <Alert>
+          <Bell className="h-4 w-4" />
+          <AlertDescription>
+            <div className="flex items-center justify-between">
+              <span><strong>Recent Activity:</strong> {notifications.length} new notification{notifications.length > 1 ? 's' : ''}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={clearNotifications}
+                className="h-6 text-xs"
+              >
+                Clear All
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Toggle between Team Formation and Test Flow */}
+      <div className="flex justify-center gap-4 mb-6">
+        <Button
+          variant={!showTestFlow ? 'default' : 'outline'}
+          onClick={() => setShowTestFlow(false)}
+        >
+          Team Formation
+        </Button>
+        <Button
+          variant={showTestFlow ? 'default' : 'outline'}
+          onClick={() => setShowTestFlow(true)}
+        >
+          Test Flow (Demo)
+        </Button>
+      </div>
+
+      {/* Main Content */}
+      {showTestFlow ? (
+        <InteractiveTestFlow
+          onCreateChama={() => setCreateChamaOpen(true)}
+          onJoinChama={(chamaId) => {
+            setSelectedChamaId(chamaId);
+            setJoinChamaOpen(true);
+          }}
+          onContribute={(chamaId) => {
+            setSelectedChamaId(chamaId);
+            setStackBTCOpen(true);
+          }}
+        />
+      ) : (
+        <TeamFormation
+          onCreateChama={() => setCreateChamaOpen(true)}
+          onJoinChama={(chamaId) => {
+            setSelectedChamaId(chamaId);
+            setJoinChamaOpen(true);
+          }}
+          onContribute={(chamaId) => {
+            setSelectedChamaId(chamaId);
+            setStackBTCOpen(true);
+          }}
+        />
+      )}
 
       {/* Modals */}
       <CreateChamaModal 

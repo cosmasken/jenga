@@ -464,6 +464,40 @@ export function useStackBTC() {
   };
 }
 
+// Hook to start a chama (creator only, one-time)
+export function useStartChama() {
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+  const { address } = useAccount();
+  
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const startChama = (chamaId: bigint) => {
+    console.log('Starting chama:', {
+      chamaId: chamaId.toString(),
+      caller: address,
+    });
+
+    writeContract({
+      ...JENGA_CONTRACT,
+      functionName: 'startChama', // This function needs to be added to contract
+      args: [chamaId],
+      chain: citreaTestnet,
+      account: address,
+    });
+  };
+
+  return {
+    startChama,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isConfirmed,
+  };
+}
+
 // New hook for processing missed contributions
 export function useProcessMissedContributions() {
   const { writeContract, data: hash, error, isPending } = useWriteContract();
