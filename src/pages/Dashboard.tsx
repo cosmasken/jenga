@@ -5,13 +5,14 @@ import { useTranslation } from 'react-i18next';
 import { formatEther } from 'viem';
 import { useGetUserChamas, useGetUserScore } from '../hooks/useJengaContract';
 import { citreaTestnet } from '../wagmi';
-import { EnhancedChamaCard } from '../components/chama/EnhancedChamaCard';
 import { StatsCard } from '../components/dashboard/StatsCard';
 import { LoadingSkeleton } from '../components/ui/LoadingSkeleton';
 import { CreateChamaModal } from '../components/modals/CreateChamaModal';
 import { JoinChamaModal } from '../components/modals/JoinChamaModal';
 import { SendRedEnvelopeModal } from '../components/modals/SendRedEnvelopeModal';
 import { StackBTCModal } from '../components/modals/StackBTCModal';
+import { AllChamasBrowser } from '../components/AllChamasBrowser';
+import { TestFlowGuide } from '../components/TestFlowGuide';
 
 export const Dashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -19,6 +20,7 @@ export const Dashboard: React.FC = () => {
   const [joinChamaOpen, setJoinChamaOpen] = useState(false);
   const [redEnvelopeOpen, setRedEnvelopeOpen] = useState(false);
   const [stackBTCOpen, setStackBTCOpen] = useState(false);
+  const [selectedChamaId, setSelectedChamaId] = useState<bigint | null>(null);
 
   const { address, isConnected } = useAccount();
   const { t } = useTranslation();
@@ -181,81 +183,50 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Available Chamas */}
-      <div className="stats-card">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-foreground">{t('dashboard.myChamas')}</h2>
-          <span className="text-sm text-gray-500 dark:text-muted-foreground">
-            {t('dashboard.activeGroups', { count: userChamas?.length || 0 })}
-          </span>
-        </div>
+      {/* Test Flow Guide */}
+      <TestFlowGuide
+        onCreateChama={() => setCreateChamaOpen(true)}
+        onJoinChama={() => setJoinChamaOpen(true)}
+        onContribute={() => setStackBTCOpen(true)}
+      />
 
-        {!userChamas || userChamas.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center">
-              <Users className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-foreground mb-2">{t('dashboard.noChamas')}</h3>
-            <p className="text-gray-600 dark:text-muted-foreground mb-6">
-              {t('dashboard.noChamasDesc')}
-            </p>
-            <div className="flex justify-center gap-4">
-              <button
-                onClick={() => setCreateChamaOpen(true)}
-                className="btn-primary"
-              >
-                {t('chama.create')}
-              </button>
-              <button
-                onClick={() => setJoinChamaOpen(true)}
-                className="btn-secondary"
-              >
-                {t('chama.join')}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {chamasLoading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
-                <p className="text-gray-500 dark:text-muted-foreground">Loading your chamas...</p>
-              </div>
-            ) : userChamas && userChamas.length > 0 ? (
-              <div className="responsive-grid">
-                {userChamas.map((chama: any) => (
-                  <EnhancedChamaCard 
-                    key={chama.id.toString()} 
-                    chama={chama}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500 dark:text-muted-foreground">
-                <p className="mb-4">You haven't joined any chamas yet.</p>
-                <button
-                  onClick={() => setCreateChamaOpen(true)}
-                  className="btn-primary mr-2"
-                >
-                  Create Your First Chama
-                </button>
-                <button
-                  onClick={() => setJoinChamaOpen(true)}
-                  className="btn-secondary"
-                >
-                  Join Existing Chama
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      {/* All Chamas Browser */}
+      <AllChamasBrowser
+        onJoinChama={(chamaId) => {
+          setSelectedChamaId(chamaId);
+          setJoinChamaOpen(true);
+        }}
+        onContribute={(chamaId) => {
+          setSelectedChamaId(chamaId);
+          setStackBTCOpen(true);
+        }}
+      />
 
       {/* Modals */}
-      <CreateChamaModal open={createChamaOpen} onOpenChange={setCreateChamaOpen} />
-      <JoinChamaModal open={joinChamaOpen} onOpenChange={setJoinChamaOpen} />
-      <SendRedEnvelopeModal open={redEnvelopeOpen} onOpenChange={setRedEnvelopeOpen} />
-      <StackBTCModal open={stackBTCOpen} onOpenChange={setStackBTCOpen} />
+      <CreateChamaModal 
+        open={createChamaOpen} 
+        onOpenChange={setCreateChamaOpen} 
+      />
+      <JoinChamaModal 
+        open={joinChamaOpen} 
+        onOpenChange={(open) => {
+          setJoinChamaOpen(open);
+          if (!open) setSelectedChamaId(null);
+        }}
+        chamaId={selectedChamaId}
+      />
+      <SendRedEnvelopeModal 
+        open={redEnvelopeOpen} 
+        onOpenChange={setRedEnvelopeOpen} 
+      />
+      <StackBTCModal 
+        open={stackBTCOpen} 
+        onOpenChange={(open) => {
+          setStackBTCOpen(open);
+          if (!open) setSelectedChamaId(null);
+        }}
+        chamaId={selectedChamaId}
+      />
     </div>
   );
 };

@@ -162,7 +162,121 @@ export function useGetCycleInfo(chamaId: bigint, cycle: bigint) {
   });
 }
 
-// Note: The actual Jenga.sol contract doesn't have a getUserChamas function
+// Hook to get all chamas (for browsing) with members data
+export function useGetAllChamas() {
+  // First get the total number of chamas
+  const { data: chamaCount, isLoading: countLoading, refetch: refetchCount } = useGetChamaCount();
+  
+  // For now, let's limit to checking the first 20 chamas to avoid too many hook calls
+  // In a production app, you'd want to implement pagination or use events
+  const MAX_CHAMAS_TO_FETCH = 20;
+  
+  // Always call the same number of hooks (fixed number)
+  const chama1 = useGetChamaInfo(1n);
+  const chama2 = useGetChamaInfo(2n);
+  const chama3 = useGetChamaInfo(3n);
+  const chama4 = useGetChamaInfo(4n);
+  const chama5 = useGetChamaInfo(5n);
+  const chama6 = useGetChamaInfo(6n);
+  const chama7 = useGetChamaInfo(7n);
+  const chama8 = useGetChamaInfo(8n);
+  const chama9 = useGetChamaInfo(9n);
+  const chama10 = useGetChamaInfo(10n);
+  const chama11 = useGetChamaInfo(11n);
+  const chama12 = useGetChamaInfo(12n);
+  const chama13 = useGetChamaInfo(13n);
+  const chama14 = useGetChamaInfo(14n);
+  const chama15 = useGetChamaInfo(15n);
+  const chama16 = useGetChamaInfo(16n);
+  const chama17 = useGetChamaInfo(17n);
+  const chama18 = useGetChamaInfo(18n);
+  const chama19 = useGetChamaInfo(19n);
+  const chama20 = useGetChamaInfo(20n);
+
+  // Get members for each chama
+  const members1 = useGetChamaMembers(1n);
+  const members2 = useGetChamaMembers(2n);
+  const members3 = useGetChamaMembers(3n);
+  const members4 = useGetChamaMembers(4n);
+  const members5 = useGetChamaMembers(5n);
+  const members6 = useGetChamaMembers(6n);
+  const members7 = useGetChamaMembers(7n);
+  const members8 = useGetChamaMembers(8n);
+  const members9 = useGetChamaMembers(9n);
+  const members10 = useGetChamaMembers(10n);
+  const members11 = useGetChamaMembers(11n);
+  const members12 = useGetChamaMembers(12n);
+  const members13 = useGetChamaMembers(13n);
+  const members14 = useGetChamaMembers(14n);
+  const members15 = useGetChamaMembers(15n);
+  const members16 = useGetChamaMembers(16n);
+  const members17 = useGetChamaMembers(17n);
+  const members18 = useGetChamaMembers(18n);
+  const members19 = useGetChamaMembers(19n);
+  const members20 = useGetChamaMembers(20n);
+
+  const chamaQueries = [
+    chama1, chama2, chama3, chama4, chama5, 
+    chama6, chama7, chama8, chama9, chama10,
+    chama11, chama12, chama13, chama14, chama15,
+    chama16, chama17, chama18, chama19, chama20
+  ];
+
+  const memberQueries = [
+    members1, members2, members3, members4, members5,
+    members6, members7, members8, members9, members10,
+    members11, members12, members13, members14, members15,
+    members16, members17, members18, members19, members20
+  ];
+
+  // Process the results
+  const allChamas = React.useMemo(() => {
+    if (!chamaCount || chamaCount === 0n) return [];
+    
+    const chamas = [];
+    const totalChamas = Math.min(Number(chamaCount), MAX_CHAMAS_TO_FETCH);
+    
+    for (let i = 0; i < totalChamas; i++) {
+      const chamaQuery = chamaQueries[i];
+      const memberQuery = memberQueries[i];
+      
+      if (chamaQuery.data) {
+        const chamaInfo = formatChamaInfo(chamaQuery.data);
+        if (chamaInfo) {
+          // Use members from getChamaMembers if available, otherwise use empty array
+          const members = Array.isArray(memberQuery.data) ? memberQuery.data : [];
+          
+          // Add the chama ID and members to the info
+          chamas.push({
+            id: BigInt(i + 1),
+            ...chamaInfo,
+            members: members, // Override with actual members data
+          });
+        }
+      }
+    }
+    return chamas;
+  }, [chamaQueries, memberQueries, chamaCount]);
+
+  const isLoading = countLoading || 
+    chamaQueries.some(query => query.isLoading) || 
+    memberQueries.some(query => query.isLoading);
+    
+  const error = chamaQueries.find(query => query.error)?.error || 
+    memberQueries.find(query => query.error)?.error || 
+    null;
+
+  return {
+    data: allChamas,
+    isLoading,
+    error,
+    refetch: () => {
+      refetchCount();
+      chamaQueries.forEach(query => query.refetch?.());
+      memberQueries.forEach(query => query.refetch?.());
+    },
+  };
+}
 // This implementation fetches chama count and checks membership for each chama
 export function useGetUserChamas(userAddress: Address) {
   // First get the total number of chamas
@@ -386,12 +500,22 @@ export const useContribute = useStackBTC;
 export function formatChamaInfo(data: any) {
   if (!data || !Array.isArray(data)) return null;
   
+  // Ensure members is always an array
+  let members = [];
+  if (Array.isArray(data[4])) {
+    members = data[4];
+  } else if (data[4]) {
+    // If it's not an array but has a value, try to convert it
+    console.warn('Members data is not an array:', data[4]);
+    members = [];
+  }
+  
   return {
     name: data[0] || '',
     contributionAmount: data[1] || 0n,
     cycleDuration: data[2] || 0n,
     maxMembers: data[3] || 0n,
-    members: data[4] || [], // This might be empty from the mapping
+    members: members, // Always an array
     active: data[5] || false,
     currentCycle: data[6] || 0n,
     currentRecipientIndex: data[7] || 0n,
@@ -404,9 +528,22 @@ export function formatChamaInfo(data: any) {
 }
 
 // Helper function to convert sats to display format
-export function formatSatsFromWei(weiAmount: bigint): number {
+export function formatSatsFromWei(weiAmount: bigint | number | string): number {
+  // Handle different input types
+  let bigIntAmount: bigint;
+  
+  if (typeof weiAmount === 'bigint') {
+    bigIntAmount = weiAmount;
+  } else if (typeof weiAmount === 'number') {
+    bigIntAmount = BigInt(weiAmount);
+  } else if (typeof weiAmount === 'string') {
+    bigIntAmount = BigInt(weiAmount);
+  } else {
+    return 0;
+  }
+  
   // Convert wei back to sats: wei / 1e10
-  return Number(weiAmount / 10n ** 10n);
+  return Number(bigIntAmount / 10n ** 10n);
 }
 
 // Helper function to format sats for display
