@@ -5,7 +5,6 @@ import { injected, walletConnect } from 'wagmi/connectors';
 import { defineChain } from 'viem';
 import { web3AuthConnector } from './lib/web3auth-connector';
 
-// Define Citrea testnet chain
 export const citreaTestnet = defineChain({
   id: 5115,
   name: 'Citrea Testnet',
@@ -28,7 +27,6 @@ export const citreaTestnet = defineChain({
   testnet: true,
 });
 
-// Configure chains
 const chains = [citreaTestnet, mainnet, sepolia] as const;
 
 export const queryClient = new QueryClient({

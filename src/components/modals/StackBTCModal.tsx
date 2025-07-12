@@ -3,11 +3,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Bitcoin, TrendingUp, ExternalLink } from 'lucide-react';
+import { Loader2, Bitcoin, TrendingUp, ExternalLink, Users, Calendar, Info } from 'lucide-react';
 import { useAccount } from 'wagmi';
-import { useStackBTC } from '../../hooks/useJengaContract';
+import { 
+  useStackBTC, 
+  useGetChamaCount, 
+  useGetChamaInfo, 
+  useGetChamaMembers,
+  useHasContributedThisCycle,
+  formatChamaInfo,
+  formatSatsFromWei 
+} from '../../hooks/useJengaContract';
 import { useTranslation } from 'react-i18next';
+import { Address } from 'viem';
 
 interface StackBTCModalProps {
   open: boolean;
@@ -19,13 +29,43 @@ interface StackBTCModalProps {
 export const StackBTCModal: React.FC<StackBTCModalProps> = ({ 
   open, 
   onOpenChange, 
-  chamaId,
+  chamaId: preselectedChamaId,
   contributionAmount = 100000 // Default 100k sats
 }) => {
+  const [selectedChamaId, setSelectedChamaId] = useState<string>('');
   const [amount, setAmount] = useState('');
   const { toast } = useToast();
   const { t } = useTranslation();
-  const { isConnected } = useAccount();
+  const { isConnected, address } = useAccount();
+
+  // Get total chama count for dropdown
+  const { data: chamaCount, isLoading: countLoading } = useGetChamaCount();
+
+  // Get selected chama info
+  const { data: chamaData, isLoading: isLoadingChama } = useGetChamaInfo(
+    selectedChamaId ? BigInt(selectedChamaId) : 0n
+  );
+
+  // Get selected chama members
+  const { data: chamaMembers } = useGetChamaMembers(
+    selectedChamaId ? BigInt(selectedChamaId) : 0n
+  );
+
+  // Check if user has contributed this cycle
+  const { data: hasContributed } = useHasContributedThisCycle(
+    selectedChamaId ? BigInt(selectedChamaId) : 0n,
+    address!
+  );
+
+  const chamaInfo = formatChamaInfo(chamaData);
+
+  // Generate list of available chamas (first 10)
+  const availableChamas = [];
+  const maxChamas = Math.min(Number(chamaCount || 0), 10);
+  
+  for (let i = 1; i <= maxChamas; i++) {
+    availableChamas.push(i);
+  }
 
   // Stack BTC hook
   const { 
@@ -37,12 +77,25 @@ export const StackBTCModal: React.FC<StackBTCModalProps> = ({
     hash 
   } = useStackBTC();
 
-  // Set default amount when modal opens
+  // Set preselected chama and amount when modal opens
   useEffect(() => {
-    if (open && contributionAmount) {
-      setAmount(contributionAmount.toString());
+    if (open) {
+      if (preselectedChamaId) {
+        setSelectedChamaId(preselectedChamaId.toString());
+      }
+      if (contributionAmount) {
+        setAmount(contributionAmount.toString());
+      }
     }
-  }, [open, contributionAmount]);
+  }, [open, preselectedChamaId, contributionAmount]);
+
+  // Update amount when chama selection changes
+  useEffect(() => {
+    if (chamaInfo && chamaInfo.contributionAmount) {
+      const satsAmount = formatSatsFromWei(chamaInfo.contributionAmount);
+      setAmount(satsAmount.toString());
+    }
+  }, [chamaInfo]);
 
   // Handle transaction success
   useEffect(() => {
@@ -65,7 +118,7 @@ export const StackBTCModal: React.FC<StackBTCModalProps> = ({
         ),
       });
       onOpenChange(false);
-      setAmount('');
+      resetModal();
     }
   }, [isConfirmed, hash, toast, onOpenChange]);
 
@@ -85,10 +138,10 @@ export const StackBTCModal: React.FC<StackBTCModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!chamaId) {
+    if (!selectedChamaId) {
       toast({
         title: 'Error',
-        description: 'No chama selected',
+        description: 'Please select a chama',
         variant: 'destructive',
       });
       return;
@@ -103,7 +156,12 @@ export const StackBTCModal: React.FC<StackBTCModalProps> = ({
       return;
     }
 
-    stackBTC(chamaId, parseInt(amount));
+    stackBTC(BigInt(selectedChamaId), parseInt(amount));
+  };
+
+  const resetModal = () => {
+    setSelectedChamaId('');
+    setAmount('');
   };
 
   const isLoading = isPending || isConfirming;
@@ -119,6 +177,93 @@ export const StackBTCModal: React.FC<StackBTCModalProps> = ({
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Chama Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="chama-select">Select Chama</Label>
+            {countLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                <span className="text-sm text-gray-500">Loading chamas...</span>
+              </div>
+            ) : availableChamas.length > 0 ? (
+              <Select value={selectedChamaId} onValueChange={setSelectedChamaId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a chama to contribute to" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableChamas.map((chamaId) => (
+                    <StackChamaSelectItem key={chamaId} chamaId={BigInt(chamaId)} userAddress={address!} />
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No chamas available for contributions.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Chama Info Display */}
+          {chamaInfo && selectedChamaId && (
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-900 dark:text-white">
+                    {chamaInfo.name}
+                  </h3>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    Number(chamaInfo.currentCycle) > 0
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                  }`}>
+                    {Number(chamaInfo.currentCycle) > 0 ? `Cycle ${Number(chamaInfo.currentCycle)}` : 'Forming'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Bitcoin className="w-4 h-4 text-orange-500" />
+                    <div>
+                      <div className="text-gray-600 dark:text-gray-400">Required</div>
+                      <div className="font-mono text-gray-900 dark:text-white">
+                        {formatSatsFromWei(chamaInfo.contributionAmount).toLocaleString()} sats
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-green-500" />
+                    <div>
+                      <div className="text-gray-600 dark:text-gray-400">Members</div>
+                      <div className="text-gray-900 dark:text-white">
+                        {chamaMembers?.length || 0} / {Number(chamaInfo.maxMembers)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contribution Status */}
+                {hasContributed && (
+                  <div className="p-2 bg-green-50 dark:bg-green-900 rounded border border-green-200 dark:border-green-800">
+                    <p className="text-sm text-green-700 dark:text-green-300">
+                      ✅ You have already contributed to this cycle.
+                    </p>
+                  </div>
+                )}
+
+                {Number(chamaInfo.currentCycle) === 0 && (
+                  <div className="p-2 bg-blue-50 dark:bg-blue-900 rounded border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      ℹ️ This chama hasn't started yet. Contributions will begin once all members join.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="amount">Amount (sats)</Label>
             <Input
@@ -129,10 +274,13 @@ export const StackBTCModal: React.FC<StackBTCModalProps> = ({
               placeholder="Enter amount in sats"
               min="1000"
               className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-              disabled={isLoading}
+              disabled={isLoading || !selectedChamaId}
             />
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Minimum contribution: {contributionAmount.toLocaleString()} sats
+              {chamaInfo ? 
+                `Required: ${formatSatsFromWei(chamaInfo.contributionAmount).toLocaleString()} sats` :
+                'Minimum: 1,000 sats'
+              }
             </p>
           </div>
 
@@ -170,12 +318,24 @@ export const StackBTCModal: React.FC<StackBTCModalProps> = ({
             <Button
               type="submit"
               className="flex-1 btn-primary"
-              disabled={isLoading || !isConnected || !amount || parseInt(amount) < contributionAmount}
+              disabled={
+                isLoading || 
+                !isConnected || 
+                !selectedChamaId || 
+                !amount || 
+                parseInt(amount || '0') < 1000 ||
+                hasContributed
+              }
             >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {isPending ? 'Confirming...' : 'Stacking...'}
+                  {isPending ? 'Stacking...' : 'Confirming...'}
+                </>
+              ) : hasContributed ? (
+                <>
+                  <TrendingUp className="w-4 h-4 mr-2" />
+                  Already Contributed
                 </>
               ) : (
                 <>
@@ -188,5 +348,65 @@ export const StackBTCModal: React.FC<StackBTCModalProps> = ({
         </form>
       </DialogContent>
     </Dialog>
+  );
+};
+
+// Component for individual chama select items in stacking modal
+const StackChamaSelectItem: React.FC<{ chamaId: bigint; userAddress: Address }> = ({ chamaId, userAddress }) => {
+  const { data: chamaData } = useGetChamaInfo(chamaId);
+  const { data: chamaMembers } = useGetChamaMembers(chamaId);
+  const { data: hasContributed } = useHasContributedThisCycle(chamaId, userAddress);
+  
+  const chamaInfo = formatChamaInfo(chamaData);
+  
+  if (!chamaInfo) {
+    return (
+      <SelectItem value={chamaId.toString()}>
+        <div className="flex items-center gap-2">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          <span>Loading Chama {chamaId.toString()}...</span>
+        </div>
+      </SelectItem>
+    );
+  }
+
+  const memberCount = chamaMembers?.length || 0;
+  const isMember = chamaMembers?.includes(userAddress) || false;
+  const canContribute = isMember && Number(chamaInfo.currentCycle) > 0 && !hasContributed;
+  
+  // Get status text
+  const getStatusText = () => {
+    if (!isMember) return 'Not Member';
+    if (Number(chamaInfo.currentCycle) === 0) return 'Not Started';
+    if (hasContributed) return 'Contributed';
+    return 'Ready';
+  };
+
+  const statusText = getStatusText();
+
+  return (
+    <SelectItem value={chamaId.toString()}>
+      <div className="flex items-center justify-between w-full">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${canContribute ? 'bg-green-500' : 'bg-gray-400'}`} />
+          <span className="font-medium">{chamaInfo.name}</span>
+        </div>
+        <div className="text-xs text-gray-500 ml-2 flex items-center gap-2">
+          <span>{memberCount}/{Number(chamaInfo.maxMembers)}</span>
+          <span>•</span>
+          <span>{formatSatsFromWei(chamaInfo.contributionAmount).toLocaleString()} sats</span>
+          <span>•</span>
+          <span className={`px-1 py-0.5 rounded text-xs ${
+            canContribute 
+              ? 'bg-green-100 text-green-700' 
+              : hasContributed
+              ? 'bg-blue-100 text-blue-700'
+              : 'bg-gray-100 text-gray-600'
+          }`}>
+            {statusText}
+          </span>
+        </div>
+      </div>
+    </SelectItem>
   );
 };

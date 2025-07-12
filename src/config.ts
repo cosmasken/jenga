@@ -12,7 +12,7 @@ interface SmartContracts {
 
 export const TESTNET_CONFIG: {
   chain: ChainConfig;
-  smartContracts: SmartContracts; // Optional for testnet
+  smartContracts: SmartContracts;
 
 } = {
   chain: {
