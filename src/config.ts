@@ -8,6 +8,7 @@ interface ChainConfig {
 
 interface SmartContracts {
   jenga: string;
+  sacco: string;
 }
 
 export const TESTNET_CONFIG: {
@@ -24,6 +25,7 @@ export const TESTNET_CONFIG: {
   },
   smartContracts: {
     jenga: '0x31e34B3884Ec2Fff40623855D0B15981Cfc31314', 
+    sacco: '0x0000000000000000000000000000000000000000', // Replace with the actual address of your smart contract
   },
 };
 
