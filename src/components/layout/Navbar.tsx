@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Home } from 'lucide-react';
+import { Menu, X, Home, Users } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { useTranslation } from 'react-i18next';
 import { WalletConnect } from '../WalletConnect';
@@ -16,6 +16,7 @@ export const Navbar: React.FC = () => {
 
   const navItems = [
     { path: '/', label: t('navigation.dashboard'), icon: Home },
+    { path: '/sacco', label: t('navigation.sacco'), icon: Users },
   ];
 
   const isActive = (path: string) => location.pathname === path;

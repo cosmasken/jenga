@@ -31,7 +31,8 @@
     "settings": "Settings",
     "help": "Help",
     "logout": "Logout",
-    "home": "Home"
+    "home": "Home",
+    "sacco": "SACCO"
   },
   "theme": {
     "light": "Light",
@@ -126,6 +127,29 @@
     "sendGifts": "Send gifts",
     "stackBTC": "Stack BTC",
     "autoInvest": "Auto-invest"
+  },
+  "sacco": {
+    "dashboard": {
+      "title": "SACCO Dashboard",
+      "totalProposals": "Total Proposals",
+      "totalProposalsDescription": "Total number of governance proposals created.",
+      "nextLoanId": "Next Loan ID",
+      "nextLoanIdDescription": "The ID for the next loan to be issued.",
+      "loanInterestRate": "Loan Interest Rate",
+      "loanInterestRateDescription": "The annual interest rate for loans.",
+      "owner": "SACCO Owner",
+      "ownerDescription": "The address of the SACCO contract owner.",
+      "actions": "SACCO Actions"
+    },
+    "actions": {
+      "registerMember": "Register Member"
+    },
+    "registerMember": {
+      "title": "Register New Member",
+      "description": "Register a new member to the SACCO. Only the owner can perform this action.",
+      "memberAddressLabel": "Member Address",
+      "registerButton": "Register"
+    }
   },
   "forms": {
     "required": "This field is required",
