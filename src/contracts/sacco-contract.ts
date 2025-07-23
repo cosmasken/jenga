@@ -1,11 +1,10 @@
 import { Address } from 'viem';
 import { TESTNET_CONFIG } from '../config';
-import SACCOABI from '../abi/SACCO.json' assert { type: 'json' };
+import SACCOABI from '../abi/Sacco.json';
 
 export const SACCO_CONTRACT = {
   address: TESTNET_CONFIG.smartContracts.sacco as Address,
   abi: SACCOABI,
-} as const;
 } as const;
 
 // Type-safe contract functions based on SACCO.sol

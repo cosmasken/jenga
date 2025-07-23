@@ -6,7 +6,7 @@ import { RegisterMemberModal } from '../components/modals/RegisterMemberModal';
 import { useSacco } from '../hooks/useSacco';
 import { Loader2 } from 'lucide-react';
 
-export const SaccoDashboard: React.FC = () => {
+export default function SaccoDashboard() {
   const { t } = useTranslation();
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
 
@@ -31,7 +31,7 @@ export const SaccoDashboard: React.FC = () => {
             {isLoadingTotalProposals ? (
               <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
             ) : (
-              <span className="text-2xl font-bold">{totalProposals?.toString() || '0'}</span>
+              <span className="text-2xl font-bold">{totalProposals ? String(totalProposals) : '0'}</span>
             )}
           </CardContent>
         </Card>
@@ -45,7 +45,7 @@ export const SaccoDashboard: React.FC = () => {
             {isLoadingNextLoanId ? (
               <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
             ) : (
-              <span className="text-2xl font-bold">{nextLoanId?.toString() || '0'}</span>
+              <span className="text-2xl font-bold">{nextLoanId ? String(nextLoanId) : '0'}</span>
             )}
           </CardContent>
         </Card>
@@ -59,7 +59,7 @@ export const SaccoDashboard: React.FC = () => {
             {isLoadingLoanInterestRate ? (
               <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
             ) : (
-              <span className="text-2xl font-bold">{loanInterestRate?.toString() || '0'}%</span>
+              <span className="text-2xl font-bold">{loanInterestRate ? String(loanInterestRate) : '0'}%</span>
             )}
           </CardContent>
         </Card>
@@ -73,7 +73,7 @@ export const SaccoDashboard: React.FC = () => {
             {isLoadingOwner ? (
               <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
             ) : (
-              <span className="text-sm font-mono break-all">{owner || 'N/A'}</span>
+              <span className="text-sm font-mono break-all">{owner ? String(owner) : 'N/A'}</span>
             )}
           </CardContent>
         </Card>
