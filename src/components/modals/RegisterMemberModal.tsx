@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, UserPlus } from 'lucide-react';
 import { useAccount } from 'wagmi';
 import { useTranslation } from 'react-i18next';
-import { useSacco } from '../../hooks/useSacco';
+import { useSacco, useRegisterMember } from '../../hooks/useSacco';
 import { Address } from 'viem';
 
 interface RegisterMemberModalProps {
@@ -24,28 +24,36 @@ export const RegisterMemberModal: React.FC<RegisterMemberModalProps> = ({
   const { t } = useTranslation();
   const { isConnected } = useAccount();
 
-  const { registerMember } = useSacco();
-
-  const [isPending, setIsPending] = useState(false);
-  const [isConfirmed, setIsConfirmed] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const [hash, setHash] = useState<`0x${string}` | null>(null);
+  const { registerMember, hash, error, isPending, isConfirming, isConfirmed } = useRegisterMember();
 
   useEffect(() => {
     if (!open) {
       setMemberAddress('');
-      setIsPending(false);
-      setIsConfirmed(false);
-      setError(null);
-      setHash(null);
     }
   }, [open]);
 
+  useEffect(() => {
+    if (isConfirmed && hash) {
+      toast({
+        title: 'Registration Successful!',
+        description: `Member ${memberAddress} registered. Transaction hash: ${hash}`,
+      });
+      onOpenChange(false);
+    }
+  }, [isConfirmed, hash, memberAddress, toast, onOpenChange]);
+
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: 'Registration Failed',
+        description: error.message || 'An unknown error occurred.',
+        variant: 'destructive',
+      });
+    }
+  }, [error, toast]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setIsPending(true);
-    setIsConfirmed(false);
 
     if (!memberAddress) {
       toast({
@@ -53,31 +61,15 @@ export const RegisterMemberModal: React.FC<RegisterMemberModalProps> = ({
         description: 'Please enter a member address.',
         variant: 'destructive',
       });
-      setIsPending(false);
       return;
     }
 
     try {
-      const txHash = await registerMember(memberAddress as Address);
-      setHash(txHash);
-      // In a real app, you'd use useWaitForTransactionReceipt here
-      // For simplicity, we'll simulate confirmation
-      setTimeout(() => {
-        setIsConfirmed(true);
-        setIsPending(false);
-        toast({
-          title: 'Registration Successful!',
-          description: `Member ${memberAddress} registered. Transaction hash: ${txHash}`,
-        });
-        onOpenChange(false);
-      }, 3000); // Simulate network delay
-
-    } catch (err: any) {
-      setError(err);
-      setIsPending(false);
+      registerMember(memberAddress as Address);
+    } catch (err: unknown) {
       toast({
         title: 'Registration Failed',
-        description: err.message || 'An unknown error occurred.',
+        description: (err as Error).message || 'An unknown error occurred.',
         variant: 'destructive',
       });
     }
@@ -106,7 +98,7 @@ export const RegisterMemberModal: React.FC<RegisterMemberModalProps> = ({
               onChange={(e) => setMemberAddress(e.target.value)}
               placeholder="0x..." 
               className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-              disabled={isPending}
+              disabled={isPending || isConfirming}
             />
           </div>
 
@@ -135,19 +127,19 @@ export const RegisterMemberModal: React.FC<RegisterMemberModalProps> = ({
               variant="outline"
               onClick={() => onOpenChange(false)}
               className="flex-1"
-              disabled={isPending}
+              disabled={isPending || isConfirming}
             >
               {t('common.cancel')}
             </Button>
             <Button
               type="submit"
               className="flex-1 btn-primary"
-              disabled={isPending || !isConnected || !memberAddress}
+              disabled={isPending || isConfirming || !isConnected || !memberAddress}
             >
-              {isPending ? (
+              {isPending || isConfirming ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  {t('common.processing')}
+                  {isConfirming ? t('common.confirming') : t('common.processing')}
                 </>
               ) : (
                 <>

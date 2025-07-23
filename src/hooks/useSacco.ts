@@ -1,4 +1,4 @@
-import { Address } from 'viem';
+import { Address, parseEther } from 'viem';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent, useAccount } from 'wagmi';
 import { SACCO_CONTRACT, Proposal, Loan, SaccoContractFunctions, MemberRegisteredEvent, SavingsDepositedEvent, LoanIssuedEvent, LoanRepaidEvent, DividendPaidEvent } from '../contracts/sacco-contract';
 import { citreaTestnet } from '../wagmi';
@@ -126,19 +126,70 @@ export function useSacco() {
 }
 
 // Write functions - following the pattern from useJengaContract
-export function useRegisterMember() {
+export const usePurchaseShares = () => {
   const { writeContract, data: hash, error, isPending } = useWriteContract();
   const { address } = useAccount();
-  
-  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
-    hash,
-  });
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
 
-  const registerMember = (memberAddress: Address) => {
+  const purchaseShares = (shares: number, value: string) => {
     writeContract({
       ...SACCO_CONTRACT,
-      functionName: 'registerMember',
-      args: [memberAddress],
+      functionName: 'purchaseShares',
+      args: [shares],
+      value: parseEther(value),
+      chain: citreaTestnet,
+      account: address,
+    });
+  };
+
+  return {
+    purchaseShares,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isConfirmed,
+  };
+};
+
+export const useProposeMembership = () => {
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+  const { address } = useAccount();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+  const proposeMembership = (candidateAddress: string) => {
+    writeContract({
+      ...SACCO_CONTRACT,
+      functionName: 'proposeMembership',
+      args: [candidateAddress],
+      chain: citreaTestnet,
+      account: address,
+    });
+  };
+
+  return {
+    proposeMembership,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isConfirmed,
+  };
+};
+
+// Legacy function for backward compatibility
+export const useRegisterMember = () => {
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+  const { address } = useAccount();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+  const registerMember = (memberAddress: string) => {
+    // For new system, this will use purchaseShares with minimum shares
+    writeContract({
+      ...SACCO_CONTRACT,
+      functionName: 'purchaseShares',
+      args: [10], // MINIMUM_SHARES
+      value: parseEther('0.01'), // 10 * 0.001 ETH
       chain: citreaTestnet,
       account: address,
     });
@@ -152,7 +203,7 @@ export function useRegisterMember() {
     isConfirming,
     isConfirmed,
   };
-}
+};
 
 export function useDepositSavings() {
   const { writeContract, data: hash, error, isPending } = useWriteContract();
@@ -190,11 +241,11 @@ export function useRequestLoan() {
     hash,
   });
 
-  const requestLoan = (amount: bigint, duration: bigint) => {
+  const requestLoan = (amount: bigint, duration: bigint, purpose: string = "") => {
     writeContract({
       ...SACCO_CONTRACT,
       functionName: 'requestLoan',
-      args: [amount, duration],
+      args: [amount, duration, purpose],
       chain: citreaTestnet,
       account: address,
     });
@@ -202,6 +253,65 @@ export function useRequestLoan() {
 
   return {
     requestLoan,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isConfirmed,
+  };
+}
+
+// Provide guarantee for another member's loan
+export function useProvideGuarantee() {
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+  const { address } = useAccount();
+  
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const provideGuarantee = (loanId: bigint, guaranteeAmount: string) => {
+    writeContract({
+      ...SACCO_CONTRACT,
+      functionName: 'provideGuarantee',
+      args: [loanId],
+      value: parseEther(guaranteeAmount),
+      chain: citreaTestnet,
+      account: address,
+    });
+  };
+
+  return {
+    provideGuarantee,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isConfirmed,
+  };
+}
+
+// Calculate interest for all members
+export function useCalculateInterestForAllMembers() {
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+  const { address } = useAccount();
+  
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const calculateInterestForAllMembers = () => {
+    writeContract({
+      ...SACCO_CONTRACT,
+      functionName: 'calculateInterestForAllMembers',
+      args: [],
+      chain: citreaTestnet,
+      account: address,
+    });
+  };
+
+  return {
+    calculateInterestForAllMembers,
     hash,
     error,
     isPending,
