@@ -108,6 +108,40 @@ export function useSacco() {
     });
   }
 
+  function useGetMemberInfo(memberAddress: Address) {
+    return useReadContract({
+      abi: SACCO_CONTRACT.abi,
+      address: SACCO_CONTRACT.address,
+      functionName: 'getMemberInfo',
+      args: [memberAddress],
+    });
+  }
+
+  function useMinimumShares() {
+    return useReadContract({
+      abi: SACCO_CONTRACT.abi,
+      address: SACCO_CONTRACT.address,
+      functionName: 'MINIMUM_SHARES',
+    });
+  }
+
+  function useSharePrice() {
+    return useReadContract({
+      abi: SACCO_CONTRACT.abi,
+      address: SACCO_CONTRACT.address,
+      functionName: 'SHARE_PRICE',
+    });
+  }
+
+  function useMembers(memberAddress: Address) {
+    return useReadContract({
+      abi: SACCO_CONTRACT.abi,
+      address: SACCO_CONTRACT.address,
+      functionName: 'members',
+      args: [memberAddress],
+    });
+  }
+
   return {
     // Read functions
     useRegisteredMembers,
@@ -122,6 +156,10 @@ export function useSacco() {
     useOwner,
     useLoan,
     useMemberLoans,
+    useGetMemberInfo,
+    useMinimumShares,
+    useSharePrice,
+    useMembers,
   };
 }
 

@@ -33,16 +33,25 @@ export const SaccoQuickActions: React.FC = () => {
   const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
 
   const { 
-    useRegisteredMembers, 
+    useGetMemberInfo,
+    useMinimumShares,
+    useSharePrice,
     useTotalProposals, 
     useNextLoanId,
     useSavings 
   } = useSacco();
 
-  const { data: isMember } = useRegisteredMembers(address!);
+  const { data: memberInfo } = useGetMemberInfo(address!);
+  const { data: minimumShares } = useMinimumShares();
+  const { data: sharePrice } = useSharePrice();
   const { data: totalProposals } = useTotalProposals();
   const { data: nextLoanId } = useNextLoanId();
   const { data: memberSavings } = useSavings(address!);
+
+  // Check if user is a member based on shares owned
+  const isMember = memberInfo && memberInfo[0] > 0; // memberInfo[0] is shares
+  const memberShares = memberInfo ? String(memberInfo[0]) : '0';
+  const isActive = memberInfo ? memberInfo[3] : false; // memberInfo[3] is isActive
 
   type BadgeVariant = 'default' | 'secondary' | 'outline' | 'destructive';
 
@@ -56,7 +65,7 @@ export const SaccoQuickActions: React.FC = () => {
       bgColor: 'bg-orange-50 dark:bg-orange-950',
       action: () => setIsPurchaseSharesModalOpen(true),
       disabled: !isConnected || isMember,
-      badge: !isMember ? 'Join SACCO' : 'Member',
+      badge: !isMember ? `${minimumShares ? String(minimumShares) : '1'} shares min` : `${memberShares} shares`,
       badgeVariant: (!isMember ? 'default' : 'secondary') as BadgeVariant,
     },
     {
@@ -67,8 +76,8 @@ export const SaccoQuickActions: React.FC = () => {
       color: 'text-green-500',
       bgColor: 'bg-green-50 dark:bg-green-950',
       action: () => setIsDepositModalOpen(true),
-      disabled: !isConnected || !isMember,
-      badge: memberSavings ? `${memberSavings} ETH` : 'No savings',
+      disabled: !isConnected || !isMember || !isActive,
+      badge: memberSavings ? `${String(memberSavings)} ETH` : 'No savings',
       badgeVariant: 'outline' as BadgeVariant,
     },
     {
@@ -79,7 +88,7 @@ export const SaccoQuickActions: React.FC = () => {
       color: 'text-blue-500',
       bgColor: 'bg-blue-50 dark:bg-blue-950',
       action: () => setIsLoanModalOpen(true),
-      disabled: !isConnected || !isMember,
+      disabled: !isConnected || !isMember || !isActive,
       badge: `Loan #${nextLoanId ? String(nextLoanId) : '1'}`,
       badgeVariant: 'outline' as BadgeVariant,
     },
@@ -91,7 +100,7 @@ export const SaccoQuickActions: React.FC = () => {
       color: 'text-purple-500',
       bgColor: 'bg-purple-50 dark:bg-purple-950',
       action: () => setIsProposeMembershipModalOpen(true),
-      disabled: !isConnected || !isMember,
+      disabled: !isConnected || !isMember || !isActive,
       badge: 'Democratic',
       badgeVariant: 'outline' as BadgeVariant,
     },
@@ -103,7 +112,7 @@ export const SaccoQuickActions: React.FC = () => {
       color: 'text-emerald-500',
       bgColor: 'bg-emerald-50 dark:bg-emerald-950',
       action: () => setIsProvideGuaranteeModalOpen(true),
-      disabled: !isConnected || !isMember,
+      disabled: !isConnected || !isMember || !isActive,
       badge: 'Community',
       badgeVariant: 'outline' as BadgeVariant,
     },
@@ -115,7 +124,7 @@ export const SaccoQuickActions: React.FC = () => {
       color: 'text-indigo-500',
       bgColor: 'bg-indigo-50 dark:bg-indigo-950',
       action: () => setIsProposalModalOpen(true),
-      disabled: !isConnected || !isMember,
+      disabled: !isConnected || !isMember || !isActive,
       badge: `${totalProposals ? String(totalProposals) : '0'} total`,
       badgeVariant: 'outline' as BadgeVariant,
     },
@@ -141,8 +150,8 @@ export const SaccoQuickActions: React.FC = () => {
         </div>
         <CardDescription>
           {isMember 
-            ? "Manage your SACCO membership and participate in community activities"
-            : "Join the SACCO to access savings, loans, and governance features"
+            ? `You own ${memberShares} shares. Manage your SACCO membership and participate in community activities.`
+            : `Purchase at least ${minimumShares ? String(minimumShares) : '1'} shares to join the SACCO and access all features.`
           }
         </CardDescription>
       </CardHeader>
@@ -180,7 +189,7 @@ export const SaccoQuickActions: React.FC = () => {
                 {action.disabled && (
                   <div className="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-gray-900/80 rounded-lg">
                     <span className="text-xs text-gray-500 font-medium">
-                      {!isMember ? 'Become a member first' : 'Not available'}
+                      {!isConnected ? 'Connect wallet' : !isMember ? 'Buy shares first' : !isActive ? 'Account inactive' : 'Not available'}
                     </span>
                   </div>
                 )}

@@ -25,7 +25,7 @@ export const TESTNET_CONFIG: {
   },
   smartContracts: {
     jenga: '0x31e34B3884Ec2Fff40623855D0B15981Cfc31314', 
-    sacco: '0x0000000000000000000000000000000000000000', // Replace with the actual address of your smart contract
+    sacco: '0xd9145CCE52D386f254917e481eB44e9943F39138', // Replace with the actual address of your smart contract
   },
 };
 
