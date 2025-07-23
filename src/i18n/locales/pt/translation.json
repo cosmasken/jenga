@@ -127,6 +127,29 @@
     "stackBTC": "Empilhar BTC",
     "autoInvest": "Investimento automático"
   },
+  "sacco": {
+    "dashboard": {
+      "title": "Painel SACCO",
+      "totalProposals": "Propostas Totais",
+      "totalProposalsDescription": "Número total de propostas de governança criadas.",
+      "nextLoanId": "ID do Próximo Empréstimo",
+      "nextLoanIdDescription": "O ID para o próximo empréstimo a ser emitido.",
+      "loanInterestRate": "Taxa de Juros do Empréstimo",
+      "loanInterestRateDescription": "A taxa de juros anual para empréstimos.",
+      "owner": "Proprietário do SACCO",
+      "ownerDescription": "O endereço do proprietário do contrato SACCO.",
+      "actions": "Ações SACCO"
+    },
+    "actions": {
+      "registerMember": "Registrar Membro"
+    },
+    "registerMember": {
+      "title": "Registrar Novo Membro",
+      "description": "Registre um novo membro no SACCO. Somente o proprietário pode realizar esta ação.",
+      "memberAddressLabel": "Endereço do Membro",
+      "registerButton": "Registrar"
+    }
+  },
   "forms": {
     "required": "Este campo é obrigatório",
     "invalidEmail": "Por favor, insira um endereço de e-mail válido",

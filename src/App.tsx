@@ -20,6 +20,7 @@ import { Layout } from './components/layout/Layout';
 
 // Pages
 import Index from "./pages/Index";
+import SaccoDashboard from "./pages/SaccoDashboard";
 import ErrorBoundary from "./components/ErrorBoundary";
 import NotFound from './pages/NotFound';
 
@@ -37,6 +38,7 @@ const App = () => {
                 <Routes>
                   <Route path="/" element={<Layout />}>
                     <Route index element={<Index />} />
+                    <Route path="/sacco" element={<SaccoDashboard />} />
                     <Route path="*" element={<NotFound />} />
                   </Route>
                 </Routes>

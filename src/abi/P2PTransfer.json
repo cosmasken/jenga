@@ -1,0 +1,64 @@
+{
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        }
+      ],
+      "name": "sendP2P",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address[]",
+          "name": "_recipients",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256",
+          "name": "_amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "_isRandom",
+          "type": "bool"
+        },
+        {
+          "internalType": "string",
+          "name": "_message",
+          "type": "string"
+        }
+      ],
+      "name": "sendRedEnvelope",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "_envelopeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "claimRedEnvelope",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ]
+}
