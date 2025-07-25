@@ -272,8 +272,6 @@ export const Dashboard: React.FC = () => {
         </Alert>
       )}
 
-    
-
       {/* Navigation Options */}
       <div className="flex justify-center gap-4 mb-6">
         <Button
@@ -336,7 +334,6 @@ export const Dashboard: React.FC = () => {
         }}
         chamaId={selectedChamaId}
       />
-     
       <StackBTCModal 
         open={stackBTCOpen} 
         onOpenChange={(open) => {
