@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Users, Bitcoin, Clock, TrendingUp, ExternalLink } from 'lucide-react';
 import { useAccount } from 'wagmi';
-import { useJoinChama, useGetChamaInfo, useGetChamaCount, useGetChamaMembers, formatChamaInfo, formatSatsFromWei } from '../../hooks/useJengaContract';
+import { useJoinChama, useGetChamaInfo, useGetChamaCount, useGetChamaMembers, formatChamaInfo, formatSatsFromWei } from '../../hooks/useJenga';
 import { formatUnits } from 'viem';
 import { useTranslation } from 'react-i18next';
 
@@ -217,7 +217,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({ open, onOpenChan
                     <div>
                       <div className="text-gray-600 dark:text-gray-400">Members</div>
                       <div className="text-gray-900 dark:text-white">
-                        {membersLoading ? '...' : (chamaMembers?.length || 0)} / {Number(chamaInfo.maxMembers)}
+                        {membersLoading ? '...' : (Array.isArray(chamaMembers) ? chamaMembers.length : 0)} / {Number(chamaInfo.maxMembers)}
                       </div>
                     </div>
                   </div>
@@ -264,7 +264,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({ open, onOpenChan
                   </div>
                 )}
 
-                {chamaMembers && chamaMembers.length >= Number(chamaInfo.maxMembers) && (
+                {chamaMembers && Array.isArray(chamaMembers) && chamaMembers.length >= Number(chamaInfo.maxMembers) && (
                   <div className="p-2 bg-red-50 dark:bg-red-900 rounded border border-red-200 dark:border-red-800">
                     <p className="text-sm text-red-700 dark:text-red-300">
                       This chama is full. All member slots have been taken.
@@ -274,7 +274,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({ open, onOpenChan
 
                 {/* Show positive message if chama is joinable */}
                 {Number(chamaInfo.currentCycle) === 0 && 
-                 chamaMembers && 
+                 chamaMembers && Array.isArray(chamaMembers) && 
                  chamaMembers.length < Number(chamaInfo.maxMembers) && (
                   <div className="p-2 bg-green-50 dark:bg-green-900 rounded border border-green-200 dark:border-green-800">
                     <p className="text-sm text-green-700 dark:text-green-300">
@@ -314,7 +314,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({ open, onOpenChan
                 !isConnected || 
                 !selectedChamaId || 
                 Number(chamaInfo?.currentCycle || 0) > 0 ||
-                (chamaMembers && chamaMembers.length >= Number(chamaInfo?.maxMembers || 0))
+                (chamaMembers && Array.isArray(chamaMembers) && chamaMembers.length >= Number(chamaInfo?.maxMembers || 0))
               }
             >
               {isLoading ? (
@@ -337,7 +337,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({ open, onOpenChan
                   <Users className="w-4 h-4 mr-2" />
                   Already Started
                 </>
-              ) : (chamaMembers && chamaMembers.length >= Number(chamaInfo?.maxMembers || 0)) ? (
+              ) : (chamaMembers && Array.isArray(chamaMembers) && chamaMembers.length >= Number(chamaInfo?.maxMembers || 0)) ? (
                 <>
                   <Users className="w-4 h-4 mr-2" />
                   Chama Full
@@ -374,7 +374,7 @@ const ChamaSelectItem: React.FC<{ chamaId: bigint }> = ({ chamaId }) => {
     );
   }
 
-  const memberCount = chamaMembers?.length || 0;
+  const memberCount = (Array.isArray(chamaMembers) ? chamaMembers.length : 0) || 0;
   // Focus on key criteria: hasn't started (cycle 0) and not full
   const isJoinable = Number(chamaInfo.currentCycle) === 0 && memberCount < Number(chamaInfo.maxMembers);
   

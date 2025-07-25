@@ -1,6 +1,6 @@
 import { Address, parseEther } from 'viem';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent, useAccount } from 'wagmi';
-import { SACCO_CONTRACT, Proposal, Loan, SaccoContractFunctions, MemberRegisteredEvent, SavingsDepositedEvent, LoanIssuedEvent, LoanRepaidEvent, DividendPaidEvent } from '../contracts/sacco-contract';
+import { SACCO_CONTRACT, Member, BoardMember, CommitteeBid, Proposal, Loan, SaccoContractFunctions, MemberRegisteredEvent, SavingsDepositedEvent, LoanIssuedEvent, LoanRepaidEvent, DividendPaidEvent, BoardMemberAddedEvent, BoardMemberRemovedEvent, CommitteeBidSubmittedEvent, CommitteeBidVotedEvent, CommitteeBidAcceptedEvent } from '../contracts/sacco-contract';
 import { citreaTestnet } from '../wagmi';
 
 export function useSacco() {
@@ -139,7 +139,82 @@ export function useSacco() {
       address: SACCO_CONTRACT.address,
       functionName: 'members',
       args: [memberAddress],
+    }) as { data: Member | undefined; isLoading: boolean; error: Error | null };
+  }
+
+  // Board-related read functions
+  function useGetBoardMembers() {
+    return useReadContract({
+      abi: SACCO_CONTRACT.abi,
+      address: SACCO_CONTRACT.address,
+      functionName: 'getBoardMembers',
+    }) as { data: BoardMember[] | undefined; isLoading: boolean; error: Error | null };
+  }
+
+  function useGetCommitteeBids() {
+    return useReadContract({
+      abi: SACCO_CONTRACT.abi,
+      address: SACCO_CONTRACT.address,
+      functionName: 'getCommitteeBids',
+    }) as { data: CommitteeBid[] | undefined; isLoading: boolean; error: Error | null };
+  }
+
+  function useIsBoardMember(memberAddress: Address) {
+    return useReadContract({
+      abi: SACCO_CONTRACT.abi,
+      address: SACCO_CONTRACT.address,
+      functionName: 'isBoardMember',
+      args: [memberAddress],
     });
+  }
+
+  function useGetActiveBoardMembersCount() {
+    return useReadContract({
+      abi: SACCO_CONTRACT.abi,
+      address: SACCO_CONTRACT.address,
+      functionName: 'getActiveBoardMembersCount',
+    });
+  }
+
+  function useGetActiveBidsCount() {
+    return useReadContract({
+      abi: SACCO_CONTRACT.abi,
+      address: SACCO_CONTRACT.address,
+      functionName: 'getActiveBidsCount',
+    });
+  }
+
+  function useGetBidVotes(bidId: bigint) {
+    return useReadContract({
+      abi: SACCO_CONTRACT.abi,
+      address: SACCO_CONTRACT.address,
+      functionName: 'getBidVotes',
+      args: [bidId],
+    });
+  }
+
+  function useHasVotedOnBid(bidId: bigint, voter: Address) {
+    return useReadContract({
+      abi: SACCO_CONTRACT.abi,
+      address: SACCO_CONTRACT.address,
+      functionName: 'hasVotedOnBidCheck',
+      args: [bidId, voter],
+    });
+  }
+
+  // Note: For now, we'll use a simpler approach and get members from board members
+  // In a full implementation, you'd want to add a getMemberAddresses() function to the contract
+  function useGetMemberAddresses() {
+    const { data: boardMembers } = useGetBoardMembers();
+    
+    // For now, return board members as potential recipients
+    // In production, you'd want all SACCO members
+    const members = Array.isArray(boardMembers) ? boardMembers : [];
+    return {
+      memberAddresses: members.map((member: BoardMember) => member.memberAddress as Address).filter(Boolean),
+      isLoading: false,
+      error: null,
+    };
   }
 
   return {
@@ -160,6 +235,15 @@ export function useSacco() {
     useMinimumShares,
     useSharePrice,
     useMembers,
+    // Board-related read functions
+    useGetBoardMembers,
+    useGetCommitteeBids,
+    useIsBoardMember,
+    useGetActiveBoardMembersCount,
+    useGetActiveBidsCount,
+    useGetBidVotes,
+    useHasVotedOnBid,
+    useGetMemberAddresses,
   };
 }
 
@@ -227,7 +311,7 @@ export const useRegisterMember = () => {
       ...SACCO_CONTRACT,
       functionName: 'purchaseShares',
       args: [10], // MINIMUM_SHARES
-      value: parseEther('0.01'), // 10 * 0.001 ETH
+      value: parseEther('0.01'), // 10 * 0.001 BTC
       chain: citreaTestnet,
       account: address,
     });
@@ -526,6 +610,92 @@ export function useExecuteProposal() {
   };
 }
 
+// Board-related write functions
+export function useSubmitCommitteeBid() {
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+  const { address } = useAccount();
+  
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const submitCommitteeBid = (proposal: string, bidAmount: string) => {
+    writeContract({
+      ...SACCO_CONTRACT,
+      functionName: 'submitCommitteeBid',
+      args: [proposal],
+      value: parseEther(bidAmount),
+      chain: citreaTestnet,
+      account: address,
+    });
+  };
+
+  return {
+    submitCommitteeBid,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isConfirmed,
+  };
+}
+
+export function useVoteOnCommitteeBid() {
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+  const { address } = useAccount();
+  
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const voteOnCommitteeBid = (bidId: bigint, votes: bigint) => {
+    writeContract({
+      ...SACCO_CONTRACT,
+      functionName: 'voteOnCommitteeBid',
+      args: [bidId, votes],
+      chain: citreaTestnet,
+      account: address,
+    });
+  };
+
+  return {
+    voteOnCommitteeBid,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isConfirmed,
+  };
+}
+
+export function useRemoveBoardMember() {
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+  const { address } = useAccount();
+  
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const removeBoardMember = (memberAddress: Address) => {
+    writeContract({
+      ...SACCO_CONTRACT,
+      functionName: 'removeBoardMember',
+      args: [memberAddress],
+      chain: citreaTestnet,
+      account: address,
+    });
+  };
+
+  return {
+    removeBoardMember,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isConfirmed,
+  };
+}
+
 // Event hooks - simplified approach for wagmi v2 compatibility
 export function useSaccoMemberRegisteredEvent(onEvent: (event: MemberRegisteredEvent) => void) {
   useWatchContractEvent({
@@ -590,11 +760,70 @@ export function useSaccoDividendPaidEvent(onEvent: (event: DividendPaidEvent) =>
     address: SACCO_CONTRACT.address,
     abi: SACCO_CONTRACT.abi,
     eventName: 'DividendPaid',
-    onLogs(logs) {
-      logs.forEach(() => {
-        console.log('DividendPaid event detected');
-        // onEvent({ member: '0x...', amount: 0n } as DividendPaidEvent);
-      });
+    onLogs: (logs) => {
+      console.log('Dividend paid event:', logs);
+      // onEvent({ member: '0x...', amount: 0n } as DividendPaidEvent);
+    },
+  });
+}
+
+// Board-related event hooks
+export function useBoardMemberAddedEvent(onEvent: (event: BoardMemberAddedEvent) => void) {
+  useWatchContractEvent({
+    address: SACCO_CONTRACT.address,
+    abi: SACCO_CONTRACT.abi,
+    eventName: 'BoardMemberAdded',
+    onLogs: (logs) => {
+      console.log('Board member added event:', logs);
+      // onEvent({ member: '0x...', votes: 0n } as BoardMemberAddedEvent);
+    },
+  });
+}
+
+export function useBoardMemberRemovedEvent(onEvent: (event: BoardMemberRemovedEvent) => void) {
+  useWatchContractEvent({
+    address: SACCO_CONTRACT.address,
+    abi: SACCO_CONTRACT.abi,
+    eventName: 'BoardMemberRemoved',
+    onLogs: (logs) => {
+      console.log('Board member removed event:', logs);
+      // onEvent({ member: '0x...' } as BoardMemberRemovedEvent);
+    },
+  });
+}
+
+export function useCommitteeBidSubmittedEvent(onEvent: (event: CommitteeBidSubmittedEvent) => void) {
+  useWatchContractEvent({
+    address: SACCO_CONTRACT.address,
+    abi: SACCO_CONTRACT.abi,
+    eventName: 'CommitteeBidSubmitted',
+    onLogs: (logs) => {
+      console.log('Committee bid submitted event:', logs);
+      // onEvent({ bidder: '0x...', bidId: 0n, amount: 0n } as CommitteeBidSubmittedEvent);
+    },
+  });
+}
+
+export function useCommitteeBidVotedEvent(onEvent: (event: CommitteeBidVotedEvent) => void) {
+  useWatchContractEvent({
+    address: SACCO_CONTRACT.address,
+    abi: SACCO_CONTRACT.abi,
+    eventName: 'CommitteeBidVoted',
+    onLogs: (logs) => {
+      console.log('Committee bid voted event:', logs);
+      // onEvent({ voter: '0x...', bidId: 0n, votes: 0n } as CommitteeBidVotedEvent);
+    },
+  });
+}
+
+export function useCommitteeBidAcceptedEvent(onEvent: (event: CommitteeBidAcceptedEvent) => void) {
+  useWatchContractEvent({
+    address: SACCO_CONTRACT.address,
+    abi: SACCO_CONTRACT.abi,
+    eventName: 'CommitteeBidAccepted',
+    onLogs: (logs) => {
+      console.log('Committee bid accepted event:', logs);
+      // onEvent({ bidder: '0x...', bidId: 0n } as CommitteeBidAcceptedEvent);
     },
   });
 }

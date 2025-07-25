@@ -22,6 +22,18 @@ export type SaccoContractFunctions = {
   owner: readonly [];
   loans: readonly [bigint];
   memberLoans: readonly [Address, bigint];
+  memberAddresses: readonly [bigint];
+  
+  // Board-related read functions
+  boardMembers: readonly [bigint];
+  committeeBids: readonly [bigint];
+  isBoardMember: readonly [Address];
+  getBoardMembers: readonly [];
+  getCommitteeBids: readonly [];
+  getActiveBoardMembersCount: readonly [];
+  getActiveBidsCount: readonly [];
+  getBidVotes: readonly [bigint];
+  hasVotedOnBidCheck: readonly [bigint, Address];
 
   // Write functions
   registerMember: readonly [Address];
@@ -33,6 +45,11 @@ export type SaccoContractFunctions = {
   createProposal: readonly [string];
   vote: readonly [bigint, boolean];
   executeProposal: readonly [bigint];
+  
+  // Board-related write functions
+  submitCommitteeBid: readonly [string];
+  voteOnCommitteeBid: readonly [bigint, bigint];
+  removeBoardMember: readonly [Address];
 };
 
 // Event types based on SACCO.sol
@@ -62,7 +79,44 @@ export type DividendPaidEvent = {
   amount: bigint;
 };
 
+// Board-related event types
+export type BoardMemberAddedEvent = {
+  member: Address;
+  votes: bigint;
+};
+
+export type BoardMemberRemovedEvent = {
+  member: Address;
+};
+
+export type CommitteeBidSubmittedEvent = {
+  bidder: Address;
+  bidId: bigint;
+  amount: bigint;
+};
+
+export type CommitteeBidVotedEvent = {
+  voter: Address;
+  bidId: bigint;
+  votes: bigint;
+};
+
+export type CommitteeBidAcceptedEvent = {
+  bidder: Address;
+  bidId: bigint;
+};
+
 // Struct types based on contract
+export type Member = {
+  shares: bigint;
+  savings: bigint;
+  lastInterestUpdate: bigint;
+  joinDate: bigint;
+  isActive: boolean;
+  totalLoansReceived: bigint;
+  guaranteeCapacity: bigint;
+};
+
 export type Proposal = {
   description: string;
   deadline: bigint;
@@ -70,6 +124,22 @@ export type Proposal = {
   noVotes: bigint;
   executed: boolean;
   proposer: Address;
+};
+
+export type BoardMember = {
+  memberAddress: Address;
+  appointedDate: bigint;
+  votes: bigint;
+  isActive: boolean;
+};
+
+export type CommitteeBid = {
+  bidder: Address;
+  proposal: string;
+  bidAmount: bigint;
+  submissionDate: bigint;
+  votes: bigint;
+  isActive: boolean;
 };
 
 export type Loan = {

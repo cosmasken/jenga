@@ -41,7 +41,7 @@ export const ProvideGuaranteeModal: React.FC<ProvideGuaranteeModalProps> = ({
     if (isConfirmed && hash) {
       toast({
         title: 'Guarantee Provided Successfully!',
-        description: `You provided ${guaranteeAmount} ETH as guarantee for loan ${loanId}. Transaction hash: ${hash}`,
+        description: `You provided ${guaranteeAmount} BTC as guarantee for loan ${loanId}. Transaction hash: ${hash}`,
       });
       onOpenChange(false);
     }
@@ -130,7 +130,7 @@ export const ProvideGuaranteeModal: React.FC<ProvideGuaranteeModalProps> = ({
                     Loan Amount:
                   </span>
                   <span className="text-sm text-blue-900 dark:text-blue-100">
-                    {loanAmount} ETH
+                    {loanAmount} BTC
                   </span>
                 </div>
               )}
@@ -151,7 +151,7 @@ export const ProvideGuaranteeModal: React.FC<ProvideGuaranteeModalProps> = ({
               disabled={isPending || isConfirming}
             />
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Amount in ETH you're willing to guarantee for this loan
+              Amount in BTC you're willing to guarantee for this loan
             </p>
           </div>
 

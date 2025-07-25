@@ -15,7 +15,7 @@ interface PurchaseSharesModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const SHARE_PRICE = "0.001"; // 0.001 ETH per share
+const SHARE_PRICE = "0.001"; // 0.001 BTC per share
 const MINIMUM_SHARES = 10;
 
 export const PurchaseSharesModal: React.FC<PurchaseSharesModalProps> = ({
@@ -41,7 +41,7 @@ export const PurchaseSharesModal: React.FC<PurchaseSharesModalProps> = ({
     if (isConfirmed && hash) {
       toast({
         title: 'Shares Purchased Successfully!',
-        description: `You purchased ${shares} shares for ${totalCost} ETH. Transaction hash: ${hash}`,
+        description: `You purchased ${shares} shares for ${totalCost} BTC. Transaction hash: ${hash}`,
       });
       onOpenChange(false);
     }
@@ -90,7 +90,7 @@ export const PurchaseSharesModal: React.FC<PurchaseSharesModalProps> = ({
             Purchase SACCO Shares
           </DialogTitle>
           <DialogDescription>
-            Purchase shares to become a SACCO member. Each share costs {SHARE_PRICE} ETH.
+            Purchase shares to become a SACCO member. Each share costs {SHARE_PRICE} BTC.
             Minimum purchase is {MINIMUM_SHARES} shares.
           </DialogDescription>
         </DialogHeader>
@@ -109,7 +109,7 @@ export const PurchaseSharesModal: React.FC<PurchaseSharesModalProps> = ({
               disabled={isPending || isConfirming}
             />
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Share price: {SHARE_PRICE} ETH each
+              Share price: {SHARE_PRICE} BTC each
             </p>
           </div>
 
@@ -119,11 +119,11 @@ export const PurchaseSharesModal: React.FC<PurchaseSharesModalProps> = ({
                 Total Cost:
               </span>
               <span className="text-lg font-bold text-blue-900 dark:text-blue-100">
-                {totalCost} ETH
+                {totalCost} BTC
               </span>
             </div>
             <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-              {shares} shares × {SHARE_PRICE} ETH
+              {shares} shares × {SHARE_PRICE} BTC
             </p>
           </div>
 

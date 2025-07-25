@@ -7,6 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Gift, Users, Shuffle } from 'lucide-react';
+import { useSendRedEnvelope } from '@/hooks/useJenga';
+import { useSacco } from '@/hooks/useSacco';
+import { parseEther } from 'viem';
+import { useAccount } from 'wagmi';
 
 interface SendRedEnvelopeModalProps {
   open: boolean;
@@ -14,7 +18,6 @@ interface SendRedEnvelopeModalProps {
 }
 
 export const SendRedEnvelopeModal: React.FC<SendRedEnvelopeModalProps> = ({ open, onOpenChange }) => {
-  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     amount: '',
     recipients: '',
@@ -22,18 +25,69 @@ export const SendRedEnvelopeModal: React.FC<SendRedEnvelopeModalProps> = ({ open
     mode: 'equal' as 'equal' | 'random'
   });
   const { toast } = useToast();
+  const { address } = useAccount();
+  const { sendRedEnvelope, isPending, isConfirming, isConfirmed, error } = useSendRedEnvelope();
+  const { useGetMemberAddresses } = useSacco();
+  const { memberAddresses } = useGetMemberAddresses();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    
+    if (!address) {
+      toast({
+        title: "Wallet Not Connected",
+        description: "Please connect your wallet to send red envelopes.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    // Mock API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    if (!formData.amount || !formData.recipients) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    // Mock success/failure (85% success rate)
-    const isSuccess = Math.random() > 0.15;
+    try {
+      const recipientCount = parseInt(formData.recipients);
+      const totalAmount = parseEther(formData.amount);
+      
+      // Select random recipients from member addresses
+      const selectedRecipients = memberAddresses
+        .filter(addr => addr !== address) // Exclude sender
+        .slice(0, recipientCount);
 
-    if (isSuccess) {
+      if (selectedRecipients.length < recipientCount) {
+        toast({
+          title: "Not Enough Recipients",
+          description: `Only ${selectedRecipients.length} members available as recipients.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      sendRedEnvelope(
+        selectedRecipients,
+        totalAmount,
+        formData.mode === 'random',
+        formData.message || 'Happy sharing! 🧧'
+      );
+      
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Failed to send red envelope. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle transaction success
+  React.useEffect(() => {
+    if (isConfirmed) {
       const recipientCount = parseInt(formData.recipients);
       toast({
         title: "Red Envelope Sent Successfully! 🧧",
@@ -41,16 +95,19 @@ export const SendRedEnvelopeModal: React.FC<SendRedEnvelopeModalProps> = ({ open
       });
       setFormData({ amount: '', recipients: '', message: '', mode: 'equal' });
       onOpenChange(false);
-    } else {
+    }
+  }, [isConfirmed, formData.recipients, formData.amount, formData.mode, toast, onOpenChange]);
+
+  // Handle transaction error
+  React.useEffect(() => {
+    if (error) {
       toast({
-        title: "Failed to Send Red Envelope",
-        description: "Transaction failed. Please check your wallet balance and try again.",
+        title: "Transaction Failed",
+        description: error.message || "Failed to send red envelope. Please try again.",
         variant: "destructive",
       });
     }
-
-    setIsLoading(false);
-  };
+  }, [error, toast]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -69,13 +126,13 @@ export const SendRedEnvelopeModal: React.FC<SendRedEnvelopeModalProps> = ({ open
               id="amount"
               type="number"
               step="0.001"
-              max="0.01"
+              max="0.1"
               value={formData.amount}
               onChange={(e) => setFormData(prev => ({ ...prev, amount: e.target.value }))}
-              placeholder="0.005"
+              placeholder="0.01"
               required
             />
-            <p className="text-xs text-gray-500">Maximum 0.01 BTC per red envelope</p>
+            <p className="text-xs text-gray-500">Maximum 0.1 BTC per red envelope</p>
           </div>
 
           <div className="space-y-2">
@@ -143,19 +200,19 @@ export const SendRedEnvelopeModal: React.FC<SendRedEnvelopeModalProps> = ({ open
               variant="outline"
               onClick={() => onOpenChange(false)}
               className="flex-1"
-              disabled={isLoading}
+              disabled={isPending || isConfirming}
             >
               Cancel
             </Button>
             <Button
               type="submit"
               className="flex-1 bg-red-500 hover:bg-red-600"
-              disabled={isLoading || !formData.amount || !formData.recipients || parseFloat(formData.amount) > 0.01}
+              disabled={isPending || isConfirming || !formData.amount || !formData.recipients || parseFloat(formData.amount) > 0.1}
             >
-              {isLoading ? (
+              {isPending || isConfirming ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Sending...
+                  {isPending ? 'Sending...' : 'Confirming...'}
                 </>
               ) : (
                 'Send Red Envelope'
