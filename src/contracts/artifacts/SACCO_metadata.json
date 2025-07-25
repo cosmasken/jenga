@@ -27,6 +27,107 @@
 					{
 						"indexed": false,
 						"internalType": "uint256",
+						"name": "votes",
+						"type": "uint256"
+					}
+				],
+				"name": "BoardMemberAdded",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "member",
+						"type": "address"
+					}
+				],
+				"name": "BoardMemberRemoved",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "bidder",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "bidId",
+						"type": "uint256"
+					}
+				],
+				"name": "CommitteeBidAccepted",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "bidder",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "bidId",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "CommitteeBidSubmitted",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "voter",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "bidId",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "votes",
+						"type": "uint256"
+					}
+				],
+				"name": "CommitteeBidVoted",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "member",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
 						"name": "amount",
 						"type": "uint256"
 					}
@@ -250,7 +351,33 @@
 			},
 			{
 				"inputs": [],
+				"name": "MAX_BOARD_MEMBERS",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
 				"name": "MINIMUM_SHARES",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "MIN_BID_AMOUNT",
 				"outputs": [
 					{
 						"internalType": "uint256",
@@ -301,10 +428,107 @@
 				"type": "function"
 			},
 			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "boardMemberIndex",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "boardMembers",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "memberAddress",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "appointedDate",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "votes",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bool",
+						"name": "isActive",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
 				"inputs": [],
 				"name": "calculateInterestForAllMembers",
 				"outputs": [],
 				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"name": "committeeBids",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "bidder",
+						"type": "address"
+					},
+					{
+						"internalType": "string",
+						"name": "proposal",
+						"type": "string"
+					},
+					{
+						"internalType": "uint256",
+						"name": "bidAmount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "submissionDate",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "votes",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bool",
+						"name": "isActive",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
 				"type": "function"
 			},
 			{
@@ -367,6 +591,131 @@
 						"internalType": "address",
 						"name": "",
 						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getActiveBidsCount",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getActiveBoardMembersCount",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_bidId",
+						"type": "uint256"
+					}
+				],
+				"name": "getBidVotes",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getBoardMembers",
+				"outputs": [
+					{
+						"components": [
+							{
+								"internalType": "address",
+								"name": "memberAddress",
+								"type": "address"
+							},
+							{
+								"internalType": "uint256",
+								"name": "appointedDate",
+								"type": "uint256"
+							},
+							{
+								"internalType": "uint256",
+								"name": "votes",
+								"type": "uint256"
+							},
+							{
+								"internalType": "bool",
+								"name": "isActive",
+								"type": "bool"
+							}
+						],
+						"internalType": "struct SACCO.BoardMember[]",
+						"name": "",
+						"type": "tuple[]"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getCommitteeBids",
+				"outputs": [
+					{
+						"components": [
+							{
+								"internalType": "address",
+								"name": "bidder",
+								"type": "address"
+							},
+							{
+								"internalType": "string",
+								"name": "proposal",
+								"type": "string"
+							},
+							{
+								"internalType": "uint256",
+								"name": "bidAmount",
+								"type": "uint256"
+							},
+							{
+								"internalType": "uint256",
+								"name": "submissionDate",
+								"type": "uint256"
+							},
+							{
+								"internalType": "uint256",
+								"name": "votes",
+								"type": "uint256"
+							},
+							{
+								"internalType": "bool",
+								"name": "isActive",
+								"type": "bool"
+							}
+						],
+						"internalType": "struct SACCO.CommitteeBid[]",
+						"name": "",
+						"type": "tuple[]"
 					}
 				],
 				"stateMutability": "view",
@@ -485,6 +834,73 @@
 					}
 				],
 				"name": "hasVoted",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "hasVotedOnBid",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_bidId",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "_voter",
+						"type": "address"
+					}
+				],
+				"name": "hasVotedOnBidCheck",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"name": "isBoardMember",
 				"outputs": [
 					{
 						"internalType": "bool",
@@ -807,6 +1223,19 @@
 			{
 				"inputs": [
 					{
+						"internalType": "address",
+						"name": "_member",
+						"type": "address"
+					}
+				],
+				"name": "removeBoardMember",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
 						"internalType": "uint256",
 						"name": "_loanId",
 						"type": "uint256"
@@ -838,6 +1267,19 @@
 				"name": "requestLoan",
 				"outputs": [],
 				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "string",
+						"name": "_proposal",
+						"type": "string"
+					}
+				],
+				"name": "submitCommitteeBid",
+				"outputs": [],
+				"stateMutability": "payable",
 				"type": "function"
 			},
 			{
@@ -893,6 +1335,24 @@
 					}
 				],
 				"name": "vote",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "uint256",
+						"name": "_bidId",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_votes",
+						"type": "uint256"
+					}
+				],
+				"name": "voteOnCommitteeBid",
 				"outputs": [],
 				"stateMutability": "nonpayable",
 				"type": "function"
@@ -970,11 +1430,11 @@
 			]
 		},
 		"Sacco.sol": {
-			"keccak256": "0xbd40943eddbd7127477f13ad77246bc46e35fcf2f5a1bf9b74e232c50a307c79",
+			"keccak256": "0x343f0a5d610332681c7c63f87f8be660d43a0dd24973acdc7db2475a4880c2b2",
 			"license": "MIT",
 			"urls": [
-				"bzz-raw://451e9d9697f92d4604368bad681becf09468e54a9d00e98541a4f94e91ab06b7",
-				"dweb:/ipfs/QmSC6EceThAfhhndkg7U71vuuNmdY4abUZFSsVmrewYVjJ"
+				"bzz-raw://07f042779ddfe236cb17fb7159cc17f7777aa253716602a2352dedecf0b610c3",
+				"dweb:/ipfs/QmQF8p4PDJCDcPQjgRJYZ7rG1p3BhjhjX9vj7R62xXTq9t"
 			]
 		}
 	},

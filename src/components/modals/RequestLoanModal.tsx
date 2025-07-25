@@ -127,7 +127,7 @@ export const RequestLoanModal: React.FC<RequestLoanModalProps> = ({
               className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600"
               disabled={isLoading}
             />
-            <p className="text-xs text-gray-500">Amount in ETH</p>
+            <p className="text-xs text-gray-500">Amount in BTC</p>
           </div>
 
           <div className="space-y-2">

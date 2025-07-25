@@ -38,7 +38,10 @@ export const SaccoQuickActions: React.FC = () => {
     useSharePrice,
     useTotalProposals, 
     useNextLoanId,
-    useSavings 
+    useSavings,
+    useIsBoardMember,
+    useGetActiveBoardMembersCount,
+    useGetActiveBidsCount 
   } = useSacco();
 
   const { data: memberInfo } = useGetMemberInfo(address!);
@@ -47,6 +50,9 @@ export const SaccoQuickActions: React.FC = () => {
   const { data: totalProposals } = useTotalProposals();
   const { data: nextLoanId } = useNextLoanId();
   const { data: memberSavings } = useSavings(address!);
+  const { data: isBoardMember } = useIsBoardMember(address || '0x');
+  const { data: activeBoardCount } = useGetActiveBoardMembersCount();
+  const { data: activeBidsCount } = useGetActiveBidsCount();
 
   // Check if user is a member based on shares owned
   const isMember = memberInfo && memberInfo[0] > 0; // memberInfo[0] is shares
@@ -77,7 +83,7 @@ export const SaccoQuickActions: React.FC = () => {
       bgColor: 'bg-green-50 dark:bg-green-950',
       action: () => setIsDepositModalOpen(true),
       disabled: !isConnected || !isMember || !isActive,
-      badge: memberSavings ? `${String(memberSavings)} ETH` : 'No savings',
+      badge: memberSavings ? `${String(memberSavings)} BTC` : 'No savings',
       badgeVariant: 'outline' as BadgeVariant,
     },
     {
@@ -150,7 +156,14 @@ export const SaccoQuickActions: React.FC = () => {
         </div>
         <CardDescription>
           {isMember 
-            ? `You own ${memberShares} shares. Manage your SACCO membership and participate in community activities.`
+            ? (
+                <div className="space-y-1">
+                  <div>You own {memberShares} shares. {isBoardMember ? '🏛️ Board Member' : 'Member'}</div>
+                  <div className="text-xs text-gray-500">
+                    Board: {String(activeBoardCount || 0)}/3 members • Active Bids: {String(activeBidsCount || 0)}
+                  </div>
+                </div>
+              )
             : `Purchase at least ${minimumShares ? String(minimumShares) : '1'} shares to join the SACCO and access all features.`
           }
         </CardDescription>

@@ -37,12 +37,31 @@ contract SACCO is ReentrancyGuard {
         GENERAL,
         MEMBER_REGISTRATION,
         INTEREST_RATE_CHANGE,
-        DIVIDEND_DISTRIBUTION
+        DIVIDEND_DISTRIBUTION,
+        BOARD_MEMBER_ADDITION,
+        BOARD_MEMBER_REMOVAL
+    }
+    
+    // Board of Directors System
+    struct BoardMember {
+        address memberAddress;
+        uint256 appointedDate;
+        uint256 votes;
+        bool isActive;
+    }
+    
+    struct CommitteeBid {
+        address bidder;
+        string proposal;
+        uint256 bidAmount;
+        uint256 submissionDate;
+        uint256 votes;
+        bool isActive;
     }
 
     // Share-based ownership constants
     uint256 public constant MINIMUM_SHARES = 10;
-    uint256 public constant SHARE_PRICE = 0.001 ether; // 0.001 ETH per share
+    uint256 public constant SHARE_PRICE = 0.001 ether; // 0.001 BTC per share
     uint256 public constant SECONDS_PER_YEAR = 365 * 24 * 60 * 60;
     
     // Interest rates
@@ -65,6 +84,15 @@ contract SACCO is ReentrancyGuard {
     uint256 public totalSavings;
     uint256 public votingDuration = 7 days; // More reasonable voting period
     address public founder; // Initial founder, governance transfers to members
+    
+    // Board of Directors variables
+    uint256 public constant MAX_BOARD_MEMBERS = 3;
+    uint256 public constant MIN_BID_AMOUNT = 0.01 ether;
+    BoardMember[] public boardMembers;
+    CommitteeBid[] public committeeBids;
+    mapping(address => bool) public isBoardMember;
+    mapping(address => uint256) public boardMemberIndex;
+    mapping(uint256 => mapping(address => bool)) public hasVotedOnBid;
 
     // Events
     event SharesPurchased(address indexed member, uint256 shares, uint256 amount);
@@ -78,6 +106,13 @@ contract SACCO is ReentrancyGuard {
     event LoanIssued(address indexed borrower, uint256 amount, uint256 loanId);
     event LoanRepaid(address indexed borrower, uint256 loanId, uint256 amount);
     event DividendPaid(address indexed member, uint256 amount);
+    
+    // Board of Directors Events
+    event BoardMemberAdded(address indexed member, uint256 votes);
+    event BoardMemberRemoved(address indexed member);
+    event CommitteeBidSubmitted(address indexed bidder, uint256 bidId, uint256 amount);
+    event CommitteeBidVoted(address indexed voter, uint256 bidId, uint256 votes);
+    event CommitteeBidAccepted(address indexed bidder, uint256 bidId);
 
     struct Loan {
         uint256 amount;
@@ -110,7 +145,18 @@ contract SACCO is ReentrancyGuard {
         memberAddresses.push(msg.sender);
         totalShares = MINIMUM_SHARES;
         
+        // Initialize founder as first board member
+        boardMembers.push(BoardMember({
+            memberAddress: msg.sender,
+            appointedDate: block.timestamp,
+            votes: MINIMUM_SHARES, // Founder's initial voting power
+            isActive: true
+        }));
+        isBoardMember[msg.sender] = true;
+        boardMemberIndex[msg.sender] = 0;
+        
         emit MemberRegistered(msg.sender, MINIMUM_SHARES);
+        emit BoardMemberAdded(msg.sender, MINIMUM_SHARES);
     }
     
     modifier onlyMember() {
@@ -537,6 +583,128 @@ contract SACCO is ReentrancyGuard {
         return _calculateMaxLoanAmount(_member);
     }
     
+    // Board of Directors Management Functions
+    
+    // Submit a bid to join the board committee
+    function submitCommitteeBid(string calldata _proposal) external payable onlyMember {
+        require(msg.value >= MIN_BID_AMOUNT, "Insufficient bid amount");
+        require(!isBoardMember[msg.sender], "Already a board member");
+        require(boardMembers.length < MAX_BOARD_MEMBERS, "Board is full");
+        
+        // Check if user already has an active bid
+        for (uint256 i = 0; i < committeeBids.length; i++) {
+            if (committeeBids[i].bidder == msg.sender && committeeBids[i].isActive) {
+                revert("Already has an active bid");
+            }
+        }
+        
+        committeeBids.push(CommitteeBid({
+            bidder: msg.sender,
+            proposal: _proposal,
+            bidAmount: msg.value,
+            submissionDate: block.timestamp,
+            votes: 0,
+            isActive: true
+        }));
+        
+        emit CommitteeBidSubmitted(msg.sender, committeeBids.length - 1, msg.value);
+    }
+    
+    // Vote on a committee bid
+    function voteOnCommitteeBid(uint256 _bidId, uint256 _votes) external onlyMember {
+        require(_bidId < committeeBids.length, "Invalid bid ID");
+        require(committeeBids[_bidId].isActive, "Bid is not active");
+        require(!hasVotedOnBid[_bidId][msg.sender], "Already voted on this bid");
+        require(_votes > 0 && _votes <= members[msg.sender].shares, "Invalid vote count");
+        
+        committeeBids[_bidId].votes += _votes;
+        hasVotedOnBid[_bidId][msg.sender] = true;
+        
+        emit CommitteeBidVoted(msg.sender, _bidId, _votes);
+        
+        // Auto-accept if bid reaches majority threshold
+        uint256 threshold = totalShares / 2; // Simple majority
+        if (committeeBids[_bidId].votes >= threshold && boardMembers.length < MAX_BOARD_MEMBERS) {
+            _acceptCommitteeBid(_bidId);
+        }
+    }
+    
+    // Internal function to accept a committee bid
+    function _acceptCommitteeBid(uint256 _bidId) internal {
+        CommitteeBid storage bid = committeeBids[_bidId];
+        require(bid.isActive, "Bid is not active");
+        require(boardMembers.length < MAX_BOARD_MEMBERS, "Board is full");
+        
+        // Add to board
+        boardMembers.push(BoardMember({
+            memberAddress: bid.bidder,
+            appointedDate: block.timestamp,
+            votes: bid.votes,
+            isActive: true
+        }));
+        
+        isBoardMember[bid.bidder] = true;
+        boardMemberIndex[bid.bidder] = boardMembers.length - 1;
+        
+        // Deactivate the bid
+        bid.isActive = false;
+        
+        emit BoardMemberAdded(bid.bidder, bid.votes);
+        emit CommitteeBidAccepted(bid.bidder, _bidId);
+    }
+    
+    // Remove a board member (requires majority vote)
+    function removeBoardMember(address _member) external onlyMember {
+        require(isBoardMember[_member], "Not a board member");
+        require(boardMembers.length > 1, "Cannot remove last board member");
+        
+        // This should ideally be done through a proposal system
+        // For now, we'll implement a simple version
+        uint256 index = boardMemberIndex[_member];
+        boardMembers[index].isActive = false;
+        isBoardMember[_member] = false;
+        
+        emit BoardMemberRemoved(_member);
+    }
+    
+    // View functions for board management
+    function getBoardMembers() external view returns (BoardMember[] memory) {
+        return boardMembers;
+    }
+    
+    function getCommitteeBids() external view returns (CommitteeBid[] memory) {
+        return committeeBids;
+    }
+    
+    function getActiveBoardMembersCount() external view returns (uint256) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < boardMembers.length; i++) {
+            if (boardMembers[i].isActive) {
+                count++;
+            }
+        }
+        return count;
+    }
+    
+    function getActiveBidsCount() external view returns (uint256) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < committeeBids.length; i++) {
+            if (committeeBids[i].isActive) {
+                count++;
+            }
+        }
+        return count;
+    }
+    
+    function getBidVotes(uint256 _bidId) external view returns (uint256) {
+        require(_bidId < committeeBids.length, "Invalid bid ID");
+        return committeeBids[_bidId].votes;
+    }
+    
+    function hasVotedOnBidCheck(uint256 _bidId, address _voter) external view returns (bool) {
+        return hasVotedOnBid[_bidId][_voter];
+    }
+
     // Emergency functions (only for critical situations)
     function emergencyWithdraw() external onlyFounder {
         require(memberAddresses.length == 1, "Can only be used when founder is sole member");
