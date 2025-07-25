@@ -11,11 +11,9 @@ import { StatsCard } from '../components/dashboard/StatsCard';
 import { LoadingState, DashboardSkeleton, useLoadingState } from '../components/ui/LoadingStates';
 import { CreateChamaModal } from '../components/modals/CreateChamaModal';
 import { JoinChamaModal } from '../components/modals/JoinChamaModal';
-import { SendRedEnvelopeModal } from '../components/modals/SendRedEnvelopeModal';
 import { StackBTCModal } from '../components/modals/StackBTCModal';
 import { TeamFormation } from '../components/TeamFormation';
 import { InteractiveTestFlow } from '../components/InteractiveTestFlow';
-import { SaccoQuickActions } from '../components/dashboard/SaccoQuickActions';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -274,11 +272,6 @@ export const Dashboard: React.FC = () => {
         </Alert>
       )}
 
-      {/* SACCO Quick Actions */}
-      <div className="mb-8">
-        <SaccoQuickActions />
-      </div>
-
       {/* Navigation Options */}
       <div className="flex justify-center gap-4 mb-6">
         <Button
@@ -340,10 +333,6 @@ export const Dashboard: React.FC = () => {
           if (!open) setSelectedChamaId(null);
         }}
         chamaId={selectedChamaId}
-      />
-      <SendRedEnvelopeModal 
-        open={redEnvelopeOpen} 
-        onOpenChange={setRedEnvelopeOpen} 
       />
       <StackBTCModal 
         open={stackBTCOpen} 
