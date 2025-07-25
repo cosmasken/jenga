@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Users, TrendingUp, Gift, Bitcoin, Trophy, Bell, AlertCircle } from 'lucide-react';
+import { Plus, Users, TrendingUp, Gift, Bitcoin, Trophy, Bell, AlertCircle, Building2 } from 'lucide-react';
 import { useAccount, useBalance } from 'wagmi';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { formatEther } from 'viem';
 import { useGetUserChamas, useGetUserScore } from '../hooks/useJengaContract';
 import { useAutomatedCycles } from '../hooks/useAutomatedCycles';
@@ -278,7 +279,7 @@ export const Dashboard: React.FC = () => {
         <SaccoQuickActions />
       </div>
 
-      {/* Toggle between Team Formation and Test Flow */}
+      {/* Navigation Options */}
       <div className="flex justify-center gap-4 mb-6">
         <Button
           variant={!showTestFlow ? 'default' : 'outline'}
@@ -292,6 +293,12 @@ export const Dashboard: React.FC = () => {
         >
           Test Flow (Demo)
         </Button>
+        <Link to="/sacco">
+          <Button variant="outline" className="flex items-center gap-2">
+            <Building2 className="w-4 h-4" />
+            SACCO Management
+          </Button>
+        </Link>
       </div>
 
       {/* Main Content */}
