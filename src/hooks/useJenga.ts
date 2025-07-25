@@ -267,13 +267,18 @@ export const useAcceptInvite = ChamaGamificationHooks.useAcceptInvite;
 
 // Read hooks for backward compatibility
 export const useChamaCount = ChamaHooks.useChamaCount;
+export const useGetChamaCount = ChamaHooks.useChamaCount;
 export const useGetChamaDetails = ChamaHooks.useGetChamaDetails;
+export const useGetChamaInfo = ChamaHooks.useGetChamaDetails;
 export const useGetChamaMembers = ChamaHooks.useGetChamaMembers;
+export const useGetAllChamas = ChamaHooks.useGetAllChamas;
+export const useGetUserChamas = ChamaHooks.useGetUserChamas;
 export const useGetUserScore = ChamaGamificationHooks.useGetUserScore;
 export const useGetUserAchievements = ChamaGamificationHooks.useGetUserAchievements;
 export const useGetUserProfile = ChamaGamificationHooks.useGetUserProfile;
 export const useGetUserTransactionHistory = P2PHooks.useGetUserTransactionHistory;
 export const useGetRedEnvelopeDetails = P2PHooks.useGetRedEnvelopeDetails;
+export const useHasContributedThisCycle = ChamaHooks.useHasContributedThisCycle;
 
 // Utility hooks
 export const useIsChamaMember = ChamaHooks.useIsChamaMember;
@@ -332,3 +337,40 @@ export const useJengaDashboard = (userAddress?: string) => {
     isLoading: !userData.hasProfile && !!targetAddress,
   };
 };
+
+// Utility functions for backward compatibility
+export function formatSatsFromWei(weiAmount: bigint | number | string): number {
+  // Handle different input types
+  let bigIntAmount: bigint;
+  
+  if (typeof weiAmount === 'bigint') {
+    bigIntAmount = weiAmount;
+  } else if (typeof weiAmount === 'number') {
+    bigIntAmount = BigInt(weiAmount);
+  } else if (typeof weiAmount === 'string') {
+    bigIntAmount = BigInt(weiAmount);
+  } else {
+    return 0;
+  }
+  
+  // Convert wei back to sats: wei / 1e10
+  return Number(bigIntAmount / (BigInt(10) * BigInt(10) * BigInt(10) * BigInt(10) * BigInt(10) * BigInt(10) * BigInt(10) * BigInt(10) * BigInt(10) * BigInt(10)));
+}
+
+export function formatChamaInfo(data: any) {
+  if (!data || !Array.isArray(data)) return null;
+  
+  return {
+    name: data[0] || '',
+    contributionAmount: data[1] || BigInt(0),
+    cycleDuration: data[2] || BigInt(0),
+    maxMembers: data[3] || BigInt(0),
+    members: [], // Will be populated separately via getChamaMembers
+    active: data[4] || false,
+    currentCycle: data[5] || BigInt(0),
+    currentRecipientIndex: data[6] || BigInt(0),
+    lastCycleTimestamp: data[7] || BigInt(0),
+    totalPool: data[8] || BigInt(0),
+    totalCollateral: data[9] || BigInt(0),
+  };
+}

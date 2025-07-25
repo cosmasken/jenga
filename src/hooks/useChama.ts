@@ -265,6 +265,57 @@ export const useLastContributionTimestamp = (chamaId: bigint, memberAddress: str
   });
 };
 
+export const useGetAllChamas = () => {
+  const { data: chamaCount } = useChamaCount();
+  
+  // Get all chama details by iterating through chama IDs
+  const chamaQueries = [];
+  const count = Number(chamaCount || 0);
+  
+  for (let i = 0; i < count; i++) {
+    chamaQueries.push(useGetChamaDetails(BigInt(i)));
+  }
+  
+  const allChamas = chamaQueries.map((query, index) => ({
+    id: BigInt(index),
+    ...query,
+  }));
+  
+  const isLoading = allChamas.some(chama => chama.isLoading);
+  const error = allChamas.find(chama => chama.error)?.error;
+  
+  return {
+    data: allChamas.map(chama => ({
+      id: chama.id,
+      details: chama.data as ChamaDetails,
+    })).filter(chama => chama.details),
+    isLoading,
+    error,
+  };
+};
+
+export const useGetUserChamas = (userAddress?: string) => {
+  const { address } = useAccount();
+  const targetAddress = userAddress || address;
+  const { data: allChamas, isLoading, error } = useGetAllChamas();
+  
+  if (!targetAddress || !allChamas) {
+    return { data: [], isLoading, error };
+  }
+  
+  // Filter chamas where user is a member
+  const userChamas = allChamas.filter(chama => {
+    const { data: members } = useGetChamaMembers(chama.id);
+    return members && (members as string[]).includes(targetAddress);
+  });
+  
+  return {
+    data: userChamas,
+    isLoading,
+    error,
+  };
+};
+
 // Utility hooks
 export const useIsChamaMember = (chamaId: bigint, memberAddress?: string) => {
   const { address } = useAccount();
@@ -332,6 +383,8 @@ export const ChamaHooks = {
   useHasMemberReceivedPayout,
   useHasContributedThisCycle,
   useLastContributionTimestamp,
+  useGetAllChamas,
+  useGetUserChamas,
   useIsChamaMember,
   useChamaStatus,
   useMemberChamaInfo,
