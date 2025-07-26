@@ -1,6 +1,6 @@
 import { Address } from 'viem';
 import { TESTNET_CONFIG } from '../config';
-import JengaABI from '../abi/Jenga.json';
+import { JengaABI } from '../abi/JengaABI';
 
 export const JENGA_CONTRACT = {
   address: TESTNET_CONFIG.smartContracts.jenga as Address,
