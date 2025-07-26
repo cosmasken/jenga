@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Users, TrendingUp, Gift, Bitcoin, Trophy, Bell, AlertCircle } from 'lucide-react';
 import { useAccount, useBalance } from 'wagmi';
 import { useTranslation } from 'react-i18next';
-import { formatEther } from 'viem';
+import { formatEther, Address } from 'viem';
 import { useGetUserChamas, useGetUserScore } from '../hooks/useJengaContract';
 import { useAutomatedCycles } from '../hooks/useAutomatedCycles';
 import { citreaTestnet } from '../wagmi';
@@ -52,14 +52,14 @@ export const Dashboard: React.FC = () => {
     data: userChamas, 
     isLoading: chamasLoading, 
     error: chamasError 
-  } = useGetUserChamas(address!);
+  } = useGetUserChamas(address || '0x0' as Address);
   
   // Get user score from contract with loading and error states
   const { 
     data: userScore, 
     isLoading: scoreLoading, 
     error: scoreError 
-  } = useGetUserScore(address!);
+  } = useGetUserScore(address || '0x0' as Address);
 
   // Overall loading and error states
   const isLoading = isConnecting || balanceLoading || chamasLoading || scoreLoading;

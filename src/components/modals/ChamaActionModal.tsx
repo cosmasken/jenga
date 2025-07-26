@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Button } from '../ui/button';
+import { useToast } from '../../hooks/use-toast';
 import { 
   Bitcoin, 
   Users, 
   Calendar, 
-  TrendingUp, 
+  TrendingUp,   
   Plus, 
   CheckCircle, 
   Gift, 

@@ -354,7 +354,8 @@ export function useCreateChama() {
     // Convert sats to wei: 1 sat = 1e10 wei (since 1 BTC = 1e8 sats and 1 BTC = 1e18 wei)
     const contributionAmount = BigInt(contributionSats) * 10n ** 10n;
     
-    writeContract({
+    try {
+      writeContract({
         ...JENGA_CONTRACT,
         functionName: 'createChama',
         args: [name, contributionAmount, payoutPeriodSeconds, maxMembers],
@@ -362,7 +363,10 @@ export function useCreateChama() {
         chain: citreaTestnet,
         account: address,
       });
-    
+    } catch (error) {
+      console.error('Error in createChama:', error);
+      throw error;
+    }
   };
 
   return {
