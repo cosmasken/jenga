@@ -354,8 +354,7 @@ export function useCreateChama() {
     // Convert sats to wei: 1 sat = 1e10 wei (since 1 BTC = 1e8 sats and 1 BTC = 1e18 wei)
     const contributionAmount = BigInt(contributionSats) * 10n ** 10n;
     
-    try {
-      writeContract({
+    writeContract({
         ...JENGA_CONTRACT,
         functionName: 'createChama',
         args: [name, contributionAmount, payoutPeriodSeconds, maxMembers],
@@ -363,9 +362,7 @@ export function useCreateChama() {
         chain: citreaTestnet,
         account: address,
       });
-    } catch (error) {
-      throw error;
-    }
+    
   };
 
   return {
@@ -498,7 +495,7 @@ export function useProcessMissedContributions() {
 }
 
 // Hook for emergency payout (if needed for recovery)
-export function useEmergencyPayout() {
+export function useEmergencyPayout () {
   const { writeContract, data: hash, error, isPending } = useWriteContract();
   const { address } = useAccount();
   
@@ -509,7 +506,7 @@ export function useEmergencyPayout() {
   const emergencyPayout = (chamaId: bigint, recipient: Address) => {
     writeContract({
       ...JENGA_CONTRACT,
-      functionName: 'emergencyPayout', // Add this to contract if needed
+      functionName: 'emergencyPayout', // Emergency payout for incomplete chamas
       args: [chamaId, recipient],
       chain: citreaTestnet,
       account: address,

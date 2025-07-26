@@ -30,6 +30,7 @@ export type JengaContractFunctions = {
   stackBTC: readonly [bigint]; // chamaId (payable)
   startChama: readonly [bigint]; // chamaId (manual start)
   processMissedContributions: readonly [bigint]; // chamaId (emergency)
+  emergencyPayout: readonly [bigint, Address]; // chamaId, recipient (emergency recovery)
 };
 
 // Enhanced event types based on actual contract
@@ -89,6 +90,13 @@ export type CollateralForfeitedEvent = {
   chamaId: bigint;
   member: Address;
   amount: bigint;
+};
+
+export type EmergencyPayoutEvent = {
+  chamaId: bigint;
+  recipient: Address;
+  amount: bigint;
+  cycleNumber: bigint;
 };
 
 // Enhanced Chama struct type based on contract
