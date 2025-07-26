@@ -127,6 +127,29 @@
     "stackBTC": "BTC Biriktir",
     "autoInvest": "Otomatik yatırım"
   },
+  "sacco": {
+    "dashboard": {
+      "title": "SACCO Kontrol Paneli",
+      "totalProposals": "Toplam Teklifler",
+      "totalProposalsDescription": "Oluşturulan toplam yönetim teklifi sayısı.",
+      "nextLoanId": "Sonraki Kredi Kimliği",
+      "nextLoanIdDescription": "Verilecek bir sonraki kredinin kimliği.",
+      "loanInterestRate": "Kredi Faiz Oranı",
+      "loanInterestRateDescription": "Krediler için yıllık faiz oranı.",
+      "owner": "SACCO Sahibi",
+      "ownerDescription": "SACCO sözleşmesi sahibinin adresi.",
+      "actions": "SACCO İşlemleri"
+    },
+    "actions": {
+      "registerMember": "Üye Kaydet"
+    },
+    "registerMember": {
+      "title": "Yeni Üye Kaydet",
+      "description": "SACCO'ya yeni bir üye kaydedin. Bu işlemi yalnızca sahip gerçekleştirebilir.",
+      "memberAddressLabel": "Üye Adresi",
+      "registerButton": "Kaydet"
+    }
+  },
   "forms": {
     "required": "Bu alan gereklidir",
     "invalidEmail": "Lütfen geçerli bir e-posta adresi girin",

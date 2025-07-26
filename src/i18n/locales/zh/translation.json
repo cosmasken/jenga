@@ -127,6 +127,29 @@
     "stackBTC": "积累 BTC",
     "autoInvest": "自动投资"
   },
+  "sacco": {
+    "dashboard": {
+      "title": "SACCO 仪表板",
+      "totalProposals": "提案总数",
+      "totalProposalsDescription": "已创建的治理提案总数。",
+      "nextLoanId": "下一个贷款 ID",
+      "nextLoanIdDescription": "将要发放的下一个贷款的 ID。",
+      "loanInterestRate": "贷款利率",
+      "loanInterestRateDescription": "贷款的年利率。",
+      "owner": "SACCO 所有者",
+      "ownerDescription": "SACCO 合约所有者的地址。",
+      "actions": "SACCO 操作"
+    },
+    "actions": {
+      "registerMember": "注册会员"
+    },
+    "registerMember": {
+      "title": "注册新会员",
+      "description": "向 SACCO 注册新会员。只有所有者才能执行此操作。",
+      "memberAddressLabel": "会员地址",
+      "registerButton": "注册"
+    }
+  },
   "forms": {
     "required": "此字段为必填项",
     "invalidEmail": "请输入有效的电子邮件地址",

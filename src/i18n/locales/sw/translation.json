@@ -127,6 +127,29 @@
     "stackBTC": "Panga BTC",
     "autoInvest": "Uwekezaji wa kiotomatiki"
   },
+  "sacco": {
+    "dashboard": {
+      "title": "Dashibodi ya SACCO",
+      "totalProposals": "Jumla ya Mapendekezo",
+      "totalProposalsDescription": "Jumla ya idadi ya mapendekezo ya utawala yaliyoundwa.",
+      "nextLoanId": "Kitambulisho cha Mkopo Kinachofuata",
+      "nextLoanIdDescription": "Kitambulisho cha mkopo unaofuata kutolewa.",
+      "loanInterestRate": "Kiwango cha Riba ya Mkopo",
+      "loanInterestRateDescription": "Kiwango cha riba cha kila mwaka kwa mikopo.",
+      "owner": "Mmiliki wa SACCO",
+      "ownerDescription": "Anwani ya mmiliki wa mkataba wa SACCO.",
+      "actions": "Vitendo vya SACCO"
+    },
+    "actions": {
+      "registerMember": "Sajili Mwanachama"
+    },
+    "registerMember": {
+      "title": "Sajili Mwanachama Mpya",
+      "description": "Sajili mwanachama mpya kwenye SACCO. Mmiliki pekee ndiye anayeweza kufanya kitendo hiki.",
+      "memberAddressLabel": "Anwani ya Mwanachama",
+      "registerButton": "Sajili"
+    }
+  },
   "forms": {
     "required": "Sehemu hii inahitajika",
     "invalidEmail": "Tafadhali ingiza anwani sahihi ya barua pepe",
