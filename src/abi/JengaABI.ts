@@ -1,4 +1,4 @@
-[
+export const JengaABI = [
 	{
 		"anonymous": false,
 		"inputs": [
@@ -622,6 +622,24 @@
 	{
 		"inputs": [
 			{
+				"internalType": "uint256",
+				"name": "_chamaId",
+				"type": "uint256"
+			},
+			{
+				"internalType": "address",
+				"name": "_recipient",
+				"type": "address"
+			}
+		],
+		"name": "emergencyPayout",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "string",
 				"name": "_username",
 				"type": "string"
@@ -1131,4 +1149,4 @@
 		"stateMutability": "view",
 		"type": "function"
 	}
-]
+]  as const;

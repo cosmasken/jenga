@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Users, TrendingUp, Gift, Bitcoin, Trophy, Bell, AlertCircle, Building2 } from 'lucide-react';
+import { Plus, Users, TrendingUp, Gift, Bitcoin, Trophy, Bell, AlertCircle } from 'lucide-react';
 import { useAccount, useBalance } from 'wagmi';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
-import { formatEther } from 'viem';
+import { formatEther, Address } from 'viem';
 import { useGetUserChamas, useGetUserScore } from '../hooks/useJengaContract';
 import { useAutomatedCycles } from '../hooks/useAutomatedCycles';
 import { citreaTestnet } from '../wagmi';
@@ -11,7 +10,10 @@ import { StatsCard } from '../components/dashboard/StatsCard';
 import { LoadingState, DashboardSkeleton, useLoadingState } from '../components/ui/LoadingStates';
 import { CreateChamaModal } from '../components/modals/CreateChamaModal';
 import { JoinChamaModal } from '../components/modals/JoinChamaModal';
+import { SendRedEnvelopeModal } from '../components/modals/SendRedEnvelopeModal';
+import { ClaimRedEnvelopeModal } from '../components/modals/ClaimRedEnvelopeModal';
 import { StackBTCModal } from '../components/modals/StackBTCModal';
+import { ContactsModal } from '../components/modals/ContactsModal';
 import { TeamFormation } from '../components/TeamFormation';
 import { InteractiveTestFlow } from '../components/InteractiveTestFlow';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -22,7 +24,9 @@ export const Dashboard: React.FC = () => {
   const [createChamaOpen, setCreateChamaOpen] = useState(false);
   const [joinChamaOpen, setJoinChamaOpen] = useState(false);
   const [redEnvelopeOpen, setRedEnvelopeOpen] = useState(false);
+  const [claimRedEnvelopeOpen, setClaimRedEnvelopeOpen] = useState(false);
   const [stackBTCOpen, setStackBTCOpen] = useState(false);
+  const [contactsOpen, setContactsOpen] = useState(false);
   const [selectedChamaId, setSelectedChamaId] = useState<bigint | null>(null);
   const [showTestFlow, setShowTestFlow] = useState(false);
 
@@ -52,14 +56,14 @@ export const Dashboard: React.FC = () => {
     data: userChamas, 
     isLoading: chamasLoading, 
     error: chamasError 
-  } = useGetUserChamas(address!);
+  } = useGetUserChamas(address || '0x0' as Address);
   
   // Get user score from contract with loading and error states
   const { 
     data: userScore, 
     isLoading: scoreLoading, 
     error: scoreError 
-  } = useGetUserScore(address!);
+  } = useGetUserScore(address || '0x0' as Address);
 
   // Overall loading and error states
   const isLoading = isConnecting || balanceLoading || chamasLoading || scoreLoading;
@@ -210,6 +214,19 @@ export const Dashboard: React.FC = () => {
               <p className="text-sm text-gray-600 dark:text-muted-foreground">{t('actions.autoInvest')}</p>
             </div>
           </button>
+
+          <button
+            onClick={() => setContactsOpen(true)}
+            className="quick-action quick-action-purple group"
+          >
+            <div className="quick-action-icon quick-action-icon-purple">
+              <Users className="w-5 h-5 text-white" />
+            </div>
+            <div className="text-left">
+              <p className="font-medium text-gray-900 dark:text-foreground">Contacts</p>
+              <p className="text-sm text-gray-600 dark:text-muted-foreground">Manage your contacts</p>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -272,7 +289,7 @@ export const Dashboard: React.FC = () => {
         </Alert>
       )}
 
-      {/* Navigation Options */}
+      {/* Toggle between Team Formation and Test Flow */}
       <div className="flex justify-center gap-4 mb-6">
         <Button
           variant={!showTestFlow ? 'default' : 'outline'}
@@ -286,12 +303,6 @@ export const Dashboard: React.FC = () => {
         >
           Test Flow (Demo)
         </Button>
-        <Link to="/sacco">
-          <Button variant="outline" className="flex items-center gap-2">
-            <Building2 className="w-4 h-4" />
-            SACCO Management
-          </Button>
-        </Link>
       </div>
 
       {/* Main Content */}
@@ -334,6 +345,10 @@ export const Dashboard: React.FC = () => {
         }}
         chamaId={selectedChamaId}
       />
+      <SendRedEnvelopeModal 
+        open={redEnvelopeOpen} 
+        onOpenChange={setRedEnvelopeOpen} 
+      />
       <StackBTCModal 
         open={stackBTCOpen} 
         onOpenChange={(open) => {
@@ -341,6 +356,10 @@ export const Dashboard: React.FC = () => {
           if (!open) setSelectedChamaId(null);
         }}
         chamaId={selectedChamaId}
+      />
+      <ContactsModal 
+        open={contactsOpen} 
+        onOpenChange={setContactsOpen} 
       />
     </div>
   );

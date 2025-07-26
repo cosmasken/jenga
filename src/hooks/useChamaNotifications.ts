@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { useToast } from '../hooks/use-toast';
-import { useGetChamaInfo } from './useJengaContract';
+import { useToast } from './use-toast';
+import { useGetChamaInfo, useGetChamaMembers } from './useJengaContract';
 import { Address } from 'viem';
 
 interface ChamaNotificationProps {
@@ -14,66 +14,86 @@ interface ChamaState {
   active: boolean;
   currentCycle: number;
   currentRecipientIndex: number;
-}
-
-interface ChamaInfo {
-  name?: string;
-  members?: Address[];
-  active?: boolean;
-  currentCycle?: bigint;
-  currentRecipientIndex?: bigint;
-  maxMembers?: bigint;
+  name: string;
+  maxMembers: number;
 }
 
 export function useChamaNotifications({ chamaId, userAddress, enabled = true }: ChamaNotificationProps) {
   const { toast } = useToast();
   const prevStateRef = useRef<ChamaState | null>(null);
   
-  // Poll chama data more frequently
-  const { data: chamaInfo, refetch } = useGetChamaInfo(chamaId);
+  // Get chama info and members separately for better data handling
+  const { 
+    data: chamaInfo, 
+    refetch: refetchInfo,
+    error: chamaError,
+    isLoading: chamaLoading 
+  } = useGetChamaInfo(chamaId);
   
-  // Auto-refresh every 10 seconds when enabled
+  const { 
+    data: chamaMembers, 
+    refetch: refetchMembers,
+    error: membersError,
+    isLoading: membersLoading 
+  } = useGetChamaMembers(chamaId);
+  
+  // Combined refetch function
+  const refetch = () => {
+    refetchInfo();
+    refetchMembers();
+  };
+  
+  // Auto-refresh every 15 seconds when enabled
   useEffect(() => {
-    if (!enabled || chamaId <= BigInt(0)) return;
+    if (!enabled || chamaId <= 0n) return;
     
     const interval = setInterval(() => {
       refetch();
-    }, 10000); // 10 seconds
+    }, 15000); // 15 seconds to avoid too frequent calls
     
     return () => clearInterval(interval);
-  }, [enabled, chamaId, refetch]);
+  }, [enabled, chamaId]); // Removed refetch from deps to avoid recreation
   
   // Check for state changes and show notifications
   useEffect(() => {
-    if (!chamaInfo || !enabled) return;
+    if (!chamaInfo || !enabled || chamaError || membersError) return;
     
-    const info = chamaInfo as ChamaInfo;
+    // Safely extract data with fallbacks
+    const memberCount = Array.isArray(chamaMembers) ? chamaMembers.length : 0;
+    const name = chamaInfo[0] || 'Unknown Chama'; // name is first element
+    const maxMembers = chamaInfo[3] ? Number(chamaInfo[3]) : 0; // maxMembers is 4th element
+    const active = chamaInfo[4] || false; // active is 5th element
+    const currentCycle = chamaInfo[5] ? Number(chamaInfo[5]) : 0; // currentCycle is 6th element
+    const currentRecipientIndex = chamaInfo[6] ? Number(chamaInfo[6]) : 0; // currentRecipientIndex is 7th element
+    
     const currentState: ChamaState = {
-      memberCount: info.members?.length || 0,
-      active: info.active || false,
-      currentCycle: info.currentCycle ? Number(info.currentCycle) : 0,
-      currentRecipientIndex: info.currentRecipientIndex ? Number(info.currentRecipientIndex) : 0,
+      memberCount,
+      active,
+      currentCycle,
+      currentRecipientIndex,
+      name,
+      maxMembers,
     };
     
     if (prevStateRef.current) {
       const prevState = prevStateRef.current;
       
       // Chama became full
-      const maxMembers = info.maxMembers ? Number(info.maxMembers) : 0;
-      if (currentState.memberCount >= maxMembers && 
-          prevState.memberCount < maxMembers) {
+      if (currentState.memberCount >= currentState.maxMembers && 
+          prevState.memberCount < currentState.maxMembers &&
+          currentState.maxMembers > 0) {
         toast({
           title: "🎉 Chama is Full!",
-          description: `${info.name || 'Chama'} now has all ${maxMembers} members. Contributions can begin!`,
+          description: `${currentState.name} now has all ${currentState.maxMembers} members. Contributions can begin!`,
           duration: 8000,
         });
       }
       
       // New member joined
-      if (currentState.memberCount > prevState.memberCount) {
+      if (currentState.memberCount > prevState.memberCount && currentState.memberCount > 0) {
         toast({
           title: "👥 New Member Joined",
-          description: `${info.name || 'Chama'} now has ${currentState.memberCount}/${maxMembers} members`,
+          description: `${currentState.name} now has ${currentState.memberCount}/${currentState.maxMembers} members`,
           duration: 5000,
         });
       }
@@ -82,41 +102,76 @@ export function useChamaNotifications({ chamaId, userAddress, enabled = true }: 
       if (currentState.currentCycle > 0 && prevState.currentCycle === 0) {
         toast({
           title: "🚀 Chama Started!",
-          description: `${info.name || 'Chama'} has begun its first cycle. Time to contribute!`,
+          description: `${currentState.name} has begun its first cycle. Time to contribute!`,
           duration: 8000,
         });
       }
       
       // New cycle started
-      if (currentState.currentCycle > prevState.currentCycle && currentState.currentCycle > 0) {
+      if (currentState.currentCycle > prevState.currentCycle && 
+          currentState.currentCycle > 0 && 
+          prevState.currentCycle > 0) {
         toast({
           title: "🔄 New Cycle Started",
-          description: `${info.name || 'Chama'} - Cycle ${currentState.currentCycle} has begun`,
+          description: `${currentState.name} - Cycle ${currentState.currentCycle} has begun`,
           duration: 6000,
         });
       }
       
-      // New recipient selected
-      if (currentState.currentRecipientIndex !== prevState.currentRecipientIndex) {
+      // New recipient selected (only if cycle is active)
+      if (currentState.currentRecipientIndex !== prevState.currentRecipientIndex &&
+          currentState.currentCycle > 0) {
+        const recipientPosition = currentState.currentRecipientIndex + 1;
         toast({
           title: "🎯 New Recipient Selected",
-          description: `A new member will receive this cycle's payout in ${info.name || 'Chama'}`,
+          description: `Member #${recipientPosition} will receive this cycle's payout in ${currentState.name}`,
           duration: 6000,
+        });
+      }
+      
+      // Chama completed
+      if (!currentState.active && prevState.active) {
+        toast({
+          title: "✅ Chama Completed!",
+          description: `${currentState.name} has completed all cycles. Collateral is being returned.`,
+          duration: 10000,
         });
       }
     }
     
     prevStateRef.current = currentState;
-  }, [chamaInfo, enabled, toast]);
+  }, [chamaInfo, chamaMembers, enabled, toast, chamaError, membersError]);
+  
+  // Show error notifications
+  useEffect(() => {
+    if (chamaError && enabled) {
+      toast({
+        title: "⚠️ Error Loading Chama",
+        description: "Failed to load chama information. Retrying...",
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
+  }, [chamaError, enabled, toast]);
+  
+  useEffect(() => {
+    if (membersError && enabled) {
+      toast({
+        title: "⚠️ Error Loading Members",
+        description: "Failed to load chama members. Retrying...",
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
+  }, [membersError, enabled, toast]);
   
   return {
     chamaInfo,
+    chamaMembers,
     refetch,
     isPolling: enabled,
+    isLoading: chamaLoading || membersLoading,
+    error: chamaError || membersError,
+    currentState: prevStateRef.current,
   };
 }
-
-// Export as grouped object
-export const ChamaNotificationHooks = {
-  useChamaNotifications,
-};

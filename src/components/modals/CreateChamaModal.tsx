@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { useToast } from '../../hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Bitcoin, Info, ExternalLink, CheckCircle, XCircle, AlertTriangle, ArrowLeft, ArrowRight, Zap } from 'lucide-react';
 import { useCreateChama } from '../../hooks/useJengaContract';
@@ -12,7 +12,7 @@ import { useAccount, useSimulateContract, useEstimateGas, useBalance } from 'wag
 import { parseEther, formatEther, parseUnits, formatUnits } from 'viem';
 import { JENGA_CONTRACT } from '../../contracts/jenga-contract';
 import { citreaTestnet } from '../../wagmi';
-import { truncateAddress } from '@/lib/utils';
+import { truncateAddress } from '../../lib/utils';
 
 interface CreateChamaModalProps {
   open: boolean;
@@ -111,11 +111,11 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       const payoutPeriodDays = parseFloat(formData.payoutPeriodDays);
       const maxMembers = parseInt(formData.maxMembers, 10);
       
-      // Convert days to seconds (supporting fractional days for testing)
-      const payoutPeriodSeconds = Math.max(480, Math.floor(payoutPeriodDays * 24 * 60 * 60)); // Minimum 8 minutes (480 seconds)
+      // Convert days to seconds (minimum 7 days as per contract)
+      const payoutPeriodSeconds = Math.max(7 * 24 * 60 * 60, Math.floor(payoutPeriodDays * 24 * 60 * 60)); // Minimum 7 days (604800 seconds)
       
       // Validate inputs
-      if (contributionSats < 10000 || payoutPeriodSeconds < 480 || maxMembers < 3 || maxMembers > 20) {
+      if (contributionSats < 10000 || payoutPeriodSeconds < 7 * 24 * 60 * 60 || maxMembers < 3 || maxMembers > 20) {
         return null;
       }
       
@@ -128,7 +128,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
         payoutPeriodSeconds,
         maxMembers,
         valueToSend: contributionAmount.toString(),
-        minSecondsRequired: 480,
+        minSecondsRequired: 7 * 24 * 60 * 60, // 7 days
         actualSeconds: payoutPeriodSeconds
       });
       
@@ -229,21 +229,40 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   // Handle transaction error
   useEffect(() => {
     if (error) {
-      let errorMessage = t('chama.createFailedDesc');
+      console.error('CreateChama error:', error);
       
+      let errorMessage = 'Failed to create chama. Please try again.';
+      
+      // More specific error handling
       if (error.message.includes('insufficient funds')) {
-        errorMessage = t('errors.insufficientFunds');
+        errorMessage = 'Insufficient funds. You need enough cBTC for collateral plus gas fees.';
       } else if (error.message.includes('user rejected')) {
-        errorMessage = t('errors.userRejected');
+        errorMessage = 'Transaction was rejected by user.';
+      } else if (error.message.includes('execution reverted')) {
+        if (error.message.includes('Contribution must be > 0')) {
+          errorMessage = 'Contribution amount must be greater than 0.';
+        } else if (error.message.includes('Cycle must be >= 7 days')) {
+          errorMessage = 'Cycle duration must be at least 7 days.';
+        } else if (error.message.includes('Members: 3-20')) {
+          errorMessage = 'Number of members must be between 3 and 20.';
+        } else if (error.message.includes('Must deposit collateral')) {
+          errorMessage = 'You must deposit collateral equal to the contribution amount.';
+        } else {
+          errorMessage = 'Transaction failed. Please check your inputs and try again.';
+        }
+      } else if (error.message.includes('network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message.includes('gas')) {
+        errorMessage = 'Gas estimation failed. You may not have enough funds for gas fees.';
       }
       
       toast({
-        title: t('chama.createFailed'),
+        title: 'Chama Creation Failed',
         description: errorMessage,
         variant: "destructive",
       });
     }
-  }, [error, toast, t]);
+  }, [error, toast]);
 
   // Reset modal state
   const resetModal = () => {
@@ -280,10 +299,44 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
   // Handle actual transaction submission
   const handleTransactionSubmit = () => {
-    if (!contractArgs) return;
+    if (!contractArgs) {
+      toast({
+        title: 'Invalid Parameters',
+        description: 'Contract arguments are not properly prepared.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!isConnected || !address) {
+      toast({
+        title: 'Wallet Not Connected',
+        description: 'Please connect your wallet to create a chama.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    if (!balanceValidation.isValid) {
+      toast({
+        title: 'Insufficient Balance',
+        description: balanceValidation.error || 'You do not have enough balance for this transaction.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     try {
       setCurrentStep('transaction');
+      
+      console.log('Submitting transaction with args:', {
+        name: formData.name,
+        contributionSats: parseInt(formData.contributionSats),
+        payoutPeriodSeconds: Math.floor(parseFloat(formData.payoutPeriodDays) * 24 * 60 * 60),
+        maxMembers: parseInt(formData.maxMembers),
+        userAddress: address,
+        userBalance: balance?.formatted
+      });
       
       createChama(
         formData.name,
@@ -343,7 +396,9 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
         
         {/* Form Step */}
         {currentStep === 'form' && (
+        
           <form onSubmit={handleFormSubmit} className="space-y-4">
+          
           <div className="space-y-2">
             <Label htmlFor="name" className="text-gray-700 dark:text-gray-300">{t('chama.name')}</Label>
             <Input
@@ -468,84 +523,52 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   value={formData.payoutPeriodDays}
                   onChange={(e) => setFormData(prev => ({ ...prev, payoutPeriodDays: e.target.value }))}
                   placeholder="Enter period"
-                  min="0.005556" // ~8 minutes in days
-                  step="0.000694" // 1 minute in days
+                  min="7" // Minimum 7 days as per contract
+                  step="1" // 1 day increments
                   className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
                   disabled={isLoading}
                 />
               </div>
-              <Select 
-                value={formData.payoutPeriodDays ? 
-                  (parseFloat(formData.payoutPeriodDays) >= 1 ? 'days' : 
-                   parseFloat(formData.payoutPeriodDays) >= 0.041667 ? 'hours' : 'minutes') 
-                  : 'days'} 
-                onValueChange={(unit) => {
-                  // Convert current value to the new unit
-                  if (formData.payoutPeriodDays) {
-                    const currentDays = parseFloat(formData.payoutPeriodDays);
-                    let newValue;
-                    switch (unit) {
-                      case 'minutes':
-                        newValue = (currentDays * 24 * 60).toString();
-                        break;
-                      case 'hours':
-                        newValue = (currentDays * 24).toString();
-                        break;
-                      case 'days':
-                      default:
-                        newValue = currentDays.toString();
-                        break;
-                    }
-                    setFormData(prev => ({ ...prev, payoutPeriodDays: newValue }));
-                  }
-                }}
-              >
-                <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
-                  <SelectItem value="minutes" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">Minutes</SelectItem>
-                  <SelectItem value="hours" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">Hours</SelectItem>
-                  <SelectItem value="days" className="text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700">Days</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-center px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Days</span>
+              </div>
             </div>
             
-            {/* Helper text for testing */}
+            {/* Helper text for production */}
             <div className="text-xs text-gray-500 dark:text-gray-400">
-              For testing: 8 minutes = 0.005556 days, 10 minutes = 0.006944 days, 1 hour = 0.041667 days
+              Minimum cycle duration is 7 days as per contract requirements
             </div>
             
-            {/* Quick preset buttons for testing */}
+            {/* Quick preset buttons for common durations */}
             <div className="flex flex-wrap gap-2">
               <span className="text-xs text-gray-600 dark:text-gray-400">Quick presets:</span>
               <button
                 type="button"
-                onClick={() => setFormData(prev => ({ ...prev, payoutPeriodDays: '0.005556' }))}
+                onClick={() => setFormData(prev => ({ ...prev, payoutPeriodDays: '7' }))}
                 className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800"
               >
-                8 min
+                7 days
               </button>
               <button
                 type="button"
-                onClick={() => setFormData(prev => ({ ...prev, payoutPeriodDays: '0.006944' }))}
+                onClick={() => setFormData(prev => ({ ...prev, payoutPeriodDays: '14' }))}
                 className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800"
               >
-                10 min
+                2 weeks
               </button>
               <button
                 type="button"
-                onClick={() => setFormData(prev => ({ ...prev, payoutPeriodDays: '0.020833' }))}
-                className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800"
+                onClick={() => setFormData(prev => ({ ...prev, payoutPeriodDays: '30' }))}
+                className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800"
               >
-                30 min
+                1 month
               </button>
               <button
                 type="button"
-                onClick={() => setFormData(prev => ({ ...prev, payoutPeriodDays: '0.041667' }))}
-                className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800"
+                onClick={() => setFormData(prev => ({ ...prev, payoutPeriodDays: '90' }))}
+                className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800"
               >
-                1 hour
+                3 months
               </button>
               <button
                 type="button"
@@ -557,22 +580,23 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
             </div>
             
             {/* Show converted time */}
+            {/* Show period confirmation */}
             {formData.payoutPeriodDays && parseFloat(formData.payoutPeriodDays) > 0 && (
               <div className="text-sm text-blue-600 dark:text-blue-400">
-                Period: {parseFloat(formData.payoutPeriodDays) >= 1 
-                  ? `${parseFloat(formData.payoutPeriodDays)} days`
-                  : parseFloat(formData.payoutPeriodDays) >= 0.041667
-                    ? `${(parseFloat(formData.payoutPeriodDays) * 24).toFixed(1)} hours`
-                    : `${(parseFloat(formData.payoutPeriodDays) * 24 * 60).toFixed(0)} minutes`
-                }
+                Cycle Duration: {parseFloat(formData.payoutPeriodDays)} days
+                {parseFloat(formData.payoutPeriodDays) >= 30 && (
+                  <span className="ml-2 text-xs">
+                    (~{Math.round(parseFloat(formData.payoutPeriodDays) / 30)} month{Math.round(parseFloat(formData.payoutPeriodDays) / 30) > 1 ? 's' : ''})
+                  </span>
+                )}
               </div>
             )}
             
             {/* Minimum validation */}
-            {formData.payoutPeriodDays && parseFloat(formData.payoutPeriodDays) > 0 && parseFloat(formData.payoutPeriodDays) < 0.005556 && (
+            {formData.payoutPeriodDays && parseFloat(formData.payoutPeriodDays) > 0 && parseFloat(formData.payoutPeriodDays) < 7 && (
               <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
                 <XCircle className="w-4 h-4" />
-                <span>Minimum payout period is 8 minutes</span>
+                <span>Minimum cycle duration is 7 days</span>
               </div>
             )}
           </div>
@@ -633,7 +657,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                        !balanceValidation.isValid ||
                        isBalanceLoading ||
                        parseInt(formData.contributionSats || '0') < 10000 ||
-                       parseFloat(formData.payoutPeriodDays || '0') < 0.005556}
+                       parseFloat(formData.payoutPeriodDays || '0') < 7}
             >
               {!formValidation.isValid ? (
                 <>
@@ -659,6 +683,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
             </Button>
           </div>
         </form>
+      
         )}
 
         {/* Simulation Step */}
@@ -839,7 +864,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                       ...prev, 
                       name: 'Test Chama',
                       contributionSats: '10000',
-                      payoutPeriodDays: '0.006944', // 10 minutes
+                      payoutPeriodDays: '7', // 7 days minimum
                       maxMembers: '3'
                     }))}
                     className="w-full text-left text-sm p-2 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800"
@@ -848,17 +873,17 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, payoutPeriodDays: '1' }))}
+                    onClick={() => setFormData(prev => ({ ...prev, payoutPeriodDays: '7' }))}
                     className="w-full text-left text-sm p-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800"
                   >
-                    Set cycle to 1 day (safe minimum)
+                    Set cycle to 7 days (minimum allowed)
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, payoutPeriodDays: '0.005556' }))}
+                    onClick={() => setFormData(prev => ({ ...prev, payoutPeriodDays: '30' }))}
                     className="w-full text-left text-sm p-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded hover:bg-blue-200 dark:hover:bg-blue-800"
                   >
-                    Set cycle to 8 minutes (minimum for testing)
+                    Set cycle to 30 days (1 month)
                   </button>
                   <button
                     type="button"
