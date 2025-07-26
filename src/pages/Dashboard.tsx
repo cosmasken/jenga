@@ -11,7 +11,9 @@ import { LoadingState, DashboardSkeleton, useLoadingState } from '../components/
 import { CreateChamaModal } from '../components/modals/CreateChamaModal';
 import { JoinChamaModal } from '../components/modals/JoinChamaModal';
 import { SendRedEnvelopeModal } from '../components/modals/SendRedEnvelopeModal';
+import { ClaimRedEnvelopeModal } from '../components/modals/ClaimRedEnvelopeModal';
 import { StackBTCModal } from '../components/modals/StackBTCModal';
+import { ContactsModal } from '../components/modals/ContactsModal';
 import { TeamFormation } from '../components/TeamFormation';
 import { InteractiveTestFlow } from '../components/InteractiveTestFlow';
 import { Alert, AlertDescription } from '../components/ui/alert';
@@ -22,7 +24,9 @@ export const Dashboard: React.FC = () => {
   const [createChamaOpen, setCreateChamaOpen] = useState(false);
   const [joinChamaOpen, setJoinChamaOpen] = useState(false);
   const [redEnvelopeOpen, setRedEnvelopeOpen] = useState(false);
+  const [claimRedEnvelopeOpen, setClaimRedEnvelopeOpen] = useState(false);
   const [stackBTCOpen, setStackBTCOpen] = useState(false);
+  const [contactsOpen, setContactsOpen] = useState(false);
   const [selectedChamaId, setSelectedChamaId] = useState<bigint | null>(null);
   const [showTestFlow, setShowTestFlow] = useState(false);
 
@@ -210,6 +214,19 @@ export const Dashboard: React.FC = () => {
               <p className="text-sm text-gray-600 dark:text-muted-foreground">{t('actions.autoInvest')}</p>
             </div>
           </button>
+
+          <button
+            onClick={() => setContactsOpen(true)}
+            className="quick-action quick-action-purple group"
+          >
+            <div className="quick-action-icon quick-action-icon-purple">
+              <Users className="w-5 h-5 text-white" />
+            </div>
+            <div className="text-left">
+              <p className="font-medium text-gray-900 dark:text-foreground">Contacts</p>
+              <p className="text-sm text-gray-600 dark:text-muted-foreground">Manage your contacts</p>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -339,6 +356,10 @@ export const Dashboard: React.FC = () => {
           if (!open) setSelectedChamaId(null);
         }}
         chamaId={selectedChamaId}
+      />
+      <ContactsModal 
+        open={contactsOpen} 
+        onOpenChange={setContactsOpen} 
       />
     </div>
   );

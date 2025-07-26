@@ -1,5 +1,54 @@
 /* Enhanced UI Styles for Jenga */
 
+/* Quick Action Styles */
+.quick-action {
+  @apply flex items-center gap-4 p-4 bg-white dark:bg-card rounded-lg border border-gray-200 dark:border-border hover:shadow-md transition-all duration-200 cursor-pointer;
+}
+
+.quick-action-icon {
+  @apply w-12 h-12 rounded-lg flex items-center justify-center;
+}
+
+.quick-action-blue {
+  @apply hover:border-blue-300 dark:hover:border-blue-600;
+}
+
+.quick-action-icon-blue {
+  @apply bg-blue-500;
+}
+
+.quick-action-green {
+  @apply hover:border-green-300 dark:hover:border-green-600;
+}
+
+.quick-action-icon-green {
+  @apply bg-green-500;
+}
+
+.quick-action-red {
+  @apply hover:border-red-300 dark:hover:border-red-600;
+}
+
+.quick-action-icon-red {
+  @apply bg-red-500;
+}
+
+.quick-action-yellow {
+  @apply hover:border-yellow-300 dark:hover:border-yellow-600;
+}
+
+.quick-action-icon-yellow {
+  @apply bg-yellow-500;
+}
+
+.quick-action-purple {
+  @apply hover:border-purple-300 dark:hover:border-purple-600;
+}
+
+.quick-action-icon-purple {
+  @apply bg-purple-500;
+}
+
 /* Tutorial Highlighting */
 .tutorial-highlight {
   position: relative;
