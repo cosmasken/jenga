@@ -497,6 +497,35 @@ export function useProcessMissedContributions() {
   };
 }
 
+// Hook for emergency payout (if needed for recovery)
+export function useEmergencyPayout() {
+  const { writeContract, data: hash, error, isPending } = useWriteContract();
+  const { address } = useAccount();
+  
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
+
+  const emergencyPayout = (chamaId: bigint, recipient: Address) => {
+    writeContract({
+      ...JENGA_CONTRACT,
+      functionName: 'emergencyPayout', // Add this to contract if needed
+      args: [chamaId, recipient],
+      chain: citreaTestnet,
+      account: address,
+    });
+  };
+
+  return {
+    emergencyPayout,
+    hash,
+    error,
+    isPending,
+    isConfirming,
+    isConfirmed,
+  };
+}
+
 // Legacy function names for backward compatibility
 export const useContribute = useStackBTC;
 

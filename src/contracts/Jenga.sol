@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-contract Jenga {
+contract JengaFixed {
     struct Chama {
         string name;
         uint256 contributionAmount;
@@ -274,7 +274,7 @@ contract Jenga {
         }
     }
 
-    // Process payout for completed cycle
+    // FIXED: Process payout for completed cycle
     function _processCyclePayout(uint256 _chamaId) internal {
         Chama storage chama = chamas[_chamaId];
         
@@ -296,16 +296,37 @@ contract Jenga {
         emit PayoutProcessed(_chamaId, recipient, payoutAmount, chama.currentCycle);
         emit ChamaCyclePayout(_chamaId, recipient, payoutAmount, chama.currentCycle);
         
-        // Reset for next cycle
-        _resetCycle(_chamaId);
-        
-        // Check if chama is complete
-        if (chama.currentCycle > chama.members.length) {
+        // FIXED: Check if chama is complete BEFORE resetting cycle
+        if (chama.currentCycle >= chama.members.length) {
             _completeChama(_chamaId);
+        } else {
+            // Reset for next cycle only if not complete
+            _resetCycle(_chamaId);
         }
     }
 
-    // Reset cycle state for next round
+    // Add this function to your existing contract if possible
+    function emergencyPayout(uint256 _chamaId, address _recipient) public {
+        // Only allow if chama is marked as complete but members haven't all been paid
+        Chama storage chama = chamas[_chamaId];
+        require(!chama.active, "Chama still active");
+        
+        // Check if this member should have received a payout but didn't
+        require(chama.isMember[_recipient], "Not a member");
+        uint256 memberIndex = chama.memberIndex[_recipient];
+        require(!chama.membersPaid[memberIndex], "Already paid");
+        
+        // Calculate what they should receive (average contribution amount)
+        uint256 payoutAmount = chama.contributionAmount * chama.members.length;
+        
+        // Mark as paid and transfer
+        chama.membersPaid[memberIndex] = true;
+        payable(_recipient).transfer(payoutAmount);
+        
+        emit PayoutProcessed(_chamaId, _recipient, payoutAmount, memberIndex + 1);
+    }
+
+    // FIXED: Reset cycle state for next round
     function _resetCycle(uint256 _chamaId) internal {
         Chama storage chama = chamas[_chamaId];
         
@@ -314,13 +335,14 @@ contract Jenga {
             hasContributedThisCycle[_chamaId][chama.members[i]] = false;
         }
         
+        // Emit cycle completed event for the cycle that just finished
+        emit ChamaCycleCompleted(_chamaId, chama.currentCycle);
+        
         // Move to next cycle and recipient
         chama.currentCycle++;
         chama.currentRecipientIndex = (chama.currentRecipientIndex + 1) % chama.members.length;
         chama.lastCycleTimestamp = block.timestamp;
         chama.cycleContributions[chama.currentCycle] = 0;
-        
-        emit ChamaCycleCompleted(_chamaId, chama.currentCycle - 1);
     }
 
     // Complete chama when all members have received payout
@@ -432,7 +454,7 @@ contract Jenga {
         );
     }
 
-    // Existing functions (P2P, Red Envelopes, etc.) remain the same...
+    // P2P, Red Envelopes, and other functions remain the same...
     function sendP2P(address _receiver) public payable {
         transactions[chamaCount].push(Transaction(msg.sender, _receiver, msg.value, block.timestamp));
         payable(_receiver).transfer(msg.value);
