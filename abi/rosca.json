@@ -1,0 +1,295 @@
+[
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "token",
+                "type": "address"
+            }
+        ],
+        "name": "SafeERC20FailedOperation",
+        "type": "error"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "member",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "Contrib",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "name": "contribute",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "token",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "contribution",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "roundLength",
+                "type": "uint256"
+            }
+        ],
+        "name": "Created",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_token",
+                "type": "address"
+            },
+            {
+                "internalType": "uint96",
+                "name": "_contribution",
+                "type": "uint96"
+            },
+            {
+                "internalType": "uint40",
+                "name": "_roundLength",
+                "type": "uint40"
+            }
+        ],
+        "name": "createGroup",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "member",
+                "type": "address"
+            }
+        ],
+        "name": "Leave",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "name": "leaveGroup",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "recipient",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "Payout",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "name": "rageQuit",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "newLength",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "activates",
+                "type": "uint256"
+            }
+        ],
+        "name": "RoundLenChangeScheduled",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint40",
+                "name": "newLen",
+                "type": "uint40"
+            }
+        ],
+        "name": "scheduleRoundLength",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "stateMutability": "payable",
+        "type": "receive"
+    },
+    {
+        "inputs": [],
+        "name": "groupCount",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "groups",
+        "outputs": [
+            {
+                "internalType": "uint40",
+                "name": "id",
+                "type": "uint40"
+            },
+            {
+                "internalType": "uint40",
+                "name": "roundLength",
+                "type": "uint40"
+            },
+            {
+                "internalType": "uint40",
+                "name": "nextDue",
+                "type": "uint40"
+            },
+            {
+                "internalType": "address",
+                "name": "token",
+                "type": "address"
+            },
+            {
+                "internalType": "uint96",
+                "name": "contribution",
+                "type": "uint96"
+            },
+            {
+                "internalType": "uint8",
+                "name": "currentRound",
+                "type": "uint8"
+            },
+            {
+                "internalType": "uint40",
+                "name": "newRoundLength",
+                "type": "uint40"
+            },
+            {
+                "internalType": "uint40",
+                "name": "changeActivates",
+                "type": "uint40"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
+]

@@ -28,11 +28,11 @@ export function GreetingForm() {
     };
 
     return (
-        <>
-            <button onClick={() => submit("Hello from Dynamic!")}>
+        <div className="bg-white p-3">
+            <button className="bg-emerald-8 p-2 text-black" onClick={() => submit("Hello from Dynamic!")}>
                 Set greeting
             </button>
             {hash && <p>Tx: {hash}</p>}
-        </>
+        </div>
     );
 }
