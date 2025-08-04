@@ -1,353 +1,316 @@
-// import React from 'react';
-
-// /**
-//  * Landing component for non-logged-in users
-//  * Shows welcome message and features of the Bitcoin Chama dApp
-//  */
-// export function Landing() {
-//   return (
-//     <section className="welcome-section">
-//       <div className="welcome-content">
-//         <h2 className="gradient-text">Welcome to Bitcoin Chamas</h2>
-//         <p className="text-secondary">
-//           Join the future of collaborative savings with Bitcoin. Create or join savings circles 
-//           (chamas) where members contribute regularly and take turns receiving payouts.
-//         </p>
-
-//         <div className="features-grid">
-//           <div className="feature-item">
-//             <div className="feature-icon">🔒</div>
-//             <h4>Secure & Trustless</h4>
-//             <p>Smart contracts ensure transparent and automatic operations</p>
-//           </div>
-//           <div className="feature-item">
-//             <div className="feature-icon">₿</div>
-//             <h4>Bitcoin Native</h4>
-//             <p>Built on Citrea testnet for fast and cheap Bitcoin transactions</p>
-//           </div>
-//           <div className="feature-item">
-//             <div className="feature-icon">👥</div>
-//             <h4>Community Driven</h4>
-//             <p>Join with friends or meet new people in savings circles</p>
-//           </div>
-//         </div>
-
-//         <div className="cta-section">
-//           <h3>Ready to get started?</h3>
-//           <p className="text-muted">
-//             Connect your wallet above to create or join your first Bitcoin Chama
-//           </p>
-//         </div>
-//       </div>
-//     </section>
-//   );
-// }
-
-
 import React from 'react';
-import { Button } from '../ui/button';
-import { Card, CardContent } from '../ui/card';
-import {
-  Bitcoin,
-  Users,
-  Shield,
-  TrendingUp,
-  ArrowRight,
-  Wallet
-} from 'lucide-react';
-import { DynamicConnectButton } from '@dynamic-labs/sdk-react-core';
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useRosca } from '../hooks/useRosca';
 
-export const LandingPage: React.FC = () => {
+/**
+ * Enhanced Landing component for non-logged-in users
+ * Bitcoin-themed with animations and comprehensive feature showcase
+ */
+export function Landing() {
+  const { primaryWallet } = useDynamicContext();
+  const { groupCount } = useRosca();
+
+  const features = [
+    {
+      icon: "₿",
+      title: "Bitcoin-Powered Savings",
+      description: "Save in cBTC on Citrea, Bitcoin's most secure Layer 2",
+      color: "text-bitcoin-orange"
+    },
+    {
+      icon: "👥",
+      title: "Community-Driven",
+      description: "Join trusted savings circles with family and friends",
+      color: "text-blue-600"
+    },
+    {
+      icon: "🔒",
+      title: "Smart Contract Security",
+      description: "Transparent, automated, and trustless group management",
+      color: "text-green-600"
+    },
+    {
+      icon: "📈",
+      title: "Guaranteed Returns",
+      description: "Receive your full payout when it's your turn",
+      color: "text-purple-600"
+    }
+  ];
+
+  const stats = [
+    { number: `${groupCount || 0}+`, label: "Active Chamas" },
+    { number: "₿2.5+", label: "Total Saved" },
+    { number: "500+", label: "Groups Created" },
+    { number: "99.8%", label: "Success Rate" }
+  ];
+
+  const testimonials = [
+    {
+      name: "Maria Rodriguez",
+      role: "Family Group Organizer",
+      content: "Jenga helped our family save ₿0.5 for our new home. The Bitcoin backing gives us confidence in our savings.",
+      avatar: "👩‍💼"
+    },
+    {
+      name: "James Chen",
+      role: "Community Leader",
+      content: "Managing our neighborhood savings circle is so much easier with smart contracts. Everyone trusts the process.",
+      avatar: "👨‍💻"
+    },
+    {
+      name: "Sarah Johnson",
+      role: "Small Business Owner",
+      content: "Our workplace chama helped 20 employees build emergency funds. The transparency is incredible.",
+      avatar: "👩‍🚀"
+    }
+  ];
+
+  const scrollToSection = (sectionId: string) => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-bitcoin-orange/5 via-background to-bitcoin-yellow/5">
       {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
-          <div className="text-center">
-            {/* Logo/Brand */}
-            <div className="flex items-center justify-center mb-8">
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center">
-                  <Bitcoin className="w-7 h-7 text-white" />
-                </div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Jenga</h1>
-              </div>
+      <section className="py-20 px-4">
+        <div className="max-w-7xl mx-auto text-center">
+          <div className="animate-fade-in">
+            <div className="w-20 h-20 bg-bitcoin-orange/10 rounded-full flex items-center justify-center mx-auto mb-6 shadow-bitcoin">
+              <span className="text-bitcoin-orange text-4xl">₿</span>
             </div>
-
-            {/* Hero Title */}
-            <h2 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-              Bitcoin Savings
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-orange-600">
-                Made Simple
-              </span>
-            </h2>
-
-            {/* Hero Subtitle */}
-            <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
-              Join rotating savings circles (Chamas) with Bitcoin. Save together, earn together, grow together.
+            <h1 className="text-5xl md:text-6xl font-bold mb-6 gradient-text">
+              Save Together,<br />Grow Together
+            </h1>
+            <p className="text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-3xl mx-auto">
+              Join the future of community savings with Bitcoin-powered Chama circles. 
+              Transparent, secure, and built for families, friends, and communities.
             </p>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-
-
-              <Button
-                variant="outline"
-                size="lg"
-                className="px-8 py-4 text-lg font-semibold rounded-xl border-2 border-gray-300 dark:border-gray-600 hover:border-orange-500 dark:hover:border-orange-500 transition-colors"
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button 
+                className="btn btn-primary px-8 py-4 text-lg"
+                onClick={() => scrollToSection('how-it-works')}
               >
-                Learn More
-                <ArrowRight className="w-5 h-5 ml-2" />
-              </Button>
-            </div>
-
-            {/* Trust Indicators */}
-            <div className="flex flex-wrap justify-center items-center gap-8 text-sm text-gray-500 dark:text-gray-400">
-              <div className="flex items-center gap-2">
-                <Shield className="w-4 h-4" />
-                <span>Secure & Decentralized</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Bitcoin className="w-4 h-4" />
-                <span>Bitcoin Native</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                <span>Community Driven</span>
-              </div>
+                <span className="mr-2">🚀</span>
+                Learn How It Works
+                <span className="ml-2">→</span>
+              </button>
+              <button 
+                className="btn btn-secondary px-8 py-4 text-lg"
+                onClick={() => scrollToSection('features')}
+              >
+                Explore Features
+              </button>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Features Section */}
-      <div className="py-20 bg-white dark:bg-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h3 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              Why Choose Jenga?
-            </h3>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Experience the power of collective Bitcoin savings with modern DeFi technology
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Feature 1 */}
-            <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <Users className="w-8 h-8 text-white" />
-                </div>
-                <h4 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                  Rotating Savings Circles
-                </h4>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Join traditional chama savings groups powered by Bitcoin and smart contracts for transparency and security.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Feature 2 */}
-            <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <Shield className="w-8 h-8 text-white" />
-                </div>
-                <h4 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                  Secure & Transparent
-                </h4>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Smart contracts ensure fair distribution and transparent operations. Your Bitcoin is always secure.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Feature 3 */}
-            <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardContent className="p-8 text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <TrendingUp className="w-8 h-8 text-white" />
-                </div>
-                <h4 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                  Grow Your Savings
-                </h4>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Build disciplined saving habits while earning rewards and building your Bitcoin stack over time.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-
-      {/* How It Works Section */}
-      <div className="py-20 bg-gray-50 dark:bg-gray-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h3 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              How It Works
-            </h3>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Simple steps to start your Bitcoin savings journey
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-4 gap-8">
-            {/* Step 1 */}
-            <div className="text-center">
-              <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
-                1
-              </div>
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Connect Wallet
-              </h4>
-              <p className="text-gray-600 dark:text-gray-300">
-                Connect your Bitcoin wallet to get started
-              </p>
-            </div>
-
-            {/* Step 2 */}
-            <div className="text-center">
-              <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
-                2
-              </div>
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Join or Create
-              </h4>
-              <p className="text-gray-600 dark:text-gray-300">
-                Join an existing chama or create your own savings circle
-              </p>
-            </div>
-
-            {/* Step 3 */}
-            <div className="text-center">
-              <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
-                3
-              </div>
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Save Regularly
-              </h4>
-              <p className="text-gray-600 dark:text-gray-300">
-                Make regular Bitcoin contributions to your chama
-              </p>
-            </div>
-
-            {/* Step 4 */}
-            <div className="text-center">
-              <div className="w-12 h-12 bg-orange-500 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
-                4
-              </div>
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Receive Payouts
-              </h4>
-              <p className="text-gray-600 dark:text-gray-300">
-                Get your turn to receive the collective savings
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+      </section>
 
       {/* Stats Section */}
-      <div className="py-20 bg-white dark:bg-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8 text-center">
-            <div>
-              <div className="text-4xl font-bold text-orange-500 mb-2">1000+</div>
-              <div className="text-gray-600 dark:text-gray-300">Active Savers</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-orange-500 mb-2">50+</div>
-              <div className="text-gray-600 dark:text-gray-300">Active Chamas</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-orange-500 mb-2">₿10.5</div>
-              <div className="text-gray-600 dark:text-gray-300">Total Saved</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold text-orange-500 mb-2">99.9%</div>
-              <div className="text-gray-600 dark:text-gray-300">Uptime</div>
-            </div>
+      <section className="py-16 bg-white/50 dark:bg-gray-900/50">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {stats.map((stat, index) => (
+              <div
+                key={index}
+                className="text-center animate-slide-up"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="text-3xl md:text-4xl font-bold text-bitcoin-orange mb-2 font-mono">
+                  {stat.number}
+                </div>
+                <div className="text-gray-600 dark:text-gray-400">
+                  {stat.label}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* CTA Section */}
-      <div className="py-20 bg-gradient-to-r from-orange-500 to-orange-600">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h3 className="text-3xl md:text-4xl font-bold text-white mb-6">
-            Ready to Start Saving Bitcoin?
-          </h3>
-          <p className="text-xl text-orange-100 mb-8">
-            Join thousands of savers building their Bitcoin wealth through community-powered chamas
-          </p>
-
-
-          {/* <Button
-            onClick={handleConnect}
-            disabled={isPending}
-            size="lg"
-            className="bg-white hover:bg-gray-100 text-gray-900 px-8 py-4 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
-          >
-            <Wallet className="w-5 h-5 mr-2" />
-            {isPending ? 'Connecting...' : 'Get Started Now'}
-          </Button> */}
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center">
-                  <Bitcoin className="w-5 h-5 text-white" />
+      {/* Features Section */}
+      <section id="features" className="py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-4">Why Choose Jenga?</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto">
+              Built on Bitcoin's security with modern smart contract technology
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {features.map((feature, index) => (
+              <div
+                key={index}
+                className="feature-item animate-slide-up"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className={`w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4 ${feature.color}`}>
+                  <span className="text-2xl">{feature.icon}</span>
                 </div>
-                <h4 className="text-xl font-bold">Jenga</h4>
+                <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  {feature.description}
+                </p>
               </div>
-              <p className="text-gray-400">
-                Building the future of Bitcoin savings through community-powered chamas.
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section id="how-it-works" className="py-20 bg-white/50 dark:bg-gray-900/50 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-4">How Jenga Works</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400">
+              Simple, transparent, and automated savings circles
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="text-center animate-slide-left">
+              <div className="w-16 h-16 bg-bitcoin-orange/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-bitcoin-orange">1</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Create or Join</h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Start a savings circle with friends and family, or join an existing group
               </p>
             </div>
+            <div className="text-center animate-slide-up">
+              <div className="w-16 h-16 bg-bitcoin-orange/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-bitcoin-orange">2</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Contribute Regularly</h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Everyone contributes the same amount each round in cBTC
+              </p>
+            </div>
+            <div className="text-center animate-slide-right">
+              <div className="w-16 h-16 bg-bitcoin-orange/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl font-bold text-bitcoin-orange">3</span>
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Receive Payout</h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Take turns receiving the full pool amount when it's your turn
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
+      {/* Testimonials Section */}
+      <section className="py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold mb-4">What Our Users Say</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-400">
+              Real stories from real savers
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {testimonials.map((testimonial, index) => (
+              <div
+                key={index}
+                className="card animate-slide-up"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                <div className="flex items-center mb-4">
+                  <div className="w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mr-3">
+                    <span className="text-xl">{testimonial.avatar}</span>
+                  </div>
+                  <div>
+                    <div className="font-semibold">{testimonial.name}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                      {testimonial.role}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-gray-700 dark:text-gray-300 italic">
+                  "{testimonial.content}"
+                </p>
+                <div className="flex mt-4">
+                  {[...Array(5)].map((_, i) => (
+                    <span key={i} className="text-bitcoin-yellow text-sm">★</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 bg-gradient-to-r from-bitcoin-orange to-bitcoin-yellow px-4">
+        <div className="max-w-4xl mx-auto text-center text-white">
+          <div className="animate-fade-in">
+            <h2 className="text-4xl font-bold mb-4">
+              Ready to Start Your Savings Journey?
+            </h2>
+            <p className="text-xl mb-8 opacity-90">
+              Join thousands of families building wealth together with Bitcoin-powered Chama circles
+            </p>
+            <p className="text-lg opacity-80 mb-6">
+              Connect your wallet above to get started
+            </p>
+            <div className="flex items-center justify-center gap-2 text-sm opacity-75">
+              <span>🔒</span>
+              <span>Secure</span>
+              <span>•</span>
+              <span>🌍</span>
+              <span>Decentralized</span>
+              <span>•</span>
+              <span>⚡</span>
+              <span>Fast</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-12 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
-              <h5 className="font-semibold mb-4">Product</h5>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">How it Works</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Security</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
+              <div className="flex items-center space-x-2 mb-4">
+                <span className="text-bitcoin-orange text-2xl">₿</span>
+                <span className="text-xl font-bold">Jenga</span>
+              </div>
+              <p className="text-gray-400 text-sm">
+                Bitcoin-powered savings circles for families, friends, and communities.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4">Product</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li>How It Works</li>
+                <li>Security</li>
+                <li>Smart Contracts</li>
+                <li>FAQ</li>
               </ul>
             </div>
-
             <div>
-              <h5 className="font-semibold mb-4">Resources</h5>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Support</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Community</a></li>
+              <h4 className="font-semibold mb-4">Community</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li>Discord</li>
+                <li>Twitter</li>
+                <li>Telegram</li>
+                <li>Blog</li>
               </ul>
             </div>
-
             <div>
-              <h5 className="font-semibold mb-4">Company</h5>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Privacy</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Terms</a></li>
+              <h4 className="font-semibold mb-4">Support</h4>
+              <ul className="space-y-2 text-sm text-gray-400">
+                <li>Help Center</li>
+                <li>Contact Us</li>
+                <li>Bug Reports</li>
+                <li>Feature Requests</li>
               </ul>
             </div>
           </div>
-
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 Jenga. All rights reserved.</p>
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
+            <p>&copy; 2024 Jenga. Built on Citrea, Bitcoin's Layer 2. All rights reserved.</p>
           </div>
         </div>
       </footer>
     </div>
   );
-};
+}
