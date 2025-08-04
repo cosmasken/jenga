@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRosca } from '../hooks/useRosca';
+import { CreateChamaModal } from './CreateChamaModal';
 
 /**
  * Dashboard component for logged-in users
@@ -9,6 +10,7 @@ import { useRosca } from '../hooks/useRosca';
 export function Dashboard() {
   const { primaryWallet, user } = useDynamicContext();
   const { isConnected, groupCount, getGroupCount } = useRosca();
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Load group count when component mounts
   React.useEffect(() => {
@@ -54,7 +56,10 @@ export function Dashboard() {
             <span className="rosca-card-badge">New</span>
           </div>
           <div className="action-buttons">
-            <button className="btn btn-primary">
+            <button 
+              className="btn btn-primary"
+              onClick={() => setShowCreateModal(true)}
+            >
               <span>🏗️</span>
               Create Chama
             </button>
@@ -76,7 +81,10 @@ export function Dashboard() {
               You haven't joined any chamas yet. Create one or join an existing chama to get started!
             </p>
             <div className="action-buttons">
-              <button className="btn btn-primary">
+              <button 
+                className="btn btn-primary"
+                onClick={() => setShowCreateModal(true)}
+              >
                 Get Started
               </button>
             </div>
@@ -100,6 +108,12 @@ export function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Create Chama Modal */}
+      <CreateChamaModal 
+        open={showCreateModal} 
+        onOpenChange={setShowCreateModal} 
+      />
     </section>
   );
 }
