@@ -1,33 +1,267 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-
-
-/* Reset CSS */
-* {
-	margin: 0;
-	padding: 0;
-	box-sizing: border-box;
+:root {
+  /* Bitcoin Color Palette */
+  --bitcoin-orange: #F7931A;
+  --bitcoin-orange-light: #FFB84D;
+  --bitcoin-orange-dark: #E8851C;
+  --bitcoin-yellow: #FFC107;
+  --bitcoin-gold: #FFD700;
+  
+  /* Complementary Colors */
+  --bitcoin-dark: #1A1A1A;
+  --bitcoin-darker: #0D0D0D;
+  --bitcoin-gray: #2D2D2D;
+  --bitcoin-gray-light: #4A4A4A;
+  --bitcoin-gray-lighter: #6B6B6B;
+  
+  /* Text Colors */
+  --text-primary: #FFFFFF;
+  --text-secondary: #E0E0E0;
+  --text-muted: #A0A0A0;
+  --text-accent: var(--bitcoin-orange);
+  
+  /* Background Colors */
+  --bg-primary: var(--bitcoin-dark);
+  --bg-secondary: var(--bitcoin-gray);
+  --bg-card: var(--bitcoin-gray);
+  --bg-hover: var(--bitcoin-gray-light);
+  
+  /* Border Colors */
+  --border-primary: var(--bitcoin-gray-light);
+  --border-accent: var(--bitcoin-orange);
+  
+  /* Status Colors */
+  --success: #10B981;
+  --error: #EF4444;
+  --warning: var(--bitcoin-yellow);
+  --info: #3B82F6;
+  
+  /* Fonts */
+  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace;
+  
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+  --spacing-2xl: 3rem;
+  
+  /* Border Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-bitcoin: 0 0 20px rgba(247, 147, 26, 0.3);
 }
 
-html,
-body,
-#root {
-	width: 100%;
-	height: 100%;
-	font-family:
-		"Inter",
-		-apple-system,
-		BlinkMacSystemFont,
-		"Segoe UI",
-		Roboto,
-		Oxygen,
-		Ubuntu,
-		Cantarell,
-		"Open Sans",
-		"Helvetica Neue",
-		sans-serif;
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-primary);
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-	overflow-x: hidden;
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(135deg, var(--bitcoin-dark) 0%, var(--bitcoin-darker) 100%);
+}
+
+/* Bitcoin-themed scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bitcoin-gray);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bitcoin-orange);
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--bitcoin-orange-light);
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-primary);
+}
+
+h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 2rem;
+}
+
+h3 {
+  font-size: 1.5rem;
+}
+
+p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Links */
+a {
+  color: var(--bitcoin-orange);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--bitcoin-orange-light);
+}
+
+/* Buttons */
+button {
+  font-family: var(--font-primary);
+  font-weight: 500;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--bitcoin-orange) 0%, var(--bitcoin-orange-dark) 100%);
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--bitcoin-orange-light) 0%, var(--bitcoin-orange) 100%);
+  box-shadow: var(--shadow-bitcoin);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-primary);
+}
+
+.btn-secondary:hover {
+  background: var(--bg-hover);
+  border-color: var(--bitcoin-orange);
+}
+
+/* Input fields */
+input, textarea, select {
+  font-family: var(--font-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--text-primary);
+  transition: border-color 0.2s ease;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--bitcoin-orange);
+  box-shadow: 0 0 0 3px rgba(247, 147, 26, 0.1);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted);
+}
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s ease;
+}
+
+.card:hover {
+  border-color: var(--bitcoin-orange);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Utility classes */
+.text-bitcoin {
+  color: var(--bitcoin-orange);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--bitcoin-orange) 0%, var(--bitcoin-yellow) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Loading spinner */
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-primary);
+  border-top: 2px solid var(--bitcoin-orange);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+  
+  h1 {
+    font-size: 2rem;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+  }
+  
+  .card {
+    padding: var(--spacing-md);
+  }
 }
