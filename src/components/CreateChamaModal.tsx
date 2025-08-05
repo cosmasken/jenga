@@ -27,6 +27,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     isConnected, 
     balance, 
     isLoadingBalance, 
+    refreshBalance,
     getMaxSpendableAmount 
   } = useRosca();
   const { groupCreated, error: showError, transactionPending } = useRoscaToast();
@@ -258,7 +259,11 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                         <span className="font-mono">{parseFloat(balance).toFixed(6)} cBTC</span>
                         <button
                           type="button"
-                          onClick={() => getMaxSpendableAmount().then(setMaxSpendable)}
+                          onClick={async () => {
+                            await refreshBalance();
+                            const maxAmount = await getMaxSpendableAmount();
+                            setMaxSpendable(maxAmount);
+                          }}
                           className="text-bitcoin hover:text-bitcoin-dark transition-colors"
                           disabled={isLoadingBalance}
                           title="Refresh balance"
