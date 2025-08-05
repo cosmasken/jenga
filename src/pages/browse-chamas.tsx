@@ -7,13 +7,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'wouter';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import { 
-  Search, 
-  Filter, 
-  Users, 
-  Bitcoin, 
-  Clock, 
-  TrendingUp, 
+import {
+  Search,
+  Filter,
+  Users,
+  Bitcoin,
+  Clock,
+  TrendingUp,
   Star,
   ArrowLeft,
   Eye,
@@ -32,17 +32,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuCheckboxItem
@@ -174,12 +174,12 @@ export default function BrowseChamas() {
   const [, setLocation] = useLocation();
   const { primaryWallet, isConnected } = useDynamicContext();
   const { balance, getBalance } = useRosca();
-  const { 
-    getGroups, 
-    joinGroup, 
+  const {
+    getGroups,
+    joinGroup,
     subscribeToGroup,
     logActivity,
-    isLoading: isSupabaseLoading 
+    isLoading: isSupabaseLoading
   } = useSupabase();
   const toast = useRoscaToast();
   const { handleError } = useErrorHandler();
@@ -194,6 +194,8 @@ export default function BrowseChamas() {
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [showFilters, setShowFilters] = useState(false);
   const [isJoining, setIsJoining] = useState<string | null>(null);
+  const [contributionRange, setContributionRange] = useState<string>('all');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Load groups from Supabase
   useEffect(() => {
@@ -203,7 +205,7 @@ export default function BrowseChamas() {
   const loadGroups = async () => {
     try {
       setIsLoadingGroups(true);
-      
+
       const filters: any = {
         limit: 50,
         offset: 0
@@ -226,7 +228,7 @@ export default function BrowseChamas() {
 
       console.log('🔄 Loading groups with filters:', filters);
       const fetchedGroups = await getGroups(filters);
-      
+
       console.log('✅ Loaded groups:', fetchedGroups.length);
       setGroups(fetchedGroups);
     } catch (error) {
@@ -248,12 +250,12 @@ export default function BrowseChamas() {
     try {
       setIsJoining(groupId);
       console.log('🔄 Joining group:', groupId);
-      
+
       const success = await joinGroup(groupId);
-      
+
       if (success) {
         toast.success('Joined Group!', `You have successfully joined ${groupName}.`);
-        
+
         // Log activity
         await logActivity(
           'group_joined',
@@ -262,7 +264,7 @@ export default function BrowseChamas() {
           `Joined ROSCA group: ${groupName}`,
           { group_name: groupName }
         );
-        
+
         // Refresh groups to update member count
         await loadGroups();
       }
@@ -281,8 +283,8 @@ export default function BrowseChamas() {
     groups.forEach(group => {
       const unsubscribe = subscribeToGroup(group.id, (payload) => {
         console.log('🔄 Real-time group update:', payload);
-        setGroups(prevGroups => 
-          prevGroups.map(g => 
+        setGroups(prevGroups =>
+          prevGroups.map(g =>
             g.id === group.id ? { ...g, ...payload.new } : g
           )
         );
@@ -302,7 +304,7 @@ export default function BrowseChamas() {
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(group => 
+      filtered = filtered.filter(group =>
         group.name.toLowerCase().includes(query) ||
         group.description?.toLowerCase().includes(query) ||
         group.tags?.some((tag: string) => tag.toLowerCase().includes(query))
@@ -329,11 +331,7 @@ export default function BrowseChamas() {
 
     return filtered;
   }, [groups, searchQuery, sortBy]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [contributionRange, setContributionRange] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<SortOption>('newest');
-  const [isLoading, setIsLoading] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+
 
   // Get all unique tags
   const allTags = useMemo(() => {
@@ -348,9 +346,9 @@ export default function BrowseChamas() {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        if (!chama.name.toLowerCase().includes(query) && 
-            !chama.description.toLowerCase().includes(query) &&
-            !chama.tags.some(tag => tag.toLowerCase().includes(query))) {
+        if (!chama.name.toLowerCase().includes(query) &&
+          !chama.description.toLowerCase().includes(query) &&
+          !chama.tags.some(tag => tag.toLowerCase().includes(query))) {
           return false;
         }
       }
@@ -416,7 +414,7 @@ export default function BrowseChamas() {
       // In real implementation, fetch from contract
       // const chamasData = await getPublicChamas();
       // setChamas(chamasData);
-      
+
       // Simulate loading
       await new Promise(resolve => setTimeout(resolve, 1000));
     } catch (error) {
@@ -460,9 +458,9 @@ export default function BrowseChamas() {
   };
 
   const canJoinChama = (chama: ChamaGroup) => {
-    return chama.status === 'open' && 
-           chama.currentMembers < chama.maxMembers &&
-           parseFloat(balance) >= chama.contributionAmount;
+    return chama.status === 'open' &&
+      chama.currentMembers < chama.maxMembers &&
+      parseFloat(balance) >= chama.contributionAmount;
   };
 
   return (
@@ -488,7 +486,7 @@ export default function BrowseChamas() {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"
@@ -514,7 +512,7 @@ export default function BrowseChamas() {
             <Input
               placeholder="Search chamas by name, description, or tags..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e: unknown) => setSearchQuery(e.target.value)}
               className="pl-10"
             />
           </div>
@@ -546,7 +544,7 @@ export default function BrowseChamas() {
               </SelectContent>
             </Select>
 
-            <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+            <Select value={sortBy} onValueChange={(value: unknown) => setSortBy(value as SortOption)}>
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
