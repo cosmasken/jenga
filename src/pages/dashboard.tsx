@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useRoscaToast } from "@/hooks/use-rosca-toast";
+import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet } from "lucide-react";
 
 export default function Dashboard() {
     const [, setLocation] = useLocation();
