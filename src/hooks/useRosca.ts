@@ -30,7 +30,7 @@ const roscaAbi = parseAbi([
   "function disputeCount() external view returns (uint256)",
   "function groups(uint256) external view returns (uint40 id, uint40 roundLength, uint40 nextDue, address token, uint96 contribution, uint8 currentRound, uint40 newRoundLength, uint40 changeActivates)",
   "function getGroupMembers(uint256 gid) external view returns (address[] memory)",
-  "function getGroupDetails(uint256 gid) external view returns (uint40 id, uint40 roundLength, uint40 nextDue, address token, uint96 contribution, uint8 currentRound, uint8 maxMembers, bool isActive, address creator, uint256 memberCount, uint256 totalPaidOut, uint256 disputeCount)",
+  "function getGroupDetails(uint256 gid) external view returns (uint40 id, uint40 roundLength, uint40 nextDue, address token, uint96 contribution, uint8 currentRound, uint8 maxMembers, bool isActive, address creator, uint256 memberCount, uint256 totalPaidOut, uint256 groupDisputeCount)",
   "function getDispute(uint256 disputeId) external view returns (uint256 groupId, address complainant, address defendant, string memory reason, uint8 status, uint256 createdAt, uint256 votesFor, uint256 votesAgainst)",
   "function hasVotedOnDispute(uint256 disputeId, address voter) external view returns (bool)",
   

@@ -346,7 +346,7 @@ contract MiniROSCA is ReentrancyGuard {
         address creator,
         uint256 memberCount,
         uint256 totalPaidOut,
-        uint256 disputeCount
+        uint256 groupDisputeCount
     ) {
         Group storage g = groups[gid];
         return (
