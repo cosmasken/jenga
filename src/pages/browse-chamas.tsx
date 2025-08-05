@@ -53,6 +53,7 @@ import { useRoscaToast } from '@/hooks/use-rosca-toast';
 import { useErrorHandler } from '@/hooks/use-error-handler';
 import { WalletDropdown } from '@/components/WalletDropdown';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { JoinGroupModal } from '@/components/JoinGroupModal';
 
 // Mock data for demonstration - in real app, this would come from the contract
 interface ChamaGroup {
@@ -194,6 +195,8 @@ export default function BrowseChamas() {
   const [sortBy, setSortBy] = useState<SortOption>('newest');
   const [showFilters, setShowFilters] = useState(false);
   const [isJoining, setIsJoining] = useState<string | null>(null);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [contributionRange, setContributionRange] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -240,40 +243,22 @@ export default function BrowseChamas() {
     }
   };
 
-  // Handle joining a group
+  // Handle joining a group - open modal instead of direct join
   const handleJoinGroup = async (groupId: string, groupName: string) => {
     if (!isConnected || !primaryWallet?.address) {
       toast.error('Wallet Required', 'Please connect your wallet to join a group.');
       return;
     }
 
-    try {
-      setIsJoining(groupId);
-      console.log('🔄 Joining group:', groupId);
+    // Open join modal with the selected group
+    setSelectedGroupId(parseInt(groupId));
+    setShowJoinModal(true);
+  };
 
-      const success = await joinGroup(groupId);
-
-      if (success) {
-        toast.success('Joined Group!', `You have successfully joined ${groupName}.`);
-
-        // Log activity
-        await logActivity(
-          'group_joined',
-          'group',
-          groupId,
-          `Joined ROSCA group: ${groupName}`,
-          { group_name: groupName }
-        );
-
-        // Refresh groups to update member count
-        await loadGroups();
-      }
-    } catch (error) {
-      console.error('❌ Failed to join group:', error);
-      handleError(error, { context: 'joining group' });
-    } finally {
-      setIsJoining(null);
-    }
+  // Handle successful join from modal
+  const handleJoinSuccess = async () => {
+    // Refresh groups to update member count
+    await loadGroups();
   };
 
   // Real-time updates for groups
@@ -660,6 +645,16 @@ export default function BrowseChamas() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Join Group Modal */}
+      <JoinGroupModal
+        isOpen={showJoinModal}
+        onClose={() => {
+          setShowJoinModal(false);
+          setSelectedGroupId(null);
+        }}
+        groupId={selectedGroupId}
+      />
     </div>
   );
 }
