@@ -5,9 +5,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Navigation } from "@/components/navigation";
 import { OnboardingModal } from "@/components/OnboardingModal";
-import { TransactionModal } from "@/components/modals/transaction-modal";
-import { InviteModal } from "@/components/modals/invite-modal";
-import { VotingModal } from "@/components/modals/voting-modal";
 import { queryClient } from "@/lib/queryClient";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -107,10 +104,6 @@ function App() {
               onComplete={handleOnboardingComplete}
             />
             
-            {/* Other Modals */}
-            <TransactionModal />
-            <InviteModal />
-            <VotingModal />
             <Toaster />
           </div>
         </TooltipProvider>
