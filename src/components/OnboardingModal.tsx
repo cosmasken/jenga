@@ -46,7 +46,10 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     }
   }, []);
 
-  const handleNext = () => {
+  const handleNext = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
     console.log(`🔄 OnboardingModal: Attempting to go from step ${currentStep} to ${currentStep + 1}`);
     console.log(`🔄 OnboardingModal: Validation states - Step1: ${canProceedStep1}, Step2: ${canProceedStep2}, Step3: ${canProceedStep3}`);
     
@@ -58,14 +61,20 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     }
   };
 
-  const handlePrevious = () => {
+  const handlePrevious = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
     console.log(`🔄 OnboardingModal: Going back from step ${currentStep} to ${currentStep - 1}`);
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
   };
 
-  const handleDebugForceNext = () => {
+  const handleDebugForceNext = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    
     console.log(`🐛 OnboardingModal: Debug force next from step ${currentStep}`);
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
@@ -384,7 +393,10 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
                 Name: {displayName.length}chars
                 <br />
                 <button 
-                  onClick={handleDebugForceNext}
+                  onClick={(e) => {
+                    console.log(`🖱️ OnboardingModal: Debug force next button clicked`);
+                    handleDebugForceNext(e);
+                  }}
                   className="text-blue-500 underline text-xs mt-1 hover:text-blue-700"
                 >
                   [Debug: Force Next]
@@ -396,7 +408,10 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
                 {currentStep > 1 && (
                   <Button
                     variant="outline"
-                    onClick={handlePrevious}
+                    onClick={(e) => {
+                      console.log(`🖱️ OnboardingModal: Previous button clicked on step ${currentStep}`);
+                      handlePrevious(e);
+                    }}
                     className="flex items-center gap-2"
                   >
                     <ArrowLeft className="h-4 w-4" />
@@ -406,7 +421,10 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
 
               {currentStep < totalSteps ? (
                 <Button
-                  onClick={handleNext}
+                  onClick={(e) => {
+                    console.log(`🖱️ OnboardingModal: Next button clicked on step ${currentStep}`);
+                    handleNext(e);
+                  }}
                   disabled={
                     (currentStep === 1 && !canProceedStep1) ||
                     (currentStep === 2 && !canProceedStep2) ||
@@ -419,7 +437,10 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
                 </Button>
               ) : (
                 <Button
-                  onClick={handleComplete}
+                  onClick={(e) => {
+                    console.log(`🖱️ OnboardingModal: Complete button clicked`);
+                    handleComplete();
+                  }}
                   disabled={!canComplete || isCompleting}
                   className="flex items-center gap-2 bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)]"
                 >
