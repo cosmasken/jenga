@@ -9,8 +9,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useRoscaToast } from "@/hooks/use-rosca-toast";
+import { useEventListener } from "@/hooks/use-event-listener";
+import { useNotifications } from "@/hooks/use-notifications";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet } from "lucide-react";
+import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet, Bell, BellOff } from "lucide-react";
 
 export default function Dashboard() {
     const [, setLocation] = useLocation();
@@ -28,6 +30,13 @@ export default function Dashboard() {
     const [userGroups, setUserGroups] = useState<any[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const { contributionReminder, memberJoined, success } = useRoscaToast();
+
+    // Event monitoring and notifications
+    const eventListener = useEventListener({ 
+        enabled: isConnected && !!primaryWallet?.address,
+        showToasts: true 
+    });
+    const notifications = useNotifications();
 
     // Get user display name from stored onboarding data or fallback to identifiers
     const getUserDisplayName = () => {
@@ -112,7 +121,38 @@ export default function Dashboard() {
                             Welcome back, {getUserDisplayName()}
                         </p>
                     </div>
-                    <ThemeToggle />
+                    <div className="flex items-center gap-3">
+                        {/* Notification Bell */}
+                        <div className="relative">
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={notifications.toggleCenter}
+                                className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5 dark:border-bitcoin/30 dark:hover:border-bitcoin/50 dark:hover:bg-bitcoin/10 transition-all duration-200"
+                            >
+                                {notifications.unreadCount > 0 ? (
+                                    <Bell className="h-[1.2rem] w-[1.2rem] text-bitcoin" />
+                                ) : (
+                                    <BellOff className="h-[1.2rem] w-[1.2rem] text-muted-foreground" />
+                                )}
+                            </Button>
+                            {notifications.unreadCount > 0 && (
+                                <span className="absolute -top-2 -right-2 bg-bitcoin text-bitcoin-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+                                    {notifications.unreadCount > 9 ? '9+' : notifications.unreadCount}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* Event Monitoring Status */}
+                        <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${eventListener.isMonitoring ? 'bg-green-500' : 'bg-gray-400'}`} />
+                            <span className="text-xs text-muted-foreground">
+                                {eventListener.isMonitoring ? 'Live' : 'Offline'}
+                            </span>
+                        </div>
+
+                        <ThemeToggle />
+                    </div>
                 </motion.div>
 
                 {/* Stats Grid */}
@@ -205,6 +245,53 @@ export default function Dashboard() {
                         </Card>
                     </motion.div>
                 </div>
+
+                {/* Event Monitoring Status */}
+                <motion.div
+                    className="mb-8"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.4 }}
+                >
+                    <Card>
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-3 h-3 rounded-full ${eventListener.isMonitoring ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                                    <div>
+                                        <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                                            Real-time Monitoring
+                                        </h3>
+                                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                                            {eventListener.isMonitoring 
+                                                ? `Live • Block ${eventListener.lastProcessedBlock.toString()}`
+                                                : 'Offline • Connect wallet to enable'
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <div className="text-center">
+                                        <div className="text-lg font-bold text-bitcoin">
+                                            {notifications.unreadCount}
+                                        </div>
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                                            Unread
+                                        </div>
+                                    </div>
+                                    <div className="text-center">
+                                        <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                                            {notifications.notifications.length}
+                                        </div>
+                                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                                            Total
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </motion.div>
 
                 {/* Quick Actions */}
                 <motion.div
