@@ -4,7 +4,7 @@
  */
 
 import { createPublicClient, http, parseAbi, type Log, type Address } from 'viem';
-import { citreaTestnet } from '@/lib/citrea-testnet';
+import { citreaTestnet } from 'viem/chains';
 import { 
   type BlockchainEvent, 
   EventType, 
@@ -16,6 +16,7 @@ import {
   type RoundCompletedEvent,
   type GroupCompletedEvent
 } from '@/types/events';
+import { ROSCA_CONTRACT_ADDRESS, roscaAbi } from '@/hooks/useRosca';
 
 // ROSCA Contract ABI (events only)
 const ROSCA_EVENTS_ABI = parseAbi([
@@ -143,7 +144,7 @@ export class EventMonitorService {
 
       for (const log of logs) {
         const event = await this.parseLogToEvent(log, userAddress);
-        if (event && this.isUserRelevantEvent(event, userAddress)) {
+        if (event && await this.isUserRelevantEvent(event, userAddress)) {
           events.push(event);
         }
       }
@@ -200,6 +201,8 @@ export class EventMonitorService {
       // Process each log
       for (const log of logs) {
         const event = await this.parseLogToEvent(log);
+        // For processNewEvents, we don't have a userAddress context, so we emit all events
+        // The relevance check will happen at the subscriber level if needed.
         if (event) {
           this.emitEvent(event);
         }
@@ -322,7 +325,7 @@ export class EventMonitorService {
   /**
    * Check if an event is relevant to a specific user
    */
-  private isUserRelevantEvent(event: BlockchainEvent, userAddress: Address): boolean {
+  private async isUserRelevantEvent(event: BlockchainEvent, userAddress: Address): Promise<boolean> {
     switch (event.type) {
       case EventType.GROUP_CREATED:
         return (event as GroupCreatedEvent).data.creator.toLowerCase() === userAddress.toLowerCase();
@@ -338,9 +341,13 @@ export class EventMonitorService {
       
       case EventType.ROUND_COMPLETED:
       case EventType.GROUP_COMPLETED:
-        // These events are relevant to all group members
-        // TODO: Check if user is a member of the group
-        return true;
+        // Check if user is a member of the group
+        const groupId = (event as RoundCompletedEvent).data.groupId || (event as GroupCompletedEvent).data.groupId;
+        if (groupId) {
+          const members = await this._getGroupMembers(groupId);
+          return members.some(member => member.toLowerCase() === userAddress.toLowerCase());
+        }
+        return false;
       
       default:
         return false;
@@ -372,5 +379,23 @@ export class EventMonitorService {
       lastProcessedBlock: this.lastProcessedBlock,
       subscriberCount: Array.from(this.callbacks.values()).reduce((sum, callbacks) => sum + callbacks.length, 0)
     };
+  }
+
+  /**
+   * Helper to get group members from the contract
+   */
+  private async _getGroupMembers(groupId: bigint): Promise<Address[]> {
+    try {
+      const members = await this.client.readContract({
+        address: ROSCA_CONTRACT_ADDRESS,
+        abi: roscaAbi,
+        functionName: "getGroupMembers",
+        args: [groupId],
+      }) as Address[];
+      return members;
+    } catch (error) {
+      console.error(`Failed to get members for group ${groupId}:`, error);
+      return [];
+    }
   }
 }

@@ -76,98 +76,7 @@ interface ChamaGroup {
 }
 
 // Mock data - replace with actual contract data
-const mockChamas: ChamaGroup[] = [
-  {
-    id: '1',
-    name: 'Bitcoin Builders',
-    description: 'A group for Bitcoin enthusiasts building wealth together through disciplined savings.',
-    contributionAmount: 0.01,
-    roundLength: 30,
-    maxMembers: 8,
-    currentMembers: 6,
-    creator: '0x1234...5678',
-    createdAt: new Date('2024-01-15'),
-    nextRoundDate: new Date('2024-02-15'),
-    status: 'open',
-    totalSaved: 0.48,
-    currentRound: 2,
-    tags: ['bitcoin', 'savings', 'tech'],
-    isVerified: true,
-    trustScore: 4.8
-  },
-  {
-    id: '2',
-    name: 'Citrea Savers',
-    description: 'Conservative savers focusing on steady growth and reliable payouts.',
-    contributionAmount: 0.005,
-    roundLength: 14,
-    maxMembers: 6,
-    currentMembers: 6,
-    creator: '0x2345...6789',
-    createdAt: new Date('2024-01-10'),
-    nextRoundDate: new Date('2024-02-10'),
-    status: 'full',
-    totalSaved: 0.18,
-    currentRound: 3,
-    tags: ['conservative', 'steady', 'reliable'],
-    isVerified: true,
-    trustScore: 4.9
-  },
-  {
-    id: '3',
-    name: 'High Rollers',
-    description: 'For serious savers ready to commit to larger amounts and faster cycles.',
-    contributionAmount: 0.1,
-    roundLength: 7,
-    maxMembers: 4,
-    currentMembers: 2,
-    creator: '0x3456...7890',
-    createdAt: new Date('2024-01-20'),
-    nextRoundDate: new Date('2024-02-01'),
-    status: 'open',
-    totalSaved: 0.8,
-    currentRound: 1,
-    tags: ['high-stakes', 'fast', 'aggressive'],
-    isVerified: false,
-    trustScore: 4.2
-  },
-  {
-    id: '4',
-    name: 'Beginner Friendly',
-    description: 'Perfect for newcomers to ROSCA. Small amounts, longer cycles, supportive community.',
-    contributionAmount: 0.001,
-    roundLength: 45,
-    maxMembers: 10,
-    currentMembers: 4,
-    creator: '0x4567...8901',
-    createdAt: new Date('2024-01-25'),
-    nextRoundDate: new Date('2024-03-10'),
-    status: 'open',
-    totalSaved: 0.018,
-    currentRound: 1,
-    tags: ['beginner', 'friendly', 'learning'],
-    isVerified: true,
-    trustScore: 4.6
-  },
-  {
-    id: '5',
-    name: 'Monthly Savers',
-    description: 'Traditional monthly savings cycle for consistent long-term wealth building.',
-    contributionAmount: 0.02,
-    roundLength: 30,
-    maxMembers: 12,
-    currentMembers: 8,
-    creator: '0x5678...9012',
-    createdAt: new Date('2024-01-05'),
-    nextRoundDate: new Date('2024-02-05'),
-    status: 'active',
-    totalSaved: 0.96,
-    currentRound: 4,
-    tags: ['monthly', 'traditional', 'stable'],
-    isVerified: true,
-    trustScore: 4.7
-  }
-];
+
 
 type SortOption = 'newest' | 'oldest' | 'contribution-high' | 'contribution-low' | 'members' | 'trust-score';
 
@@ -321,98 +230,79 @@ export default function BrowseChamas() {
   // Get all unique tags
   const allTags = useMemo(() => {
     const tags = new Set<string>();
-    chamas.forEach(chama => chama.tags.forEach(tag => tags.add(tag)));
+    groups.forEach(group => group.tags?.forEach((tag: string) => tags.add(tag)));
     return Array.from(tags).sort();
-  }, [chamas]);
+  }, [groups]);
 
-  // Filter and sort chamas
-  const filteredAndSortedChamas = useMemo(() => {
-    let filtered = chamas.filter(chama => {
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        if (!chama.name.toLowerCase().includes(query) &&
-          !chama.description.toLowerCase().includes(query) &&
-          !chama.tags.some(tag => tag.toLowerCase().includes(query))) {
-          return false;
-        }
-      }
+  // // Filter and sort groups
+  // const filteredAndSortedGroups = useMemo(() => {
+  //   let filtered = groups;
 
-      // Status filter
-      if (selectedStatus !== 'all' && chama.status !== selectedStatus) {
-        return false;
-      }
+  //   // Apply search filter
+  //   if (searchQuery.trim()) {
+  //     const query = searchQuery.toLowerCase();
+  //     filtered = filtered.filter(group =>
+  //       group.name.toLowerCase().includes(query) ||
+  //       group.description?.toLowerCase().includes(query) ||
+  //       group.tags?.some((tag: string) => tag.toLowerCase().includes(query))
+  //     );
+  //   }
 
-      // Contribution range filter
-      if (contributionRange !== 'all') {
-        const amount = chama.contributionAmount;
-        switch (contributionRange) {
-          case 'low':
-            if (amount >= 0.01) return false;
-            break;
-          case 'medium':
-            if (amount < 0.01 || amount >= 0.05) return false;
-            break;
-          case 'high':
-            if (amount < 0.05) return false;
-            break;
-        }
-      }
+  //   // Apply status filter
+  //   if (selectedStatus !== 'all') {
+  //     filtered = filtered.filter(group => group.status === selectedStatus);
+  //   }
 
-      // Tags filter
-      if (selectedTags.length > 0) {
-        if (!selectedTags.some(tag => chama.tags.includes(tag))) {
-          return false;
-        }
-      }
+  //   // Apply contribution range filter
+  //   if (contributionRange !== 'all') {
+  //     filtered = filtered.filter(group => {
+  //       const amount = group.contribution_amount;
+  //       switch (contributionRange) {
+  //         case 'low':
+  //           return amount < 0.01;
+  //         case 'medium':
+  //           return amount >= 0.01 && amount < 0.05;
+  //         case 'high':
+  //           return amount >= 0.05;
+  //         default:
+  //           return true;
+  //       }
+  //     });
+  //   }
 
-      return true;
-    });
+  //   // Apply tags filter
+  //   if (selectedTags.length > 0) {
+  //     filtered = filtered.filter(group =>
+  //       selectedTags.some(tag => group.tags?.includes(tag))
+  //     );
+  //   }
 
-    // Sort
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'newest':
-          return b.createdAt.getTime() - a.createdAt.getTime();
-        case 'oldest':
-          return a.createdAt.getTime() - b.createdAt.getTime();
-        case 'contribution-high':
-          return b.contributionAmount - a.contributionAmount;
-        case 'contribution-low':
-          return a.contributionAmount - b.contributionAmount;
-        case 'members':
-          return (b.maxMembers - b.currentMembers) - (a.maxMembers - a.currentMembers);
-        case 'trust-score':
-          return b.trustScore - a.trustScore;
-        default:
-          return 0;
-      }
-    });
+  //   // Sort groups
+  //   filtered.sort((a, b) => {
+  //     switch (sortBy) {
+  //       case 'newest':
+  //         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  //       case 'oldest':
+  //         return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+  //       case 'contribution-high':
+  //         return b.contribution_amount - a.contribution_amount;
+  //       case 'contribution-low':
+  //         return a.contribution_amount - b.contribution_amount;
+  //       case 'members':
+  //         // Assuming current_members and max_members exist on group object
+  //         return (b.max_members - b.current_members) - (a.max_members - a.current_members);
+  //       case 'trust-score':
+  //         // Assuming trust_score exists on group object
+  //         return b.trust_score - a.trust_score;
+  //       default:
+  //         return 0;
+  //     }
+  //   });
 
-    return filtered;
-  }, [chamas, searchQuery, selectedStatus, selectedTags, contributionRange, sortBy]);
+  //   return filtered;
+  // }, [groups, searchQuery, selectedStatus, selectedTags, contributionRange, sortBy]);
 
-  // Load chamas data
-  const loadChamas = async () => {
-    setIsLoading(true);
-    try {
-      // In real implementation, fetch from contract
-      // const chamasData = await getPublicChamas();
-      // setChamas(chamasData);
 
-      // Simulate loading
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    } catch (error) {
-      handleError(error, { context: 'loading chamas' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Initial load
-  useEffect(() => {
-    loadChamas();
-  }, []);
 
   const handleJoinChama = async (chamaId: string) => {
     try {
@@ -476,7 +366,7 @@ export default function BrowseChamas() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={loadChamas}
+                onClick={loadGroups}
                 disabled={isLoading}
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -579,7 +469,7 @@ export default function BrowseChamas() {
             </DropdownMenu>
 
             <div className="text-sm text-gray-600 dark:text-gray-400">
-              {filteredAndSortedChamas.length} chama{filteredAndSortedChamas.length !== 1 ? 's' : ''} found
+              {filteredAndSortedGroups.length} chama{filteredAndSortedGroups.length !== 1 ? 's' : ''} found
             </div>
           </div>
         </div>
@@ -604,7 +494,7 @@ export default function BrowseChamas() {
                 </Card>
               ))}
             </div>
-          ) : filteredAndSortedChamas.length === 0 ? (
+          ) : filteredAndSortedGroups.length === 0 ? (
             <div className="text-center py-12">
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -624,7 +514,7 @@ export default function BrowseChamas() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredAndSortedChamas.map((chama, index) => (
+              {filteredAndSortedGroups.map((chama, index) => (
                 <motion.div
                   key={chama.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -677,7 +567,9 @@ function ChamaCard({ chama, onJoin, onViewDetails, canJoin, getStatusColor }: Ch
             <div className="flex items-center gap-2 mb-1">
               <CardTitle className="text-lg">{chama.name}</CardTitle>
               {chama.isVerified && (
-                <Shield className="h-4 w-4 text-green-500" title="Verified" />
+                <Shield className="h-4 w-4 text-green-500"
+                // title="Verified"
+                />
               )}
             </div>
             <div className="flex items-center gap-2">

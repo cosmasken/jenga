@@ -5,10 +5,10 @@ import type { Address, Hash } from "viem";
 import React, { useState, useCallback, useEffect } from "react";
 
 // Contract configuration
-const ROSCA_CONTRACT_ADDRESS = "0x5fbdF85C6A600036a2719167aD94f037Bd20De82" as Address;
+export const ROSCA_CONTRACT_ADDRESS = "0x5fbdF85C6A600036a2719167aD94f037Bd20De82" as Address;
 
 // Enhanced ABI with all new functions
-const roscaAbi = parseAbi([
+export const roscaAbi = parseAbi([
   // Core functions
   "function createGroup(address _token, uint96 _contribution, uint40 _roundLength, uint8 _maxMembers) external returns (uint256 gid)",
   "function joinGroup(uint256 gid) external payable",
