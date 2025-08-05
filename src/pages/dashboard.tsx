@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useRoscaToast } from "@/hooks/use-rosca-toast";
 import { useEventListener } from "@/hooks/use-event-listener";
 import { useNotifications } from "@/hooks/use-notifications";
+import { NotificationCenter } from "@/components/NotificationCenter";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet, Bell, BellOff } from "lucide-react";
 
@@ -414,6 +415,12 @@ export default function Dashboard() {
             <CreateChamaModal 
                 open={showCreateModal} 
                 onOpenChange={setShowCreateModal} 
+            />
+
+            {/* Notification Center */}
+            <NotificationCenter 
+                isOpen={notifications.isOpen}
+                onClose={notifications.closeCenter}
             />
         </div>
     );

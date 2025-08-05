@@ -6,6 +6,9 @@
 import { EventType, NotificationPriority } from './events';
 import { ErrorSeverity } from './errors';
 
+// Re-export for convenience
+export { NotificationPriority };
+
 export enum NotificationType {
   SUCCESS = 'success',
   ERROR = 'error',
