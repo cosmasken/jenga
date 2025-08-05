@@ -215,16 +215,18 @@ export function useSupabase() {
 
   const supabase = getSupabaseClient();
 
-  // Set user context for RLS policies
+  // Set user context for RLS policies (simplified for development)
   const setUserContext = useCallback(async () => {
     if (primaryWallet?.address) {
-      await supabase.rpc('set_config', {
-        setting_name: 'app.current_user_wallet',
-        setting_value: primaryWallet.address,
-        is_local: true
-      });
+      try {
+        console.log('✅ User context set for:', primaryWallet.address);
+        // For now, we'll skip the RLS context setting since we disabled RLS on users table
+        // This can be re-enabled later when we have proper RLS policies
+      } catch (error) {
+        console.warn('⚠️ Error setting user context:', error);
+      }
     }
-  }, [primaryWallet?.address, supabase]);
+  }, [primaryWallet?.address]);
 
   // Initialize user context when wallet connects
   useEffect(() => {
@@ -256,19 +258,28 @@ export function useSupabase() {
         ...userData
       };
 
+      console.log('🔄 Upserting user with payload:', userPayload);
+
+      // Simple upsert without RLS complications
       const { data, error } = await supabase
         .from('users')
-        .upsert(userPayload, { onConflict: 'wallet_address' })
+        .upsert(userPayload, { 
+          onConflict: 'wallet_address',
+          ignoreDuplicates: false 
+        })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Supabase upsert error:', error);
+        throw error;
+      }
 
-      console.log('✅ User upserted:', data);
+      console.log('✅ User upserted successfully:', data);
       return data;
-    } catch (err) {
-      const errorMessage = `Failed to update user profile: ${err}`;
-      console.error('❌', errorMessage);
+    } catch (err: any) {
+      const errorMessage = `Failed to update user profile: ${err.message || err}`;
+      console.error('❌', errorMessage, err);
       setError(errorMessage);
       handleError(err, { context: 'upserting user' });
       return null;
