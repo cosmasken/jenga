@@ -1,416 +1,352 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "wouter";
-import { useStore } from "@/lib/store";
+import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
+import { useRosca } from "@/hooks/useRosca";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AvatarIcon, avatarIcons } from "@/assets/avatars";
-import { Bitcoin, ArrowRight, ArrowLeft, Check, PartyPopper } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Bitcoin, ArrowRight, ArrowLeft, Check, PartyPopper, Wallet, Users, Shield } from "lucide-react";
 
 export default function Onboarding() {
   const [, setLocation] = useLocation();
-  const { setUser, completeOnboarding, inviteCode, setInviteCode, joinGroupWithInvite } = useStore();
+  const { primaryWallet, user } = useDynamicContext();
+  const isLoggedIn = useIsLoggedIn();
+  const { isConnected, contractAddress } = useRosca();
   const { toast } = useToast();
   
   const [currentStep, setCurrentStep] = useState(1);
-  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [enteredInviteCode, setEnteredInviteCode] = useState("");
+  const [isCompleting, setIsCompleting] = useState(false);
   
-  useEffect(() => {
-    if (inviteCode) {
-      setEnteredInviteCode(inviteCode);
-    }
-  }, [inviteCode]);
-
   const totalSteps = 4;
   const progress = (currentStep / totalSteps) * 100;
 
-  const nextStep = () => {
+  // Redirect if not logged in
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setLocation("/");
+    }
+  }, [isLoggedIn, setLocation]);
+
+  // Auto-populate display name from user data
+  useEffect(() => {
+    if (user?.email && !displayName) {
+      setDisplayName(user.email.split('@')[0]);
+    }
+  }, [user, displayName]);
+
+  // Check for invite code in URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteCode = urlParams.get('invite');
+    if (inviteCode) {
+      setEnteredInviteCode(inviteCode);
+    }
+  }, []);
+
+  const handleNext = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     }
   };
 
-  const prevStep = () => {
+  const handlePrevious = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     }
   };
 
-  const handleAvatarSelect = (avatar: string) => {
-    setSelectedAvatar(avatar);
-  };
-
-  const validateInviteCode = () => {
-    // Mock validation
-    toast({
-      title: "Invite code validated!",
-      description: "Successfully joined the group.",
-      className: "bg-green-500 text-white border-green-600",
-    });
+  const handleComplete = async () => {
+    setIsCompleting(true);
     
-    setTimeout(() => {
-      nextStep();
-    }, 1000);
-  };
+    try {
+      // Store onboarding completion in localStorage
+      localStorage.setItem('jenga_onboarding_completed', 'true');
+      localStorage.setItem('jenga_user_display_name', displayName);
+      
+      if (enteredInviteCode) {
+        localStorage.setItem('jenga_invite_code', enteredInviteCode);
+      }
 
-  const createNewRosca = () => {
-    toast({
-      title: "New ROSCA created!",
-      description: "Your group is ready for members to join.",
-      className: "bg-[hsl(27,87%,54%)] text-white border-[hsl(27,87%,49%)]",
-    });
-    
-    setTimeout(() => {
-      nextStep();
-    }, 1000);
-  };
-
-  const completeSetup = () => {
-    if (!selectedAvatar || !displayName.trim()) {
       toast({
-        title: "Please complete your profile",
-        description: "Select an avatar and enter your display name.",
+        title: "Welcome to Jenga!",
+        description: "Your onboarding is complete. Let's start saving!",
+      });
+
+      // Redirect to dashboard
+      setLocation("/dashboard");
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to complete onboarding. Please try again.",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setIsCompleting(false);
     }
-
-    // Create user profile
-    setUser({
-      id: Date.now().toString(),
-      displayName: displayName.trim(),
-      avatar: selectedAvatar,
-      reputation: 5.0,
-      walletAddress: "bc1q" + Math.random().toString(36).substr(2, 39),
-      joinedAt: new Date(),
-    });
-
-    // Join group if invite code was provided
-    if (enteredInviteCode) {
-      joinGroupWithInvite(enteredInviteCode);
-      setInviteCode(null);
-    }
-
-    completeOnboarding();
-    
-    toast({
-      title: `Welcome aboard, ${displayName}!`,
-      description: "You're all set up and ready to start saving with Bitcoin ROSCA.",
-      className: "bg-green-500 text-white border-green-600",
-    });
-    
-    setTimeout(() => {
-      setLocation("/dashboard");
-    }, 2000);
   };
 
-  const slideVariants = {
-    enter: (direction: number) => ({
-      x: direction > 0 ? 300 : -300,
-      opacity: 0
-    }),
-    center: {
-      zIndex: 1,
-      x: 0,
-      opacity: 1
-    },
-    exit: (direction: number) => ({
-      zIndex: 0,
-      x: direction < 0 ? 300 : -300,
-      opacity: 0
-    })
-  };
+  const canProceedStep1 = isConnected && primaryWallet;
+  const canProceedStep2 = displayName.trim().length >= 2;
+  const canProceedStep3 = true; // Terms acceptance step
+  const canComplete = canProceedStep1 && canProceedStep2 && canProceedStep3;
+
+  if (!isLoggedIn) {
+    return null; // Will redirect via useEffect
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-orange-100 dark:from-gray-900 dark:to-gray-800 py-8">
-      <div className="container mx-auto px-4 max-w-2xl">
+    <div className="min-h-screen bg-gradient-to-br from-[hsl(27,87%,54%)] via-[hsl(27,87%,49%)] to-[hsl(27,87%,44%)] dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl">
         {/* Progress Bar */}
-        <motion.div 
+        <motion.div
           className="mb-8"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
         >
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              Step {currentStep} of {totalSteps}
-            </span>
-            <span className="text-sm font-medium text-[hsl(27,87%,54%)]">
-              {progress.toFixed(0)}%
-            </span>
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-2xl font-bold text-white">Welcome to Jenga</h1>
+            <span className="text-white/80 text-sm">Step {currentStep} of {totalSteps}</span>
           </div>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-            <motion.div 
-              className="bg-[hsl(27,87%,54%)] h-2 rounded-full"
-              initial={{ width: "25%" }}
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.3 }}
-            />
-          </div>
+          <Progress value={progress} className="h-2 bg-white/20" />
         </motion.div>
 
         {/* Step Content */}
-        <div className="relative overflow-hidden">
-          <AnimatePresence mode="wait" custom={1}>
-            {currentStep === 1 && (
-              <motion.div
-                key="step1"
-                custom={1}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.3 }}
-                className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl p-8 text-center"
-              >
-                <motion.div 
-                  className="mb-8"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+        <Card className="bg-white/95 backdrop-blur-sm border-0 shadow-2xl">
+          <CardContent className="p-8">
+            <AnimatePresence mode="wait">
+              {/* Step 1: Wallet Connection */}
+              {currentStep === 1 && (
+                <motion.div
+                  key="step1"
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  transition={{ duration: 0.3 }}
+                  className="text-center"
                 >
-                  <div className="inline-block p-6 bg-[hsl(27,87%,54%)]/10 rounded-full mb-6">
-                    <Bitcoin className="h-12 w-12 text-[hsl(27,87%,54%)]" />
-                  </div>
-                  <h2 className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-4">
-                    Welcome to Bitcoin ROSCA!
+                  <Wallet className="h-16 w-16 mx-auto mb-6 text-[hsl(27,87%,54%)]" />
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                    Wallet Connected!
                   </h2>
-                  <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
-                    Let's set up your account and get you started with decentralized savings groups. This will only take a minute.
+                  <p className="text-gray-600 mb-6">
+                    Great! Your wallet is connected and ready to use. You're connected to the Citrea testnet.
                   </p>
-                </motion.div>
-                <Button 
-                  onClick={nextStep}
-                  className="bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)] text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
-                  data-testid="button-get-started"
-                >
-                  Get Started <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </motion.div>
-            )}
-
-            {currentStep === 2 && (
-              <motion.div
-                key="step2"
-                custom={1}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.3 }}
-                className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl p-8"
-              >
-                <h2 className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-6 text-center">
-                  Choose Your Avatar
-                </h2>
-                
-                {/* Avatar Selection */}
-                <div className="grid grid-cols-4 gap-4 mb-8">
-                  {Object.keys(avatarIcons).map((avatar) => (
-                    <motion.div
-                      key={avatar}
-                      className={`cursor-pointer p-4 border-2 rounded-xl transition-all duration-200 ${
-                        selectedAvatar === avatar
-                          ? "border-[hsl(27,87%,54%)] bg-[hsl(27,87%,54%)]/10"
-                          : "border-gray-200 dark:border-gray-600 hover:border-[hsl(27,87%,54%)]"
-                      }`}
-                      onClick={() => handleAvatarSelect(avatar)}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      data-testid={`avatar-${avatar}`}
-                    >
-                      <div className="flex justify-center">
-                        <AvatarIcon type={avatar} className="w-8 h-8" />
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-
-                {/* Display Name Input */}
-                <div className="mb-8">
-                  <Label htmlFor="displayName" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Display Name
-                  </Label>
-                  <Input
-                    id="displayName"
-                    type="text"
-                    placeholder="Enter your display name"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    className="w-full"
-                    data-testid="input-display-name"
-                  />
-                </div>
-
-                <div className="flex gap-4">
-                  <Button
-                    variant="outline"
-                    onClick={prevStep}
-                    className="flex-1"
-                    data-testid="button-back-step2"
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back
-                  </Button>
-                  <Button
-                    onClick={nextStep}
-                    disabled={!selectedAvatar || !displayName.trim()}
-                    className="flex-1 bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)] text-white"
-                    data-testid="button-continue-step2"
-                  >
-                    Continue <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              </motion.div>
-            )}
-
-            {currentStep === 3 && (
-              <motion.div
-                key="step3"
-                custom={1}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.3 }}
-                className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl p-8"
-              >
-                <h2 className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-6 text-center">
-                  Join or Create
-                </h2>
-                
-                <div className="space-y-6">
-                  {/* Invite Code Input */}
-                  <div className="p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl">
-                    <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-gray-100">
-                      <Bitcoin className="inline mr-2 h-5 w-5 text-[hsl(27,87%,54%)]" />
-                      Have an invite code?
-                    </h3>
-                    <div className="flex gap-3">
-                      <Input
-                        type="text"
-                        placeholder="Enter invite code"
-                        value={enteredInviteCode}
-                        onChange={(e) => setEnteredInviteCode(e.target.value)}
-                        className="flex-1"
-                        data-testid="input-invite-code"
-                      />
-                      <Button
-                        onClick={validateInviteCode}
-                        disabled={!enteredInviteCode.trim()}
-                        className="bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)] text-white"
-                        data-testid="button-validate-invite"
-                      >
-                        Validate
-                      </Button>
+                  
+                  <div className="bg-gray-50 rounded-lg p-4 mb-6">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Wallet Address:</span>
+                      <span className="font-mono text-gray-900">
+                        {primaryWallet?.address?.slice(0, 6)}...{primaryWallet?.address?.slice(-4)}
+                      </span>
                     </div>
-                  </div>
-
-                  {/* OR Divider */}
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+                    <div className="flex items-center justify-between text-sm mt-2">
+                      <span className="text-gray-600">Network:</span>
+                      <span className="text-gray-900">Citrea Testnet</span>
                     </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-4 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 font-medium">
-                        OR
+                    <div className="flex items-center justify-between text-sm mt-2">
+                      <span className="text-gray-600">Contract:</span>
+                      <span className="font-mono text-gray-900">
+                        {contractAddress.slice(0, 6)}...{contractAddress.slice(-4)}
                       </span>
                     </div>
                   </div>
 
-                  {/* Create New ROSCA */}
-                  <div className="p-6 bg-[hsl(27,87%,54%)]/10 rounded-xl border border-[hsl(27,87%,54%)]/20">
-                    <h3 className="font-bold text-lg mb-4 text-gray-900 dark:text-gray-100">
-                      <Bitcoin className="inline mr-2 h-5 w-5 text-[hsl(27,87%,54%)]" />
-                      Create new ROSCA
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
-                      Start a new savings group and invite friends to join.
-                    </p>
-                    <Button
-                      onClick={createNewRosca}
-                      className="w-full bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)] text-white font-bold"
-                      data-testid="button-create-rosca"
-                    >
-                      Create New Group
-                    </Button>
+                  <div className="flex items-center justify-center gap-2 text-green-600 mb-6">
+                    <Check className="h-5 w-5" />
+                    <span className="font-medium">Connection Verified</span>
                   </div>
-                </div>
-
-                <div className="flex gap-4 mt-8">
-                  <Button
-                    variant="outline"
-                    onClick={prevStep}
-                    className="flex-1"
-                    data-testid="button-back-step3"
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back
-                  </Button>
-                  <Button
-                    onClick={nextStep}
-                    className="flex-1 bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)] text-white"
-                    data-testid="button-continue-step3"
-                  >
-                    Continue <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              </motion.div>
-            )}
-
-            {currentStep === 4 && (
-              <motion.div
-                key="step4"
-                custom={1}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.3 }}
-                className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl p-8 text-center"
-              >
-                <motion.div 
-                  className="mb-8"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                >
-                  {/* Confetti effect */}
-                  <motion.div
-                    className="inline-block p-6 bg-green-100 dark:bg-green-900/20 rounded-full mb-6"
-                    animate={{ 
-                      scale: [1, 1.1, 1],
-                      rotate: [0, 5, -5, 0]
-                    }}
-                    transition={{ 
-                      duration: 0.6, 
-                      repeat: Infinity,
-                      repeatDelay: 2
-                    }}
-                  >
-                    <Check className="h-12 w-12 text-green-500" />
-                  </motion.div>
-                  <h2 className="text-3xl font-black text-gray-900 dark:text-gray-100 mb-4">
-                    Welcome aboard!
-                  </h2>
-                  <p className="text-gray-600 dark:text-gray-400 text-lg leading-relaxed">
-                    You're all set up, {displayName}! Ready to start saving with Bitcoin ROSCA groups.
-                  </p>
                 </motion.div>
-                <Button 
-                  onClick={completeSetup}
-                  className="bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)] text-white font-bold py-4 px-8 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
-                  data-testid="button-go-to-dashboard"
+              )}
+
+              {/* Step 2: Profile Setup */}
+              {currentStep === 2 && (
+                <motion.div
+                  key="step2"
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  transition={{ duration: 0.3 }}
+                  className="text-center"
                 >
-                  Go to Dashboard <PartyPopper className="ml-2 h-5 w-5" />
+                  <Users className="h-16 w-16 mx-auto mb-6 text-[hsl(27,87%,54%)]" />
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                    Set Up Your Profile
+                  </h2>
+                  <p className="text-gray-600 mb-6">
+                    Choose a display name that other members will see in your groups.
+                  </p>
+                  
+                  <div className="space-y-4 mb-6">
+                    <div className="text-left">
+                      <Label htmlFor="displayName" className="text-sm font-medium text-gray-700">
+                        Display Name
+                      </Label>
+                      <Input
+                        id="displayName"
+                        type="text"
+                        placeholder="Enter your display name"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        className="mt-1"
+                        maxLength={50}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        This name will be visible to other group members
+                      </p>
+                    </div>
+
+                    {user?.email && (
+                      <div className="bg-blue-50 rounded-lg p-4">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-blue-600">Email:</span>
+                          <span className="text-blue-900">{user.email}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Step 3: Invite Code (Optional) */}
+              {currentStep === 3 && (
+                <motion.div
+                  key="step3"
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  transition={{ duration: 0.3 }}
+                  className="text-center"
+                >
+                  <Bitcoin className="h-16 w-16 mx-auto mb-6 text-[hsl(27,87%,54%)]" />
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                    Join a Group (Optional)
+                  </h2>
+                  <p className="text-gray-600 mb-6">
+                    Have an invite code? Enter it below to join an existing group, or skip to create your own.
+                  </p>
+                  
+                  <div className="space-y-4 mb-6">
+                    <div className="text-left">
+                      <Label htmlFor="inviteCode" className="text-sm font-medium text-gray-700">
+                        Invite Code
+                      </Label>
+                      <Input
+                        id="inviteCode"
+                        type="text"
+                        placeholder="Enter invite code (optional)"
+                        value={enteredInviteCode}
+                        onChange={(e) => setEnteredInviteCode(e.target.value.toUpperCase())}
+                        className="mt-1 font-mono"
+                        maxLength={10}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Leave empty if you want to create your own group
+                      </p>
+                    </div>
+                  </div>
+
+                  {enteredInviteCode && (
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <div className="flex items-center justify-center gap-2 text-green-600">
+                        <Check className="h-4 w-4" />
+                        <span className="text-sm font-medium">
+                          Ready to join group with code: {enteredInviteCode}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {/* Step 4: Completion */}
+              {currentStep === 4 && (
+                <motion.div
+                  key="step4"
+                  initial={{ opacity: 0, x: 50 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -50 }}
+                  transition={{ duration: 0.3 }}
+                  className="text-center"
+                >
+                  <PartyPopper className="h-16 w-16 mx-auto mb-6 text-[hsl(27,87%,54%)]" />
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                    You're All Set!
+                  </h2>
+                  <p className="text-gray-600 mb-6">
+                    Welcome to the Jenga community! You're ready to start your Bitcoin savings journey.
+                  </p>
+                  
+                  <div className="bg-gray-50 rounded-lg p-6 mb-6">
+                    <h3 className="font-semibold text-gray-900 mb-4">What's Next?</h3>
+                    <div className="space-y-3 text-left">
+                      <div className="flex items-center gap-3">
+                        <Shield className="h-5 w-5 text-green-500" />
+                        <span className="text-sm text-gray-700">
+                          {enteredInviteCode ? `Join group with code ${enteredInviteCode}` : "Create your first ROSCA group"}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Users className="h-5 w-5 text-blue-500" />
+                        <span className="text-sm text-gray-700">
+                          Connect with other savers in your community
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Bitcoin className="h-5 w-5 text-[hsl(27,87%,54%)]" />
+                        <span className="text-sm text-gray-700">
+                          Start saving Bitcoin together
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Navigation Buttons */}
+            <div className="flex items-center justify-between mt-8">
+              <Button
+                variant="outline"
+                onClick={handlePrevious}
+                disabled={currentStep === 1}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Previous
+              </Button>
+
+              {currentStep < totalSteps ? (
+                <Button
+                  onClick={handleNext}
+                  disabled={
+                    (currentStep === 1 && !canProceedStep1) ||
+                    (currentStep === 2 && !canProceedStep2)
+                  }
+                  className="flex items-center gap-2 bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)]"
+                >
+                  Next
+                  <ArrowRight className="h-4 w-4" />
                 </Button>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+              ) : (
+                <Button
+                  onClick={handleComplete}
+                  disabled={!canComplete || isCompleting}
+                  className="flex items-center gap-2 bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)]"
+                >
+                  {isCompleting ? "Completing..." : "Complete Setup"}
+                  <Check className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
