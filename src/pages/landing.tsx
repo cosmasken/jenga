@@ -1,13 +1,24 @@
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
-import { DynamicTest } from "@/components/dynamic-test";
+import { DynamicWidget, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { Bitcoin, TrendingUp, Users, Shield } from "lucide-react";
+import { useEffect } from "react";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
+  const isLoggedIn = useIsLoggedIn();
+  const { primaryWallet } = useDynamicContext();
+
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (isLoggedIn && primaryWallet) {
+      setLocation("/dashboard");
+    }
+  }, [isLoggedIn, primaryWallet, setLocation]);
 
   const handleConnectWallet = () => {
-    setLocation("/onboarding");
+    // This will be handled by the DynamicWidget
+    // After connection, the useEffect above will redirect to dashboard
   };
 
   return (
@@ -136,14 +147,29 @@ export default function Landing() {
             Join rotating savings and credit associations powered by Bitcoin. Save together, earn together, build wealth together.
           </motion.p>
 
-          {/* DynamicTest Component */}
+          {/* Dynamic Wallet Connection Widget */}
           <motion.div
             className="mb-12"
             initial={{ opacity: 0, y: 40 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.8 }}
           >
-            <DynamicTest onConnect={handleConnectWallet} />
+            <div className="flex justify-center">
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20 shadow-2xl">
+                <div className="text-center mb-6">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
+                    <Bitcoin className="h-8 w-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-2">
+                    Connect Your Wallet
+                  </h3>
+                  <p className="text-white/80 text-sm">
+                    Start your Bitcoin savings journey on Citrea testnet
+                  </p>
+                </div>
+                <DynamicWidget />
+              </div>
+            </div>
           </motion.div>
 
           {/* Social Proof */}

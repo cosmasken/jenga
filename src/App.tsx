@@ -8,9 +8,9 @@ import { TransactionModal } from "@/components/modals/transaction-modal";
 import { InviteModal } from "@/components/modals/invite-modal";
 import { VotingModal } from "@/components/modals/voting-modal";
 import { queryClient } from "@/lib/queryClient";
-import { useStore } from "@/lib/store";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
+import { useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 
 import Landing from "@/pages/landing";
 import Onboarding from "@/pages/onboarding";
@@ -20,25 +20,25 @@ import Disputes from "@/pages/disputes";
 import Profile from "@/pages/profile";
 import NotFound from "@/pages/not-found";
 
-
-
-
 function Router() {
-  const { onboardingCompleted, setInviteCode } = useStore();
   const [location, setLocation] = useLocation();
+  const isLoggedIn = useIsLoggedIn();
+
+  // Check onboarding completion from localStorage
+  const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
 
   useEffect(() => {
-    // Check for invite code in URL
+    // Handle invite code in URL
     const urlParams = new URLSearchParams(window.location.search);
     const inviteCode = urlParams.get('invite');
     if (inviteCode) {
-      setInviteCode(inviteCode);
-      // Redirect to onboarding if not completed
-      if (!onboardingCompleted) {
+      localStorage.setItem('jenga_invite_code', inviteCode);
+      // Redirect to onboarding if not completed and logged in
+      if (isLoggedIn && !onboardingCompleted) {
         setLocation('/onboarding');
       }
     }
-  }, [setInviteCode, onboardingCompleted, setLocation]);
+  }, [isLoggedIn, onboardingCompleted, setLocation]);
 
   return (
     <Switch>
@@ -52,7 +52,7 @@ function Router() {
         {(params) => {
           // Handle invite redirect
           useEffect(() => {
-            setInviteCode(params.code);
+            localStorage.setItem('jenga_invite_code', params.code);
             setLocation(`/?invite=${params.code}`);
           }, [params.code]);
           return null;
@@ -64,15 +64,25 @@ function Router() {
 }
 
 function App() {
-  const { onboardingCompleted } = useStore();
   const [location, setLocation] = useLocation();
+  const isLoggedIn = useIsLoggedIn();
+  
+  // Check onboarding completion from localStorage
+  const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
 
-  // Auto-redirect to onboarding if needed
+  // Auto-redirect logic for authenticated users
   useEffect(() => {
-    if (!onboardingCompleted && location !== '/onboarding' && location !== '/') {
-      setLocation('/onboarding');
+    if (isLoggedIn) {
+      // If user is logged in but hasn't completed onboarding
+      if (!onboardingCompleted && location !== '/onboarding' && location !== '/') {
+        setLocation('/onboarding');
+      }
+      // If user completed onboarding but is on landing page, redirect to dashboard
+      else if (onboardingCompleted && location === '/') {
+        setLocation('/dashboard');
+      }
     }
-  }, [onboardingCompleted, location, setLocation]);
+  }, [isLoggedIn, onboardingCompleted, location, setLocation]);
 
   return (
     <QueryClientProvider client={queryClient}>
