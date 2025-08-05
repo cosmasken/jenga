@@ -29,8 +29,9 @@ export default function LandingPage() {
         console.log('🔄 Onboarding completed, redirecting to dashboard');
         setLocation('/dashboard');
       } else {
-        console.log('🔄 Onboarding not completed, redirecting to onboarding');
-        setLocation('/onboarding');
+        console.log('🔄 Onboarding not completed, staying on landing page - onboarding modal will handle this');
+        // Don't redirect to /onboarding route - let the App component handle the onboarding modal
+        // The onboarding modal will be triggered by the App component's logic
       }
     }
   }, [isLoggedIn, setLocation]);

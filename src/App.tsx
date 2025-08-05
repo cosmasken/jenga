@@ -63,33 +63,28 @@ function App() {
   // Check onboarding completion from localStorage
   const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
 
-  // Handle onboarding modal visibility
+  // Handle onboarding modal visibility and redirects
   useEffect(() => {
-    const handleLoginSuccess = () => {
+    if (isLoggedIn) {
       const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
+      
       if (onboardingCompleted) {
-        setLocation('/dashboard');
+        // User is logged in and onboarded - redirect to dashboard if on landing page
+        if (location === '/') {
+          console.log('🔄 Logged in user on landing page, redirecting to dashboard');
+          setLocation('/dashboard');
+        }
+        setShowOnboarding(false);
       } else {
+        // User is logged in but not onboarded - show onboarding modal
+        console.log('🔄 Logged in user needs onboarding, showing modal');
         setShowOnboarding(true);
       }
-    };
-
-    window.addEventListener('dynamic_login_success', handleLoginSuccess);
-
-    return () => {
-      window.removeEventListener('dynamic_login_success', handleLoginSuccess);
-    };
-  }, [setLocation]);
-
-  // Auto-redirect logic for authenticated users
-  useEffect(() => {
-    if (isLoggedIn && onboardingCompleted) {
-      // If user completed onboarding but is on landing page, redirect to dashboard
-      if (location === '/') {
-        setLocation('/dashboard');
-      }
+    } else {
+      // User is not logged in - hide onboarding modal
+      setShowOnboarding(false);
     }
-  }, [isLoggedIn, onboardingCompleted, location, setLocation]);
+  }, [isLoggedIn, location, setLocation]);
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
