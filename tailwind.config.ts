@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 export default {
-//   darkMode: ["class"],
+  darkMode: ["class"],
   content: ["./index.html", "./src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
@@ -41,6 +41,22 @@ export default {
           DEFAULT: "var(--destructive)",
           foreground: "var(--destructive-foreground)",
         },
+        success: {
+          DEFAULT: "var(--success)",
+          foreground: "var(--success-foreground)",
+        },
+        warning: {
+          DEFAULT: "var(--warning)",
+          foreground: "var(--warning-foreground)",
+        },
+        // Bitcoin-themed colors
+        bitcoin: {
+          DEFAULT: "var(--bitcoin)",
+          foreground: "var(--bitcoin-foreground)",
+          light: "var(--bitcoin-light)",
+          dark: "var(--bitcoin-dark)",
+          muted: "var(--bitcoin-muted)",
+        },
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
@@ -62,6 +78,10 @@ export default {
           ring: "var(--sidebar-ring)",
         },
       },
+      boxShadow: {
+        'bitcoin': '0 4px 14px 0 var(--shadow-bitcoin)',
+        'bitcoin-strong': '0 8px 25px 0 var(--shadow-bitcoin-strong)',
+      },
       keyframes: {
         "accordion-down": {
           from: {
@@ -79,12 +99,21 @@ export default {
             height: "0",
           },
         },
+        "bitcoin-pulse": {
+          "0%, 100%": {
+            opacity: "1",
+          },
+          "50%": {
+            opacity: "0.8",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "bitcoin-pulse": "bitcoin-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
     },
   },
-//   plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
+  plugins: [require("tailwindcss-animate")],
 } satisfies Config;

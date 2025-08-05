@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useRoscaToast } from "@/hooks/use-rosca-toast";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet } from "lucide-react";
 
 export default function Dashboard() {
@@ -87,17 +88,20 @@ export default function Dashboard() {
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <motion.div
-                    className="mb-8"
+                    className="mb-8 flex items-center justify-between"
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
                 >
-                    <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                        Dashboard
-                    </h1>
-                    <p className="text-gray-600 dark:text-gray-400">
-                        Welcome back, {user?.email || `${primaryWallet.address?.slice(0, 6)}...${primaryWallet.address?.slice(-4)}`}
-                    </p>
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                            Dashboard
+                        </h1>
+                        <p className="text-gray-600 dark:text-gray-400">
+                            Welcome back, {user?.email || `${primaryWallet.address?.slice(0, 6)}...${primaryWallet.address?.slice(-4)}`}
+                        </p>
+                    </div>
+                    <ThemeToggle />
                 </motion.div>
 
                 {/* Stats Grid */}
@@ -206,12 +210,13 @@ export default function Dashboard() {
                             <div className="flex flex-wrap gap-4">
                                 <Button 
                                     onClick={handleCreateGroup}
-                                    className="bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)]"
+                                    variant="bitcoin"
+                                    className="shadow-bitcoin hover:shadow-bitcoin-strong"
                                 >
                                     <Plus className="h-4 w-4 mr-2" />
                                     Create Group
                                 </Button>
-                                <Button variant="outline">
+                                <Button variant="bitcoin-outline">
                                     <Users className="h-4 w-4 mr-2" />
                                     Browse Groups
                                 </Button>
