@@ -96,12 +96,15 @@ DROP POLICY IF EXISTS "Users can view referrals they're involved in" ON referral
 -- REMOVE RLS HELPER FUNCTIONS
 -- =====================================================
 
--- Drop the set_config function if it exists
-DROP FUNCTION IF EXISTS set_config(text, text, boolean);
+-- Drop custom RLS-related functions (not built-in PostgreSQL functions)
+-- Note: set_config is a built-in PostgreSQL function, so we don't drop it
 
--- Drop any other RLS-related functions
+-- Drop any custom RLS-related functions we may have created
+DROP FUNCTION IF EXISTS set_user_context(text, text, boolean);
 DROP FUNCTION IF EXISTS get_current_user_wallet();
 DROP FUNCTION IF EXISTS is_user_authorized(text);
+DROP FUNCTION IF EXISTS calculate_trust_score(text);
+DROP FUNCTION IF EXISTS check_achievement_eligibility(text, text);
 
 -- =====================================================
 -- GRANT FULL ACCESS TO AUTHENTICATED USERS

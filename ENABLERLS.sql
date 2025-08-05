@@ -36,8 +36,9 @@ ALTER TABLE platform_analytics ENABLE ROW LEVEL SECURITY;
 -- CREATE RLS HELPER FUNCTIONS
 -- =====================================================
 
--- Function to set configuration for RLS policies
-CREATE OR REPLACE FUNCTION set_config(setting_name text, setting_value text, is_local boolean DEFAULT false)
+-- Function to set user context for RLS policies
+-- Note: We use a custom name to avoid conflict with built-in set_config function
+CREATE OR REPLACE FUNCTION set_user_context(setting_name text, setting_value text, is_local boolean DEFAULT false)
 RETURNS text AS $$
 BEGIN
     PERFORM set_config(setting_name, setting_value, is_local);

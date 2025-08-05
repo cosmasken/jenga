@@ -220,7 +220,7 @@ export function useSupabase() {
     if (primaryWallet?.address) {
       try {
         console.log('✅ User context set for:', primaryWallet.address);
-        // For now, we'll skip the RLS context setting since we disabled RLS on users table
+        // For now, we'll skip the RLS context setting since we disabled RLS
         // This can be re-enabled later when we have proper RLS policies
       } catch (error) {
         console.warn('⚠️ Error setting user context:', error);
