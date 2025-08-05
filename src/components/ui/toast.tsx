@@ -1,7 +1,7 @@
 import * as React from "react"
 import * as ToastPrimitives from "@radix-ui/react-toast"
 import { cva, type VariantProps } from "class-variance-authority"
-import { X } from "lucide-react"
+import { X, Bitcoin, Users, Coins, UserPlus, AlertTriangle, Clock, CheckCircle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -28,10 +28,16 @@ const toastVariants = cva(
     variants: {
       variant: {
         default: "border bg-background text-foreground",
-        destructive:
-          "destructive group border-destructive bg-destructive text-destructive-foreground",
-        success:
-          "success group border-green-500 bg-green-500 text-white",
+        destructive: "destructive group border-red-500 bg-red-500 text-white",
+        
+        // ROSCA/Chama specific variants
+        contribution: "group border-green-500 bg-green-500 text-white shadow-green-500/20",
+        payout: "group border-emerald-500 bg-emerald-500 text-white shadow-emerald-500/20",
+        groupCreated: "group border-[hsl(27,87%,54%)] bg-[hsl(27,87%,54%)] text-white shadow-orange-500/20",
+        memberJoined: "group border-blue-500 bg-blue-500 text-white shadow-blue-500/20",
+        warning: "group border-yellow-500 bg-yellow-500 text-white shadow-yellow-500/20",
+        pending: "group border-blue-400 bg-blue-400 text-white shadow-blue-400/20",
+        success: "group border-green-600 bg-green-600 text-white shadow-green-600/20",
       },
     },
     defaultVariants: {
@@ -40,17 +46,43 @@ const toastVariants = cva(
   }
 )
 
+// Icon mapping for different toast types
+const toastIcons = {
+  default: null,
+  destructive: X,
+  contribution: Bitcoin,
+  payout: Coins,
+  groupCreated: Users,
+  memberJoined: UserPlus,
+  warning: AlertTriangle,
+  pending: Clock,
+  success: CheckCircle,
+} as const
+
 const Toast = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Root> &
     VariantProps<typeof toastVariants>
 >(({ className, variant, ...props }, ref) => {
+  const IconComponent = variant ? toastIcons[variant] : null;
+  
   return (
     <ToastPrimitives.Root
       ref={ref}
       className={cn(toastVariants({ variant }), className)}
       {...props}
-    />
+    >
+      <div className="flex items-start gap-3 flex-1">
+        {IconComponent && (
+          <div className="flex-shrink-0 mt-0.5">
+            <IconComponent className="h-5 w-5" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          {props.children}
+        </div>
+      </div>
+    </ToastPrimitives.Root>
   )
 })
 Toast.displayName = ToastPrimitives.Root.displayName
@@ -77,7 +109,7 @@ const ToastClose = React.forwardRef<
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
-      "absolute right-2 top-2 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600",
+      "absolute right-2 top-2 rounded-md p-1 text-white/70 opacity-0 transition-opacity hover:text-white focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100 group-[.destructive]:text-white/70 group-[.destructive]:hover:text-white group-[.destructive]:focus:ring-white/20",
       className
     )}
     toast-close=""

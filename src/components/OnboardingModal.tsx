@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
-import { useToast } from "@/hooks/use-toast";
+import { useRoscaToast } from "@/hooks/use-rosca-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +22,7 @@ const profileIcons = [
 export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
   const { user } = useDynamicContext();
   const isLoggedIn = useIsLoggedIn();
-  const { toast } = useToast();
+  const { welcome, error: showError } = useRoscaToast();
   
   const [username, setUsername] = useState("");
   const [selectedIcon, setSelectedIcon] = useState(profileIcons[0]);
@@ -37,11 +37,10 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
 
   const handleComplete = async () => {
     if (!username.trim() || username.trim().length < 2) {
-      toast({
-        title: "Invalid Username",
-        description: "Please enter a username with at least 2 characters.",
-        variant: "destructive",
-      });
+      showError(
+        "Invalid Username",
+        "Please enter a username with at least 2 characters."
+      );
       return;
     }
 
@@ -53,19 +52,16 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
       localStorage.setItem('jenga_user_display_name', username.trim());
       localStorage.setItem('jenga_user_profile_icon', selectedIcon.id);
 
-      toast({
-        title: "Welcome to Jenga! 🎉",
-        description: "Your profile is set up. Let's start saving!",
-      });
+      // Show welcome toast
+      welcome(username.trim());
 
       // Complete onboarding
       onComplete();
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to complete onboarding. Please try again.",
-        variant: "destructive",
-      });
+      showError(
+        "Setup Failed",
+        "Failed to complete onboarding. Please try again."
+      );
     } finally {
       setIsCompleting(false);
     }
