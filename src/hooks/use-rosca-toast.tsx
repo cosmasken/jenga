@@ -83,13 +83,23 @@ export function useRoscaToast() {
   };
 
   /**
-   * Show warning toast for risks or important notices
+   * Show warning toast for risks or important notices with optional action
    */
-  const warning = (title: string, description: string) => {
+  const warning = (title: string, description: string, action?: { label: string; onClick: () => void }) => {
     return toast({
       variant: "warning",
       title,
       description,
+      action: action ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={action.onClick}
+          className="h-8 px-3 text-xs font-medium bg-yellow-100 hover:bg-yellow-200 text-yellow-700 border border-yellow-200 hover:border-yellow-300 transition-all duration-200 dark:bg-yellow-900/30 dark:hover:bg-yellow-900/50 dark:text-yellow-400 dark:border-yellow-800 dark:hover:border-yellow-700"
+        >
+          {action.label}
+        </Button>
+      ) : undefined,
     });
   };
 
@@ -105,24 +115,44 @@ export function useRoscaToast() {
   };
 
   /**
-   * Show general success toast
+   * Show general success toast with optional action
    */
-  const success = (title: string, description?: string) => {
+  const success = (title: string, description?: string, action?: { label: string; onClick: () => void }) => {
     return toast({
       variant: "success",
       title,
       description,
+      action: action ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={action.onClick}
+          className="h-8 px-3 text-xs font-medium bg-green-100 hover:bg-green-200 text-green-700 border border-green-200 hover:border-green-300 transition-all duration-200 dark:bg-green-900/30 dark:hover:bg-green-900/50 dark:text-green-400 dark:border-green-800 dark:hover:border-green-700"
+        >
+          {action.label}
+        </Button>
+      ) : undefined,
     });
   };
 
   /**
-   * Show error toast
+   * Show error toast with optional action
    */
-  const error = (title: string, description?: string) => {
+  const error = (title: string, description?: string, action?: { label: string; onClick: () => void }) => {
     return toast({
       variant: "destructive",
       title,
       description,
+      action: action ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={action.onClick}
+          className="h-8 px-3 text-xs font-medium bg-red-100 hover:bg-red-200 text-red-700 border border-red-200 hover:border-red-300 transition-all duration-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-400 dark:border-red-800 dark:hover:border-red-700"
+        >
+          {action.label}
+        </Button>
+      ) : undefined,
     });
   };
 
