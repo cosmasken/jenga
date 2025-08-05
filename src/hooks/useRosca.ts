@@ -5,7 +5,7 @@ import type { Address, Hash } from "viem";
 import React, { useState, useCallback, useEffect } from "react";
 
 // Contract configuration
-const ROSCA_CONTRACT_ADDRESS = "0xd1d60342211284859F6F857cdC866Dec7b8F483C" as Address;
+const ROSCA_CONTRACT_ADDRESS = "0x5fbdF85C6A600036a2719167aD94f037Bd20De82" as Address;
 
 // Enhanced ABI with all new functions
 const roscaAbi = parseAbi([
