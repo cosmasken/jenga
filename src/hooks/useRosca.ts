@@ -55,11 +55,69 @@ export function useRosca() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ContractError | null>(null);
   const [groupCount, setGroupCount] = useState<number>(0);
+  const [balance, setBalance] = useState<string>('0');
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
 
   // Clear error when wallet changes
   useEffect(() => {
     setError(null);
   }, [primaryWallet]);
+
+  /**
+   * Get user's cBTC balance
+   */
+  const getBalance = useCallback(async (): Promise<string> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      return '0';
+    }
+
+    try {
+      setIsLoadingBalance(true);
+      const walletClient = await primaryWallet.getWalletClient();
+      const balance = await walletClient.getBalance({
+        address: primaryWallet.address as Address
+      });
+      
+      const formattedBalance = formatEther(balance);
+      setBalance(formattedBalance);
+      return formattedBalance;
+    } catch (error) {
+      console.error('Error fetching balance:', error);
+      return '0';
+    } finally {
+      setIsLoadingBalance(false);
+    }
+  }, [primaryWallet]);
+
+  /**
+   * Calculate maximum spendable amount (balance - estimated gas)
+   */
+  const getMaxSpendableAmount = useCallback(async (): Promise<string> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      return '0';
+    }
+
+    try {
+      const currentBalance = await getBalance();
+      const balanceNum = parseFloat(currentBalance);
+      
+      // Estimate gas for createGroup transaction (conservative estimate)
+      const estimatedGasInEth = 0.001; // ~0.001 cBTC for gas (conservative)
+      
+      const maxSpendable = Math.max(0, balanceNum - estimatedGasInEth);
+      return maxSpendable.toFixed(6); // 6 decimal places for precision
+    } catch (error) {
+      console.error('Error calculating max spendable amount:', error);
+      return '0';
+    }
+  }, [getBalance, primaryWallet]);
+
+  // Auto-fetch balance when wallet connects
+  useEffect(() => {
+    if (primaryWallet && isEthereumWallet(primaryWallet)) {
+      getBalance();
+    }
+  }, [primaryWallet, getBalance]);
 
   /**
    * Create a new ROSCA group
@@ -304,6 +362,8 @@ export function useRosca() {
     error,
     isConnected,
     groupCount,
+    balance,
+    isLoadingBalance,
     
     // Contract interactions
     createGroup,
@@ -312,6 +372,10 @@ export function useRosca() {
     getGroupCount,
     leaveGroup,
     rageQuit,
+    
+    // Balance functions
+    getBalance,
+    getMaxSpendableAmount,
     
     // Utilities
     formatContribution,
