@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Bitcoin, ArrowRight, ArrowLeft, Check, PartyPopper, Wallet, Users, Shield, Sparkles } from "lucide-react";
 
 interface OnboardingModalProps {
@@ -47,14 +47,31 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
   }, []);
 
   const handleNext = () => {
+    console.log(`🔄 OnboardingModal: Attempting to go from step ${currentStep} to ${currentStep + 1}`);
+    console.log(`🔄 OnboardingModal: Validation states - Step1: ${canProceedStep1}, Step2: ${canProceedStep2}, Step3: ${canProceedStep3}`);
+    
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
+      console.log(`✅ OnboardingModal: Successfully moved to step ${currentStep + 1}`);
+    } else {
+      console.log(`❌ OnboardingModal: Cannot proceed beyond step ${totalSteps}`);
     }
   };
 
   const handlePrevious = () => {
+    console.log(`🔄 OnboardingModal: Going back from step ${currentStep} to ${currentStep - 1}`);
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleDebugForceNext = () => {
+    console.log(`🐛 OnboardingModal: Debug force next from step ${currentStep}`);
+    if (currentStep < totalSteps) {
+      setCurrentStep(currentStep + 1);
+      console.log(`🐛 OnboardingModal: Debug forced to step ${currentStep + 1}`);
+    } else {
+      console.log(`🐛 OnboardingModal: Already at final step ${totalSteps}`);
     }
   };
 
@@ -88,11 +105,24 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     }
   };
 
-  // Proper validation logic
+  // Proper validation logic with detailed logging
   const canProceedStep1 = isLoggedIn && primaryWallet; // Step 1: wallet must be connected
   const canProceedStep2 = displayName.trim().length >= 2; // Step 2: name must be at least 2 chars
   const canProceedStep3 = true; // Step 3: invite code is optional
   const canComplete = isLoggedIn && primaryWallet && canProceedStep2;
+
+  // Log validation states for debugging
+  useEffect(() => {
+    console.log(`🔍 OnboardingModal: Step ${currentStep} validation states:`, {
+      isLoggedIn,
+      primaryWallet: !!primaryWallet,
+      displayNameLength: displayName.length,
+      canProceedStep1,
+      canProceedStep2,
+      canProceedStep3,
+      canComplete
+    });
+  }, [currentStep, isLoggedIn, primaryWallet, displayName, canProceedStep1, canProceedStep2, canProceedStep3, canComplete]);
 
   if (!isLoggedIn || !open) {
     return null;
@@ -107,6 +137,8 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
           
           {/* Header */}
           <DialogHeader className="p-6 pb-4">
+            <DialogTitle className="sr-only">Jenga Onboarding - Step {currentStep} of {totalSteps}</DialogTitle>
+            <DialogDescription className="sr-only">Complete your profile setup to start using Jenga Bitcoin Chama</DialogDescription>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-[hsl(27,87%,54%)] rounded-full">
@@ -352,8 +384,8 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
                 Name: {displayName.length}chars
                 <br />
                 <button 
-                  onClick={() => setCurrentStep(Math.min(currentStep + 1, totalSteps))}
-                  className="text-blue-500 underline text-xs mt-1"
+                  onClick={handleDebugForceNext}
+                  className="text-blue-500 underline text-xs mt-1 hover:text-blue-700"
                 >
                   [Debug: Force Next]
                 </button>
