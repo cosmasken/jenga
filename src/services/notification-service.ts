@@ -5,22 +5,22 @@
 
 import { formatEther } from 'viem';
 import { 
-  BlockchainEvent, 
+  type BlockchainEvent, 
   EventType,
-  GroupCreatedEvent,
-  MemberJoinedEvent,
-  ContributionMadeEvent,
-  PayoutDistributedEvent,
-  RoundCompletedEvent,
-  GroupCompletedEvent
+  type GroupCreatedEvent,
+  type MemberJoinedEvent,
+  type ContributionMadeEvent,
+  type PayoutDistributedEvent,
+  type RoundCompletedEvent,
+  type GroupCompletedEvent
 } from '@/types/events';
 import { 
-  Notification, 
+  type Notification, 
   NotificationType, 
   NotificationPriority,
-  SuccessNotification,
-  EventNotification,
-  InfoNotification
+  type SuccessNotification,
+  type EventNotification,
+  type InfoNotification
 } from '@/types/notifications';
 
 export interface NotificationServiceConfig {

@@ -3,18 +3,18 @@
  * Monitors blockchain events and converts them to notifications
  */
 
-import { createPublicClient, http, parseAbi, Log, Address } from 'viem';
+import { createPublicClient, http, parseAbi, type Log, type Address } from 'viem';
 import { citreaTestnet } from '@/lib/citrea-testnet';
 import { 
-  BlockchainEvent, 
+  type BlockchainEvent, 
   EventType, 
-  EventFilter,
-  GroupCreatedEvent,
-  MemberJoinedEvent,
-  ContributionMadeEvent,
-  PayoutDistributedEvent,
-  RoundCompletedEvent,
-  GroupCompletedEvent
+  type EventFilter,
+  type GroupCreatedEvent,
+  type MemberJoinedEvent,
+  type ContributionMadeEvent,
+  type PayoutDistributedEvent,
+  type RoundCompletedEvent,
+  type GroupCompletedEvent
 } from '@/types/events';
 
 // ROSCA Contract ABI (events only)
