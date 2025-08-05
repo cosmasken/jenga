@@ -5,6 +5,8 @@ import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 import { useRosca } from "@/hooks/useRosca";
 import { useSupabase } from "@/hooks/useSupabase";
 import { CreateChamaModal } from "@/components/CreateChamaModal";
+import { NotificationSidebar } from "@/components/NotificationSidebar";
+import { EditProfile } from "@/components/EditProfile";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -12,10 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { useRoscaToast } from "@/hooks/use-rosca-toast";
 import { useEventListener } from "@/hooks/use-event-listener";
 import { useNotifications } from "@/hooks/use-notifications";
-import { NotificationCenter } from "@/components/NotificationCenter";
 import { WalletDropdown } from "@/components/WalletDropdown";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet, Bell, BellOff, Award, Target } from "lucide-react";
+import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet, Bell, BellOff, Award, Target, User, Settings } from "lucide-react";
 
 export default function Dashboard() {
     const [, setLocation] = useLocation();
@@ -44,6 +45,8 @@ export default function Dashboard() {
     const [userAchievements, setUserAchievements] = useState<any[]>([]);
     const [recentNotifications, setRecentNotifications] = useState<any[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showNotificationSidebar, setShowNotificationSidebar] = useState(false);
+    const [showEditProfile, setShowEditProfile] = useState(false);
     const [dashboardStats, setDashboardStats] = useState({
         totalContributions: 0,
         totalSaved: 0,
@@ -240,23 +243,33 @@ export default function Dashboard() {
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
+                        {/* Profile Button */}
+                        <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setShowEditProfile(true)}
+                            className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5 dark:border-bitcoin/30 dark:hover:border-bitcoin/50 dark:hover:bg-bitcoin/10 transition-all duration-200"
+                        >
+                            <User className="h-[1.2rem] w-[1.2rem] text-muted-foreground" />
+                        </Button>
+
                         {/* Notification Bell */}
                         <div className="relative">
                             <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={notifications.toggleCenter}
+                                onClick={() => setShowNotificationSidebar(true)}
                                 className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5 dark:border-bitcoin/30 dark:hover:border-bitcoin/50 dark:hover:bg-bitcoin/10 transition-all duration-200"
                             >
-                                {notifications.unreadCount > 0 ? (
+                                {recentNotifications.filter(n => !n.is_read).length > 0 ? (
                                     <Bell className="h-[1.2rem] w-[1.2rem] text-bitcoin" />
                                 ) : (
                                     <BellOff className="h-[1.2rem] w-[1.2rem] text-muted-foreground" />
                                 )}
                             </Button>
-                            {notifications.unreadCount > 0 && (
+                            {recentNotifications.filter(n => !n.is_read).length > 0 && (
                                 <span className="absolute -top-2 -right-2 bg-bitcoin text-bitcoin-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                                    {notifications.unreadCount > 9 ? '9+' : notifications.unreadCount}
+                                    {recentNotifications.filter(n => !n.is_read).length > 9 ? '9+' : recentNotifications.filter(n => !n.is_read).length}
                                 </span>
                             )}
                         </div>
@@ -540,10 +553,16 @@ export default function Dashboard() {
                 onOpenChange={setShowCreateModal} 
             />
 
-            {/* Notification Center */}
-            <NotificationCenter 
-                isOpen={notifications.isOpen}
-                onClose={notifications.closeCenter}
+            {/* Notification Sidebar */}
+            <NotificationSidebar 
+                isOpen={showNotificationSidebar}
+                onClose={() => setShowNotificationSidebar(false)}
+            />
+
+            {/* Edit Profile Modal */}
+            <EditProfile 
+                isOpen={showEditProfile}
+                onClose={() => setShowEditProfile(false)}
             />
         </div>
     );
