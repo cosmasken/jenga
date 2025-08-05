@@ -6,7 +6,7 @@
 import { useCallback } from 'react';
 import { useRoscaToast } from './use-rosca-toast';
 import { ErrorFormatterService } from '@/services/error-formatter';
-import { FormattedError, ErrorContext, ErrorCategory, ErrorSeverity } from '@/types/errors';
+import { type FormattedError, type ErrorContext, ErrorCategory, ErrorSeverity } from '@/types/errors';
 
 export interface UseErrorHandlerReturn {
   handleError: (error: any, context?: ErrorContext) => FormattedError;

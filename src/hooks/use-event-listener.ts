@@ -4,13 +4,13 @@
  */
 
 import { useEffect, useCallback, useRef } from 'react';
-import { Address } from 'viem';
+import type { Address } from 'viem';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import { EventMonitorService, EventMonitorConfig } from '@/services/event-monitor';
-import { NotificationService, NotificationServiceConfig } from '@/services/notification-service';
+import { EventMonitorService, type EventMonitorConfig } from '@/services/event-monitor';
+import { NotificationService, type NotificationServiceConfig } from '@/services/notification-service';
 import { useRoscaToast } from './use-rosca-toast';
-import { BlockchainEvent, EventType } from '@/types/events';
-import { Notification } from '@/types/notifications';
+import { type BlockchainEvent, EventType } from '@/types/events';
+import type { Notification } from '@/types/notifications';
 
 // Default configuration
 const DEFAULT_EVENT_CONFIG: EventMonitorConfig = {

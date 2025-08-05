@@ -5,10 +5,10 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { 
-  Notification, 
-  NotificationPreferences, 
-  NotificationCenterState,
-  NotificationQueueItem,
+  type Notification, 
+  type NotificationPreferences, 
+  type NotificationCenterState,
+  type NotificationQueueItem,
   NotificationType,
   NotificationPriority
 } from '@/types/notifications';
