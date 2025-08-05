@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DynamicConnectButton } from '@/components/ui/dynamic-connect-button';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 
 export default function LandingPage() {
@@ -103,6 +104,7 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-3">
+              <ThemeToggle />
               <DynamicConnectButton
                 connectText="Connect Wallet"
                 className="bg-bitcoin hover:bg-bitcoin/90 text-white text-sm sm:text-base"
