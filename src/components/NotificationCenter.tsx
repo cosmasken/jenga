@@ -1,402 +1,348 @@
 /**
- * Notification Center Component
- * Displays notification history with filtering and management
+ * NotificationCenter Component
+ * Displays and manages user notifications from Supabase
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useSupabase } from '@/hooks/useSupabase';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Bell, 
-  X, 
+  BellOff, 
   Check, 
   CheckCheck, 
-  Trash2, 
-  Filter, 
-  Search,
-  Settings,
-  ExternalLink,
-  Bitcoin,
-  Users,
-  TrendingUp,
+  X, 
+  Trophy, 
+  Users, 
   AlertTriangle,
-  Info
+  Info,
+  Gift,
+  Trash2,
+  MoreVertical
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuCheckboxItem
 } from '@/components/ui/dropdown-menu';
-import { useNotifications } from '@/hooks/use-notifications';
-import { NotificationPreferences } from '@/components/NotificationPreferences';
-import { 
-  type Notification, 
-  NotificationType, 
-  NotificationPriority 
-} from '@/types/notifications';
 import { formatDistanceToNow } from 'date-fns';
 
 interface NotificationCenterProps {
-  isOpen: boolean;
-  onClose: () => void;
+  className?: string;
+  showHeader?: boolean;
+  maxHeight?: string;
 }
 
-export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps) {
-  const notifications = useNotifications();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTypes, setSelectedTypes] = useState<NotificationType[]>(Object.values(NotificationType));
-  const [selectedPriorities, setSelectedPriorities] = useState<NotificationPriority[]>(Object.values(NotificationPriority));
-  const [activeTab, setActiveTab] = useState<'all' | 'unread' | 'recent'>('all');
+export function NotificationCenter({ 
+  className = '', 
+  showHeader = true,
+  maxHeight = '400px' 
+}: NotificationCenterProps) {
+  const { primaryWallet } = useDynamicContext();
+  const {
+    getNotifications,
+    markNotificationRead,
+    subscribeToNotifications,
+    isLoading
+  } = useSupabase();
 
-  // Filter notifications based on search and filters
-  const filteredNotifications = useMemo(() => {
-    let filtered = notifications.notifications;
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoadingNotifications, setIsLoadingNotifications] = useState(true);
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
-    // Filter by tab
-    if (activeTab === 'unread') {
-      filtered = filtered.filter(n => !n.read);
-    } else if (activeTab === 'recent') {
-      filtered = notifications.getRecentNotifications(24);
+  // Load notifications
+  useEffect(() => {
+    if (primaryWallet?.address) {
+      loadNotifications();
+      setupRealtimeSubscription();
     }
+  }, [primaryWallet?.address, filter]);
 
-    // Filter by search query
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(n => 
-        n.title.toLowerCase().includes(query) ||
-        n.message.toLowerCase().includes(query)
-      );
+  const loadNotifications = async () => {
+    if (!primaryWallet?.address) return;
+
+    try {
+      setIsLoadingNotifications(true);
+      
+      const filters: any = { limit: 50 };
+      if (filter === 'unread') {
+        filters.is_read = false;
+      }
+
+      const fetchedNotifications = await getNotifications(primaryWallet.address, filters);
+      setNotifications(fetchedNotifications);
+      
+      // Count unread notifications
+      const unread = fetchedNotifications.filter(n => !n.is_read).length;
+      setUnreadCount(unread);
+      
+      console.log('✅ Notifications loaded:', fetchedNotifications.length, 'unread:', unread);
+    } catch (error) {
+      console.error('❌ Failed to load notifications:', error);
+    } finally {
+      setIsLoadingNotifications(false);
     }
+  };
 
-    // Filter by type and priority
-    filtered = filtered.filter(n => 
-      selectedTypes.includes(n.type) &&
-      selectedPriorities.includes(n.priority)
+  const setupRealtimeSubscription = () => {
+    if (!primaryWallet?.address) return;
+
+    const unsubscribe = subscribeToNotifications(
+      primaryWallet.address,
+      (payload) => {
+        console.log('🔔 New notification received:', payload.new);
+        setNotifications(prev => [payload.new, ...prev]);
+        setUnreadCount(prev => prev + 1);
+      }
     );
 
-    return filtered;
-  }, [notifications.notifications, activeTab, searchQuery, selectedTypes, selectedPriorities, notifications]);
+    return unsubscribe;
+  };
 
-  const getNotificationIcon = (notification: Notification) => {
-    switch (notification.type) {
-      case NotificationType.SUCCESS:
-        const successNotif = notification as any;
-        if (successNotif.variant === 'contribution') return <Bitcoin className="h-4 w-4 text-bitcoin" />;
-        if (successNotif.variant === 'payout') return <TrendingUp className="h-4 w-4 text-green-500" />;
-        if (successNotif.variant === 'groupCreated') return <Users className="h-4 w-4 text-blue-500" />;
-        return <Check className="h-4 w-4 text-green-500" />;
-      case NotificationType.ERROR:
+  const handleMarkAsRead = async (notificationId: string) => {
+    try {
+      const success = await markNotificationRead(notificationId);
+      if (success) {
+        setNotifications(prev => 
+          prev.map(n => 
+            n.id === notificationId ? { ...n, is_read: true, read_at: new Date().toISOString() } : n
+          )
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('❌ Failed to mark notification as read:', error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      const unreadNotifications = notifications.filter(n => !n.is_read);
+      
+      for (const notification of unreadNotifications) {
+        await markNotificationRead(notification.id);
+      }
+      
+      setNotifications(prev => 
+        prev.map(n => ({ ...n, is_read: true, read_at: new Date().toISOString() }))
+      );
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('❌ Failed to mark all notifications as read:', error);
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case 'achievement':
+        return <Trophy className="h-4 w-4 text-yellow-500" />;
+      case 'group':
+        return <Users className="h-4 w-4 text-blue-500" />;
+      case 'warning':
+        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+      case 'error':
         return <X className="h-4 w-4 text-red-500" />;
-      case NotificationType.WARNING:
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-      case NotificationType.INFO:
-        return <Info className="h-4 w-4 text-blue-500" />;
-      case NotificationType.EVENT:
-        return <Bell className="h-4 w-4 text-bitcoin" />;
+      case 'success':
+        return <Check className="h-4 w-4 text-green-500" />;
       default:
-        return <Bell className="h-4 w-4 text-gray-500" />;
+        return <Info className="h-4 w-4 text-gray-500" />;
     }
   };
 
-  const getPriorityColor = (priority: NotificationPriority) => {
-    switch (priority) {
-      case NotificationPriority.URGENT:
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-      case NotificationPriority.HIGH:
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400';
-      case NotificationPriority.MEDIUM:
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
-      case NotificationPriority.LOW:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+  const getNotificationBadgeColor = (type: string) => {
+    switch (type) {
+      case 'achievement':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+      case 'group':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case 'warning':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case 'error':
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      case 'success':
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
-  if (!isOpen) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
-        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-        className="absolute right-0 top-0 h-full w-full max-w-md bg-background border-l shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b">
-            <div className="flex items-center gap-3">
-              <Bell className="h-5 w-5 text-bitcoin" />
-              <h2 className="text-lg font-semibold">Notifications</h2>
-              {notifications.unreadCount > 0 && (
-                <Badge variant="secondary" className="bg-bitcoin/10 text-bitcoin">
-                  {notifications.unreadCount}
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <NotificationPreferences />
-              <Button variant="ghost" size="icon" onClick={onClose}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className="p-4 space-y-3 border-b">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search notifications..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-between">
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={notifications.markAllAsRead}
-                  disabled={notifications.unreadCount === 0}
-                >
-                  <CheckCheck className="h-3 w-3 mr-1" />
-                  Mark All Read
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={notifications.clearAll}
-                  disabled={notifications.notifications.length === 0}
-                >
-                  <Trash2 className="h-3 w-3 mr-1" />
-                  Clear All
-                </Button>
-              </div>
-
-              {/* Filter Menu */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <Filter className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="px-2 py-1.5 text-sm font-medium">Filter by Type</div>
-                  {Object.values(NotificationType).map((type) => (
-                    <DropdownMenuCheckboxItem
-                      key={type}
-                      checked={selectedTypes.includes(type)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedTypes([...selectedTypes, type]);
-                        } else {
-                          setSelectedTypes(selectedTypes.filter(t => t !== type));
-                        }
-                      }}
-                    >
-                      {type.charAt(0).toUpperCase() + type.slice(1)}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <div className="px-2 py-1.5 text-sm font-medium">Filter by Priority</div>
-                  {Object.values(NotificationPriority).map((priority) => (
-                    <DropdownMenuCheckboxItem
-                      key={priority}
-                      checked={selectedPriorities.includes(priority)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedPriorities([...selectedPriorities, priority]);
-                        } else {
-                          setSelectedPriorities(selectedPriorities.filter(p => p !== priority));
-                        }
-                      }}
-                    >
-                      {priority.charAt(0).toUpperCase() + priority.slice(1)}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="flex-1 flex flex-col">
-            <TabsList className="grid w-full grid-cols-3 mx-4 mt-2">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="unread">
-                Unread {notifications.unreadCount > 0 && `(${notifications.unreadCount})`}
-              </TabsTrigger>
-              <TabsTrigger value="recent">Recent</TabsTrigger>
-            </TabsList>
-
-            {/* Notification List */}
-            <div className="flex-1 overflow-y-auto">
-              <TabsContent value="all" className="mt-0">
-                <NotificationList 
-                  notifications={filteredNotifications}
-                  onMarkAsRead={notifications.markAsRead}
-                  onRemove={notifications.removeNotification}
-                  getIcon={getNotificationIcon}
-                  getPriorityColor={getPriorityColor}
-                />
-              </TabsContent>
-              <TabsContent value="unread" className="mt-0">
-                <NotificationList 
-                  notifications={filteredNotifications}
-                  onMarkAsRead={notifications.markAsRead}
-                  onRemove={notifications.removeNotification}
-                  getIcon={getNotificationIcon}
-                  getPriorityColor={getPriorityColor}
-                />
-              </TabsContent>
-              <TabsContent value="recent" className="mt-0">
-                <NotificationList 
-                  notifications={filteredNotifications}
-                  onMarkAsRead={notifications.markAsRead}
-                  onRemove={notifications.removeNotification}
-                  getIcon={getNotificationIcon}
-                  getPriorityColor={getPriorityColor}
-                />
-              </TabsContent>
-            </div>
-          </Tabs>
-        </div>
-      </motion.div>
-    </motion.div>
+  const filteredNotifications = notifications.filter(n => 
+    filter === 'all' || (filter === 'unread' && !n.is_read)
   );
-}
 
-interface NotificationListProps {
-  notifications: Notification[];
-  onMarkAsRead: (id: string) => void;
-  onRemove: (id: string) => void;
-  getIcon: (notification: Notification) => React.ReactNode;
-  getPriorityColor: (priority: NotificationPriority) => string;
-}
-
-function NotificationList({ 
-  notifications, 
-  onMarkAsRead, 
-  onRemove, 
-  getIcon, 
-  getPriorityColor 
-}: NotificationListProps) {
-  if (notifications.length === 0) {
+  if (!primaryWallet?.address) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-center">
-        <Bell className="h-12 w-12 text-muted-foreground/50 mb-4" />
-        <h3 className="text-lg font-medium text-muted-foreground">No notifications</h3>
-        <p className="text-sm text-muted-foreground/70">You're all caught up!</p>
-      </div>
+      <Card className={className}>
+        <CardContent className="p-6 text-center">
+          <BellOff className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+          <p className="text-sm text-gray-500">Connect your wallet to view notifications</p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-2 p-4">
-      <AnimatePresence>
-        {notifications.map((notification) => (
-          <motion.div
-            key={notification.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, x: -100 }}
-            className={`p-4 rounded-lg border transition-all duration-200 hover:shadow-md ${
-              notification.read 
-                ? 'bg-muted/30 border-muted' 
-                : 'bg-background border-bitcoin/20 shadow-sm'
-            }`}
-          >
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 mt-0.5">
-                {getIcon(notification)}
+    <Card className={className}>
+      {showHeader && (
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              Notifications
+              {unreadCount > 0 && (
+                <Badge variant="destructive" className="ml-2">
+                  {unreadCount}
+                </Badge>
+              )}
+            </CardTitle>
+            
+            <div className="flex items-center gap-2">
+              {/* Filter buttons */}
+              <div className="flex rounded-md border">
+                <Button
+                  variant={filter === 'all' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setFilter('all')}
+                  className="rounded-r-none"
+                >
+                  All
+                </Button>
+                <Button
+                  variant={filter === 'unread' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setFilter('unread')}
+                  className="rounded-l-none"
+                >
+                  Unread
+                </Button>
               </div>
-              
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1">
-                    <h4 className={`text-sm font-medium ${notification.read ? 'text-muted-foreground' : 'text-foreground'}`}>
-                      {notification.title}
-                    </h4>
-                    <p className={`text-xs mt-1 ${notification.read ? 'text-muted-foreground/70' : 'text-muted-foreground'}`}>
-                      {notification.message}
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center gap-1">
-                    <Badge 
-                      variant="secondary" 
-                      className={`text-xs ${getPriorityColor(notification.priority)}`}
-                    >
-                      {notification.priority}
-                    </Badge>
-                  </div>
-                </div>
 
-                <div className="flex items-center justify-between mt-3">
-                  <span className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(notification.timestamp, { addSuffix: true })}
-                  </span>
-                  
-                  <div className="flex items-center gap-1">
-                    {notification.action && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={notification.action.handler}
-                        className="h-6 px-2 text-xs text-bitcoin hover:text-bitcoin-foreground hover:bg-bitcoin/10"
-                      >
-                        {notification.action.label}
-                        <ExternalLink className="h-3 w-3 ml-1" />
-                      </Button>
-                    )}
-                    
-                    {!notification.read && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onMarkAsRead(notification.id)}
-                        className="h-6 px-2 text-xs"
-                      >
-                        <Check className="h-3 w-3" />
-                      </Button>
-                    )}
-                    
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onRemove(notification.id)}
-                      className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
+              {/* Mark all as read */}
+              {unreadCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleMarkAllAsRead}
+                  className="text-xs"
+                >
+                  <CheckCheck className="h-3 w-3 mr-1" />
+                  Mark All Read
+                </Button>
+              )}
             </div>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
+          </div>
+        </CardHeader>
+      )}
+
+      <CardContent className="p-0">
+        <ScrollArea style={{ height: maxHeight }}>
+          {isLoadingNotifications ? (
+            <div className="p-6 text-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-bitcoin mx-auto"></div>
+              <p className="text-sm text-gray-500 mt-2">Loading notifications...</p>
+            </div>
+          ) : filteredNotifications.length === 0 ? (
+            <div className="p-6 text-center">
+              <Bell className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">
+                {filter === 'unread' ? 'No unread notifications' : 'No notifications yet'}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              <AnimatePresence>
+                {filteredNotifications.map((notification) => (
+                  <motion.div
+                    key={notification.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors ${
+                      !notification.is_read ? 'bg-blue-50 dark:bg-blue-950/20' : ''
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-1">
+                        {getNotificationIcon(notification.type)}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1">
+                            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                              {notification.title}
+                            </h4>
+                            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              {notification.message}
+                            </p>
+                            
+                            <div className="flex items-center gap-2 mt-2">
+                              <Badge 
+                                variant="secondary" 
+                                className={`text-xs ${getNotificationBadgeColor(notification.type)}`}
+                              >
+                                {notification.type}
+                              </Badge>
+                              <span className="text-xs text-gray-500">
+                                {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-1">
+                            {!notification.is_read && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleMarkAsRead(notification.id)}
+                                className="h-6 w-6 p-0"
+                                title="Mark as read"
+                              >
+                                <Check className="h-3 w-3" />
+                              </Button>
+                            )}
+                            
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <MoreVertical className="h-3 w-3" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {!notification.is_read && (
+                                  <DropdownMenuItem onClick={() => handleMarkAsRead(notification.id)}>
+                                    <Check className="h-4 w-4 mr-2" />
+                                    Mark as read
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem className="text-red-600">
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </ScrollArea>
+      </CardContent>
+    </Card>
   );
 }

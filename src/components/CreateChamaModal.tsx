@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRosca } from '../hooks/useRosca';
+import { useSupabase } from '../hooks/useSupabase';
 import { useRoscaToast } from '../hooks/use-rosca-toast';
 
 interface CreateChamaModalProps {
@@ -12,12 +13,17 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   const [currentStep, setCurrentStep] = useState<'form' | 'preview' | 'transaction'>('form');
   const [formData, setFormData] = useState({
     name: '',
+    description: '',
     contributionAmount: '', // Amount in cBTC
     roundLength: '', // Round length in days
-    maxMembers: ''
+    maxMembers: '',
+    category: 'general',
+    tags: [] as string[],
+    isPrivate: false
   });
   const [showAdvancedDetails, setShowAdvancedDetails] = useState(false);
   const [maxSpendable, setMaxSpendable] = useState<string>('0');
+  const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
   
   const { primaryWallet, user } = useDynamicContext();
   const { 
@@ -30,6 +36,13 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     refreshBalance,
     getMaxSpendableAmount 
   } = useRosca();
+  const { 
+    createGroup: createSupabaseGroup,
+    logActivity,
+    createNotification,
+    awardAchievement,
+    isLoading: isSupabaseLoading 
+  } = useSupabase();
   const { groupCreated, error: showError, transactionPending } = useRoscaToast();
 
   // Get max spendable amount when modal opens or balance changes
@@ -111,7 +124,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
   // Handle actual transaction submission
   const handleTransactionSubmit = async () => {
-    if (!isConnected) return;
+    if (!isConnected || !primaryWallet?.address) return;
     
     try {
       setCurrentStep('transaction');
@@ -119,19 +132,125 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       // Show pending transaction toast
       const pendingToast = transactionPending("group creation");
       
+      // Step 1: Create group in Supabase first (before blockchain transaction)
+      console.log('🔄 Creating group in Supabase...');
+      const supabaseGroup = await createSupabaseGroup({
+        name: formData.name,
+        description: formData.description || undefined,
+        contribution_amount: parseFloat(formData.contributionAmount),
+        token_address: '0x0000000000000000000000000000000000000000', // ETH address for native token
+        round_length_days: parseInt(formData.roundLength),
+        max_members: parseInt(formData.maxMembers),
+        category: formData.category,
+        tags: formData.tags,
+        is_private: formData.isPrivate,
+        status: 'pending' // Will be updated after blockchain confirmation
+      });
+
+      if (!supabaseGroup) {
+        throw new Error('Failed to create group in database');
+      }
+
+      console.log('✅ Group created in Supabase:', supabaseGroup.id);
+      setCreatedGroupId(supabaseGroup.id);
+
+      // Step 2: Send blockchain transaction
+      console.log('🔄 Sending blockchain transaction...');
       const hash = await createGroup({
-        token: '0x0000000000000000000000000000000000000000', // ETH address for native token
+        token: '0x0000000000000000000000000000000000000000',
         contribution: formData.contributionAmount,
         roundLength: parseInt(formData.roundLength) * 24 * 60 * 60 // Convert days to seconds
       });
-      
+
+      if (!hash) {
+        throw new Error('Failed to get transaction hash');
+      }
+
+      console.log('✅ Transaction hash received:', hash);
+
+      // Step 3: Update Supabase group with transaction hash (ONLY after hash is returned)
+      console.log('🔄 Updating group with transaction hash...');
+      const { error: updateError } = await supabaseGroup.supabase
+        .from('groups')
+        .update({ 
+          transaction_hash: hash,
+          status: 'pending' // Still pending until confirmed
+        })
+        .eq('id', supabaseGroup.id);
+
+      if (updateError) {
+        console.warn('⚠️ Failed to update group with transaction hash:', updateError);
+        // Don't fail the entire process for this
+      }
+
+      // Step 4: Log activity
+      await logActivity(
+        'group_created',
+        'group',
+        supabaseGroup.id,
+        `Created ROSCA group: ${formData.name}`,
+        {
+          group_name: formData.name,
+          contribution_amount: formData.contributionAmount,
+          max_members: formData.maxMembers,
+          transaction_hash: hash
+        }
+      );
+
+      // Step 5: Award achievement for group creation
+      try {
+        await awardAchievement('group-creator', primaryWallet.address, {
+          group_id: supabaseGroup.id,
+          transaction_hash: hash
+        });
+        console.log('✅ Group Creator achievement awarded');
+      } catch (achievementError) {
+        console.warn('⚠️ Could not award achievement:', achievementError);
+      }
+
+      // Step 6: Create notification for group creation
+      try {
+        await createNotification({
+          user_wallet_address: primaryWallet.address,
+          title: 'Group Created Successfully! 🎉',
+          message: `Your ROSCA group "${formData.name}" has been created and is pending blockchain confirmation.`,
+          type: 'success',
+          category: 'group',
+          group_id: supabaseGroup.id,
+          data: {
+            group_name: formData.name,
+            transaction_hash: hash,
+            contribution_amount: formData.contributionAmount
+          }
+        });
+        console.log('✅ Group creation notification sent');
+      } catch (notificationError) {
+        console.warn('⚠️ Could not create notification:', notificationError);
+      }
+
       // Dismiss pending toast and show success
       pendingToast.dismiss();
       groupCreated(formData.name, parseInt(formData.maxMembers), hash);
       
       setTimeout(() => resetModal(), 2000);
     } catch (err) {
-      console.error('Error creating chama:', err);
+      console.error('❌ Error creating chama:', err);
+      
+      // If we created a group in Supabase but blockchain failed, mark it as failed
+      if (createdGroupId) {
+        try {
+          await supabaseGroup.supabase
+            .from('groups')
+            .update({ 
+              status: 'cancelled',
+              sync_error: `Blockchain transaction failed: ${err}`
+            })
+            .eq('id', createdGroupId);
+        } catch (cleanupError) {
+          console.warn('⚠️ Failed to cleanup failed group:', cleanupError);
+        }
+      }
+      
       showError("Group Creation Failed", "Please try again or check your wallet connection");
       setCurrentStep('preview'); // Go back to preview step
     }

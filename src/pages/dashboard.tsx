@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 import { useRosca } from "@/hooks/useRosca";
+import { useSupabase } from "@/hooks/useSupabase";
 import { CreateChamaModal } from "@/components/CreateChamaModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import { useNotifications } from "@/hooks/use-notifications";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { WalletDropdown } from "@/components/WalletDropdown";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet, Bell, BellOff } from "lucide-react";
+import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet, Bell, BellOff, Award, Target } from "lucide-react";
 
 export default function Dashboard() {
     const [, setLocation] = useLocation();
@@ -28,9 +29,29 @@ export default function Dashboard() {
         error,
         formatContribution 
     } = useRosca();
+    const {
+        getUser,
+        getGroups,
+        getUserAchievements,
+        getNotifications,
+        subscribeToNotifications,
+        logActivity,
+        isLoading: isSupabaseLoading
+    } = useSupabase();
 
+    const [userProfile, setUserProfile] = useState<any>(null);
     const [userGroups, setUserGroups] = useState<any[]>([]);
+    const [userAchievements, setUserAchievements] = useState<any[]>([]);
+    const [recentNotifications, setRecentNotifications] = useState<any[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [dashboardStats, setDashboardStats] = useState({
+        totalContributions: 0,
+        totalSaved: 0,
+        activeGroups: 0,
+        completedCycles: 0,
+        trustScore: 4.0
+    });
+    
     const { contributionReminder, memberJoined, success } = useRoscaToast();
 
     // Event monitoring and notifications
@@ -40,8 +61,103 @@ export default function Dashboard() {
     });
     const notifications = useNotifications();
 
-    // Get user display name from stored onboarding data or fallback to identifiers
+    // Load user data from Supabase
+    useEffect(() => {
+        if (isConnected && primaryWallet?.address) {
+            loadUserData();
+            setupRealtimeSubscriptions();
+        }
+    }, [isConnected, primaryWallet?.address]);
+
+    const loadUserData = async () => {
+        if (!primaryWallet?.address) return;
+
+        try {
+            console.log('🔄 Loading user dashboard data...');
+
+            // Load user profile
+            const profile = await getUser(primaryWallet.address);
+            setUserProfile(profile);
+            console.log('✅ User profile loaded:', profile);
+
+            // Load user's groups (both created and joined)
+            const [createdGroups, joinedGroups] = await Promise.all([
+                getGroups({ creator: primaryWallet.address, limit: 10 }),
+                getGroups({ limit: 50 }) // We'll filter joined groups client-side for now
+            ]);
+
+            // Combine and deduplicate groups
+            const allUserGroups = [...createdGroups];
+            // TODO: Add proper joined groups filtering when group_members relationship is available
+            setUserGroups(allUserGroups);
+            console.log('✅ User groups loaded:', allUserGroups.length);
+
+            // Load user achievements
+            const achievements = await getUserAchievements(primaryWallet.address);
+            setUserAchievements(achievements);
+            console.log('✅ User achievements loaded:', achievements.length);
+
+            // Load recent notifications
+            const notifications = await getNotifications(primaryWallet.address, { 
+                limit: 5,
+                is_read: false 
+            });
+            setRecentNotifications(notifications);
+            console.log('✅ Recent notifications loaded:', notifications.length);
+
+            // Calculate dashboard stats
+            const stats = {
+                totalContributions: profile?.total_contributions || 0,
+                totalSaved: profile?.total_contributions || 0, // Simplified for now
+                activeGroups: allUserGroups.filter(g => g.status === 'active').length,
+                completedCycles: profile?.successful_rounds || 0,
+                trustScore: profile?.trust_score || 4.0
+            };
+            setDashboardStats(stats);
+            console.log('✅ Dashboard stats calculated:', stats);
+
+            // Log dashboard visit
+            await logActivity(
+                'dashboard_visited',
+                'user',
+                profile?.id,
+                'Visited dashboard',
+                { timestamp: new Date().toISOString() }
+            );
+
+        } catch (error) {
+            console.error('❌ Failed to load user data:', error);
+        }
+    };
+
+    const setupRealtimeSubscriptions = () => {
+        if (!primaryWallet?.address) return;
+
+        // Subscribe to notifications
+        const unsubscribeNotifications = subscribeToNotifications(
+            primaryWallet.address,
+            (payload) => {
+                console.log('🔔 New notification received:', payload.new);
+                setRecentNotifications(prev => [payload.new, ...prev.slice(0, 4)]);
+                
+                // Show toast for important notifications
+                if (payload.new.type === 'achievement') {
+                    success('Achievement Unlocked!', payload.new.message);
+                } else if (payload.new.type === 'group') {
+                    memberJoined(payload.new.message);
+                }
+            }
+        );
+
+        return () => {
+            unsubscribeNotifications();
+        };
+    };
+
+    // Get user display name from Supabase profile or fallback
     const getUserDisplayName = () => {
+        if (userProfile?.display_name) return userProfile.display_name;
+        
         const storedName = localStorage.getItem('jenga_user_display_name');
         if (storedName) return storedName;
         
