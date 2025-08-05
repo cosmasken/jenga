@@ -82,7 +82,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       // Show pending transaction toast
       const pendingToast = transactionPending("group creation");
       
-      await createGroup({
+      const hash = await createGroup({
         token: '0x0000000000000000000000000000000000000000', // ETH address for native token
         contribution: formData.contributionAmount,
         roundLength: parseInt(formData.roundLength) * 24 * 60 * 60 // Convert days to seconds
@@ -90,7 +90,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       
       // Dismiss pending toast and show success
       pendingToast.dismiss();
-      groupCreated(formData.name, parseInt(formData.maxMembers));
+      groupCreated(formData.name, parseInt(formData.maxMembers), hash);
       
       setTimeout(() => resetModal(), 2000);
     } catch (err) {

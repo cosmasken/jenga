@@ -2,55 +2,59 @@
 
 ## Overview
 
-The Jenga app uses a custom toast notification system specifically designed for ROSCA (Rotating Savings and Credit Association) and Chama applications. The system provides contextual, Bitcoin-themed notifications with appropriate icons and colors for different financial and social interactions.
+The Jenga app uses a custom toast notification system specifically designed for ROSCA (Rotating Savings and Credit Association) and Chama applications. The system provides contextual, Bitcoin-themed notifications with appropriate icons, colors, and **transaction links to the Citrea testnet explorer** for blockchain operations.
 
 ## Features
 
 - **8 specialized toast variants** with Bitcoin/financial theming
+- **Card-like design** with white backgrounds and colored icon badges
+- **Transaction links** to Citrea testnet explorer for blockchain operations
 - **Contextual icons** for each notification type
 - **Predefined functions** for common ROSCA operations
-- **Consistent styling** matching the app's orange/Bitcoin color scheme
 - **Enhanced accessibility** with proper contrast and screen reader support
 
 ## Toast Variants
 
 ### 1. Contribution (`contribution`)
-- **Color**: Green with Bitcoin icon
+- **Design**: White card with green icon badge and border
 - **Use**: Successful contribution to a group
+- **Features**: Transaction link to Citrea explorer
 - **Example**: "Contribution Successful! 🎉"
 
 ### 2. Payout (`payout`)
-- **Color**: Emerald with Coins icon
+- **Design**: White card with emerald icon badge and border
 - **Use**: Received payout from a group
+- **Features**: Transaction link to Citrea explorer
 - **Example**: "Payout Received! 💰"
 
 ### 3. Group Created (`groupCreated`)
-- **Color**: Orange with Users icon
+- **Design**: White card with orange icon badge and border
 - **Use**: Successfully created a new ROSCA group
+- **Features**: Transaction link to Citrea explorer
 - **Example**: "Group Created Successfully! 🚀"
 
 ### 4. Member Joined (`memberJoined`)
-- **Color**: Blue with UserPlus icon
+- **Design**: White card with blue icon badge and border
 - **Use**: New member joins a group
 - **Example**: "New Member Joined! 👋"
 
 ### 5. Warning (`warning`)
-- **Color**: Yellow with AlertTriangle icon
+- **Design**: White card with yellow icon badge and border
 - **Use**: Important notices, risks, or reminders
 - **Example**: "Contribution Due Soon! ⏰"
 
 ### 6. Pending (`pending`)
-- **Color**: Light blue with Clock icon
+- **Design**: White card with blue icon badge and border
 - **Use**: Blockchain transactions in progress
 - **Example**: "Transaction Pending ⏳"
 
 ### 7. Success (`success`)
-- **Color**: Green with CheckCircle icon
+- **Design**: White card with green icon badge and border
 - **Use**: General success messages
 - **Example**: "Profile Updated Successfully!"
 
 ### 8. Error (`destructive`)
-- **Color**: Red with X icon
+- **Design**: White card with red icon badge and border
 - **Use**: Error messages and failures
 - **Example**: "Transaction Failed"
 
@@ -89,12 +93,13 @@ function MyComponent() {
 
 ### Financial Operations
 
-#### `contributionSuccess(amount: string, groupName?: string)`
-Shows success toast for completed contributions.
+#### `contributionSuccess(amount: string, groupName?: string, txHash?: string)`
+Shows success toast for completed contributions with optional transaction link.
 ```typescript
-contributionSuccess("0.001", "Family Group");
+contributionSuccess("0.001", "Family Group", "0x1234...abcd");
 // "Contribution Successful! 🎉"
 // "You contributed 0.001 cBTC to Family Group"
+// [View Tx] button links to Citrea explorer
 ```
 
 #### `payoutReceived(amount: string, groupName?: string)`
