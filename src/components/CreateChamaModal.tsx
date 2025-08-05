@@ -16,7 +16,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     description: '',
     contributionAmount: '', // Amount in cBTC
     roundLength: '', // Round length in days
-    maxMembers: '',
+    maxMembers: '5', // Default to 5 members
     category: 'general',
     tags: [] as string[],
     isPrivate: false
@@ -159,7 +159,8 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       const hash = await createGroup({
         token: '0x0000000000000000000000000000000000000000',
         contribution: formData.contributionAmount,
-        roundLength: parseInt(formData.roundLength) * 24 * 60 * 60 // Convert days to seconds
+        roundLength: parseInt(formData.roundLength) * 24 * 60 * 60, // Convert days to seconds
+        maxMembers: parseInt(formData.maxMembers)
       });
 
       if (!hash) {
