@@ -315,7 +315,10 @@ export default function Dashboard() {
                                     <Plus className="h-4 w-4 mr-2" />
                                     Create Group
                                 </Button>
-                                <Button variant="bitcoin-outline">
+                                <Button 
+                                    variant="bitcoin-outline"
+                                    onClick={() => setLocation('/browse')}
+                                >
                                     <Users className="h-4 w-4 mr-2" />
                                     Browse Groups
                                 </Button>
