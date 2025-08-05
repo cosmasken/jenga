@@ -335,41 +335,41 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12 px-4">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="col-span-1 sm:col-span-2 lg:col-span-1">
               <div className="flex items-center space-x-2 mb-4">
                 <Bitcoin className="text-bitcoin" size={24} />
                 <span className="text-xl font-bold">ROSCA</span>
               </div>
-              <p className="text-gray-400 text-sm">
+              <p className="text-gray-400 text-sm leading-relaxed">
                 Bitcoin-powered savings circles for families, friends, and communities.
               </p>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Product</h4>
+              <h4 className="font-semibold mb-4 text-white">Product</h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li>How It Works</li>
-                <li>Security</li>
-                <li>Pricing</li>
-                <li>FAQ</li>
+                <li className="hover:text-white transition-colors cursor-pointer">How It Works</li>
+                <li className="hover:text-white transition-colors cursor-pointer">Security</li>
+                <li className="hover:text-white transition-colors cursor-pointer">Pricing</li>
+                <li className="hover:text-white transition-colors cursor-pointer">FAQ</li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Community</h4>
+              <h4 className="font-semibold mb-4 text-white">Community</h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li>Discord</li>
-                <li>Twitter</li>
-                <li>Telegram</li>
-                <li>Blog</li>
+                <li className="hover:text-white transition-colors cursor-pointer">Discord</li>
+                <li className="hover:text-white transition-colors cursor-pointer">Twitter</li>
+                <li className="hover:text-white transition-colors cursor-pointer">Telegram</li>
+                <li className="hover:text-white transition-colors cursor-pointer">Blog</li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold mb-4">Support</h4>
+              <h4 className="font-semibold mb-4 text-white">Support</h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li>Help Center</li>
-                <li>Contact Us</li>
-                <li>Bug Reports</li>
-                <li>Feature Requests</li>
+                <li className="hover:text-white transition-colors cursor-pointer">Help Center</li>
+                <li className="hover:text-white transition-colors cursor-pointer">Contact Us</li>
+                <li className="hover:text-white transition-colors cursor-pointer">Bug Reports</li>
+                <li className="hover:text-white transition-colors cursor-pointer">Feature Requests</li>
               </ul>
             </div>
           </div>
