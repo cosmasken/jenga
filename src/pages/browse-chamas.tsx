@@ -24,7 +24,9 @@ import {
   ChevronDown,
   RefreshCw,
   SortAsc,
-  SortDesc
+  SortDesc,
+  Tag,
+  MapPin
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +48,7 @@ import {
   DropdownMenuCheckboxItem
 } from '@/components/ui/dropdown-menu';
 import { useRosca } from '@/hooks/useRosca';
+import { useSupabase } from '@/hooks/useSupabase';
 import { useRoscaToast } from '@/hooks/use-rosca-toast';
 import { useErrorHandler } from '@/hooks/use-error-handler';
 import { WalletDropdown } from '@/components/WalletDropdown';
@@ -171,13 +174,161 @@ export default function BrowseChamas() {
   const [, setLocation] = useLocation();
   const { primaryWallet, isConnected } = useDynamicContext();
   const { balance, getBalance } = useRosca();
+  const { 
+    getGroups, 
+    joinGroup, 
+    subscribeToGroup,
+    logActivity,
+    isLoading: isSupabaseLoading 
+  } = useSupabase();
   const toast = useRoscaToast();
   const { handleError } = useErrorHandler();
 
   // State
-  const [chamas, setChamas] = useState<ChamaGroup[]>(mockChamas);
+  const [groups, setGroups] = useState<any[]>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  const [showFilters, setShowFilters] = useState(false);
+  const [isJoining, setIsJoining] = useState<string | null>(null);
+
+  // Load groups from Supabase
+  useEffect(() => {
+    loadGroups();
+  }, [selectedStatus, selectedCategory, selectedTags, sortBy]);
+
+  const loadGroups = async () => {
+    try {
+      setIsLoadingGroups(true);
+      
+      const filters: any = {
+        limit: 50,
+        offset: 0
+      };
+
+      // Apply status filter
+      if (selectedStatus !== 'all') {
+        filters.status = selectedStatus;
+      }
+
+      // Apply category filter
+      if (selectedCategory !== 'all') {
+        filters.category = selectedCategory;
+      }
+
+      // Apply tags filter
+      if (selectedTags.length > 0) {
+        filters.tags = selectedTags;
+      }
+
+      console.log('🔄 Loading groups with filters:', filters);
+      const fetchedGroups = await getGroups(filters);
+      
+      console.log('✅ Loaded groups:', fetchedGroups.length);
+      setGroups(fetchedGroups);
+    } catch (error) {
+      console.error('❌ Failed to load groups:', error);
+      handleError(error, { context: 'loading groups' });
+      toast.error('Failed to Load Groups', 'Please try refreshing the page.');
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  };
+
+  // Handle joining a group
+  const handleJoinGroup = async (groupId: string, groupName: string) => {
+    if (!isConnected || !primaryWallet?.address) {
+      toast.error('Wallet Required', 'Please connect your wallet to join a group.');
+      return;
+    }
+
+    try {
+      setIsJoining(groupId);
+      console.log('🔄 Joining group:', groupId);
+      
+      const success = await joinGroup(groupId);
+      
+      if (success) {
+        toast.success('Joined Group!', `You have successfully joined ${groupName}.`);
+        
+        // Log activity
+        await logActivity(
+          'group_joined',
+          'group',
+          groupId,
+          `Joined ROSCA group: ${groupName}`,
+          { group_name: groupName }
+        );
+        
+        // Refresh groups to update member count
+        await loadGroups();
+      }
+    } catch (error) {
+      console.error('❌ Failed to join group:', error);
+      handleError(error, { context: 'joining group' });
+    } finally {
+      setIsJoining(null);
+    }
+  };
+
+  // Real-time updates for groups
+  useEffect(() => {
+    const unsubscribeFunctions: (() => void)[] = [];
+
+    groups.forEach(group => {
+      const unsubscribe = subscribeToGroup(group.id, (payload) => {
+        console.log('🔄 Real-time group update:', payload);
+        setGroups(prevGroups => 
+          prevGroups.map(g => 
+            g.id === group.id ? { ...g, ...payload.new } : g
+          )
+        );
+      });
+      unsubscribeFunctions.push(unsubscribe);
+    });
+
+    return () => {
+      unsubscribeFunctions.forEach(unsubscribe => unsubscribe());
+    };
+  }, [groups.map(g => g.id).join(',')]);
+
+  // Filter and sort groups
+  const filteredAndSortedGroups = useMemo(() => {
+    let filtered = groups;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(group => 
+        group.name.toLowerCase().includes(query) ||
+        group.description?.toLowerCase().includes(query) ||
+        group.tags?.some((tag: string) => tag.toLowerCase().includes(query))
+      );
+    }
+
+    // Sort groups
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'oldest':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'contribution-high':
+          return b.contribution_amount - a.contribution_amount;
+        case 'contribution-low':
+          return a.contribution_amount - b.contribution_amount;
+        case 'members':
+          return b.current_members - a.current_members;
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  }, [groups, searchQuery, sortBy]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [contributionRange, setContributionRange] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('newest');
