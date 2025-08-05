@@ -2,36 +2,48 @@
 
 ## Overview
 
-The Jenga app uses a custom toast notification system specifically designed for ROSCA (Rotating Savings and Credit Association) and Chama applications. The system provides contextual, Bitcoin-themed notifications with appropriate icons, colors, and **transaction links to the Citrea testnet explorer** for blockchain operations.
+The Jenga app uses a highly customized toast notification system specifically designed for ROSCA (Rotating Savings and Credit Association) and Chama applications. The system features **Bitcoin yellow (#F7931A) theming**, **full dark mode support**, and **transaction links to the Citrea testnet explorer** for blockchain operations.
 
 ## Features
 
-- **8 specialized toast variants** with Bitcoin/financial theming
-- **Card-like design** with white backgrounds and colored icon badges
+- **Bitcoin Yellow Theming** with the official Bitcoin color (#F7931A)
+- **Full Dark Mode Support** with proper contrast and accessibility
+- **8+ specialized toast variants** with Bitcoin/financial theming
+- **Enhanced card design** with subtle glows and animations
 - **Transaction links** to Citrea testnet explorer for blockchain operations
-- **Contextual icons** for each notification type
-- **Predefined functions** for common ROSCA operations
-- **Enhanced accessibility** with proper contrast and screen reader support
+- **Bitcoin-specific functions** for network status, price updates, and milestones
+- **Contextual icons** with colored badges for each notification type
+- **Smooth animations** and transitions for enhanced user experience
 
 ## Toast Variants
 
 ### 1. Contribution (`contribution`)
-- **Design**: White card with green icon badge and border
+- **Light Mode**: White card with Bitcoin yellow (#F7931A) icon badge and border
+- **Dark Mode**: Dark gray card with Bitcoin yellow accents and enhanced glow
+- **Features**: Transaction link, subtle pulse animation
 - **Use**: Successful contribution to a group
-- **Features**: Transaction link to Citrea explorer
 - **Example**: "Contribution Successful! 🎉"
 
 ### 2. Payout (`payout`)
-- **Design**: White card with emerald icon badge and border
-- **Use**: Received payout from a group
+- **Light Mode**: White card with emerald icon badge and border
+- **Dark Mode**: Dark gray card with emerald accents
 - **Features**: Transaction link to Citrea explorer
+- **Use**: Received payout from a group
 - **Example**: "Payout Received! 💰"
 
 ### 3. Group Created (`groupCreated`)
-- **Design**: White card with orange icon badge and border
+- **Light Mode**: White card with Bitcoin yellow icon badge and enhanced border
+- **Dark Mode**: Dark gray card with Bitcoin yellow glow effect
+- **Features**: Transaction link, pulse animation, enhanced Bitcoin theming
 - **Use**: Successfully created a new ROSCA group
-- **Features**: Transaction link to Citrea explorer
 - **Example**: "Group Created Successfully! 🚀"
+
+### 4. Pending (`pending`)
+- **Light Mode**: White card with subtle Bitcoin yellow accents
+- **Dark Mode**: Dark gray card with Bitcoin yellow glow
+- **Features**: Pulse animation, Bitcoin theming
+- **Use**: Blockchain transactions in progress
+- **Example**: "Transaction Pending ⏳"
 
 ### 4. Member Joined (`memberJoined`)
 - **Design**: White card with blue icon badge and border
@@ -172,14 +184,42 @@ Shows warning message.
 warning("Low Balance", "Your wallet balance is running low");
 ```
 
-### Reminders
+### Bitcoin-Specific Functions
 
-#### `contributionReminder(daysLeft: number, amount: string)`
-Shows reminder for upcoming contributions.
+#### `networkStatus(status: 'connected' | 'disconnected' | 'slow')`
+Shows network connection status with appropriate styling.
 ```typescript
-contributionReminder(2, "0.001");
-// "Contribution Due Soon! ⏰"
-// "0.001 cBTC contribution due in 2 days"
+networkStatus('connected');
+// "Network Connected! ⚡"
+// "Connected to Citrea testnet successfully"
+
+networkStatus('slow');
+// "Network Slow! 🐌"
+// "Citrea testnet is experiencing delays"
+```
+
+#### `bitcoinPriceUpdate(price: string, change: number)`
+Shows Bitcoin price updates for engagement (fun feature).
+```typescript
+bitcoinPriceUpdate("45,230", 2.5);
+// "₿ Bitcoin 📈 $45,230"
+// "+2.50% in the last 24h"
+```
+
+#### `balanceUpdate(newBalance: string, change?: string)`
+Shows wallet balance updates with Bitcoin yellow theming.
+```typescript
+balanceUpdate("0.0125", "+0.001");
+// "Balance Updated! 💰"
+// "Your wallet balance: 0.0125 cBTC (+0.001)"
+```
+
+#### `groupMilestone(milestone: string, groupName: string)`
+Shows group achievement notifications.
+```typescript
+groupMilestone("10 successful rounds", "Family Savings");
+// "Milestone Achieved! 🏆"
+// "Family Savings has reached 10 successful rounds"
 ```
 
 ## Best Practices

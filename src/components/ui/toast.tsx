@@ -27,17 +27,18 @@ const toastVariants = cva(
   {
     variants: {
       variant: {
-        default: "border-gray-200 bg-white text-gray-900 shadow-md",
-        destructive: "border-red-200 bg-white text-gray-900 shadow-md",
+        // Default variants - Light and Dark
+        default: "border-gray-200 bg-white text-gray-900 shadow-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100",
+        destructive: "border-red-200 bg-white text-gray-900 shadow-md dark:border-red-800 dark:bg-gray-800 dark:text-gray-100",
         
-        // ROSCA/Chama specific variants - all with white card-like backgrounds
-        contribution: "border-green-200 bg-white text-gray-900 shadow-md",
-        payout: "border-emerald-200 bg-white text-gray-900 shadow-md",
-        groupCreated: "border-orange-200 bg-white text-gray-900 shadow-md",
-        memberJoined: "border-blue-200 bg-white text-gray-900 shadow-md",
-        warning: "border-yellow-200 bg-white text-gray-900 shadow-md",
-        pending: "border-blue-200 bg-white text-gray-900 shadow-md",
-        success: "border-green-200 bg-white text-gray-900 shadow-md",
+        // ROSCA/Chama specific variants with Bitcoin yellow theming
+        contribution: "border-[#F7931A]/30 bg-white text-gray-900 shadow-lg shadow-[#F7931A]/10 dark:border-[#F7931A]/50 dark:bg-gray-800 dark:text-gray-100 dark:shadow-[#F7931A]/20",
+        payout: "border-emerald-200 bg-white text-gray-900 shadow-lg shadow-emerald-500/10 dark:border-emerald-700 dark:bg-gray-800 dark:text-gray-100 dark:shadow-emerald-500/20",
+        groupCreated: "border-[#F7931A]/40 bg-white text-gray-900 shadow-lg shadow-[#F7931A]/15 dark:border-[#F7931A]/60 dark:bg-gray-800 dark:text-gray-100 dark:shadow-[#F7931A]/25",
+        memberJoined: "border-blue-200 bg-white text-gray-900 shadow-lg shadow-blue-500/10 dark:border-blue-700 dark:bg-gray-800 dark:text-gray-100 dark:shadow-blue-500/20",
+        warning: "border-yellow-200 bg-white text-gray-900 shadow-lg shadow-yellow-500/10 dark:border-yellow-600 dark:bg-gray-800 dark:text-gray-100 dark:shadow-yellow-500/20",
+        pending: "border-[#F7931A]/25 bg-white text-gray-900 shadow-lg shadow-[#F7931A]/8 dark:border-[#F7931A]/45 dark:bg-gray-800 dark:text-gray-100 dark:shadow-[#F7931A]/15",
+        success: "border-green-200 bg-white text-gray-900 shadow-lg shadow-green-500/10 dark:border-green-700 dark:bg-gray-800 dark:text-gray-100 dark:shadow-green-500/20",
       },
     },
     defaultVariants: {
@@ -59,30 +60,30 @@ const toastIcons = {
   success: CheckCircle,
 } as const
 
-// Icon background colors for different toast types
+// Icon background colors for different toast types (Light and Dark mode)
 const iconBackgrounds = {
-  default: 'bg-gray-100',
-  destructive: 'bg-red-100',
-  contribution: 'bg-green-100',
-  payout: 'bg-emerald-100',
-  groupCreated: 'bg-orange-100',
-  memberJoined: 'bg-blue-100',
-  warning: 'bg-yellow-100',
-  pending: 'bg-blue-100',
-  success: 'bg-green-100',
+  default: 'bg-gray-100 dark:bg-gray-700',
+  destructive: 'bg-red-100 dark:bg-red-900/30',
+  contribution: 'bg-[#F7931A]/10 dark:bg-[#F7931A]/20',
+  payout: 'bg-emerald-100 dark:bg-emerald-900/30',
+  groupCreated: 'bg-[#F7931A]/15 dark:bg-[#F7931A]/25',
+  memberJoined: 'bg-blue-100 dark:bg-blue-900/30',
+  warning: 'bg-yellow-100 dark:bg-yellow-900/30',
+  pending: 'bg-[#F7931A]/8 dark:bg-[#F7931A]/15',
+  success: 'bg-green-100 dark:bg-green-900/30',
 } as const
 
-// Icon colors for different toast types
+// Icon colors for different toast types (Light and Dark mode)
 const iconColors = {
-  default: 'text-gray-600',
-  destructive: 'text-red-600',
-  contribution: 'text-green-600',
-  payout: 'text-emerald-600',
-  groupCreated: 'text-orange-600',
-  memberJoined: 'text-blue-600',
-  warning: 'text-yellow-600',
-  pending: 'text-blue-600',
-  success: 'text-green-600',
+  default: 'text-gray-600 dark:text-gray-300',
+  destructive: 'text-red-600 dark:text-red-400',
+  contribution: 'text-[#F7931A] dark:text-[#F7931A]',
+  payout: 'text-emerald-600 dark:text-emerald-400',
+  groupCreated: 'text-[#F7931A] dark:text-[#F7931A]',
+  memberJoined: 'text-blue-600 dark:text-blue-400',
+  warning: 'text-yellow-600 dark:text-yellow-400',
+  pending: 'text-[#F7931A] dark:text-[#F7931A]',
+  success: 'text-green-600 dark:text-green-400',
 } as const
 
 const Toast = React.forwardRef<
@@ -94,19 +95,33 @@ const Toast = React.forwardRef<
   const iconBg = variant ? iconBackgrounds[variant] : iconBackgrounds.default;
   const iconColor = variant ? iconColors[variant] : iconColors.default;
   
+  // Add special Bitcoin glow effect for Bitcoin-themed toasts
+  const isBitcoinThemed = variant === 'contribution' || variant === 'groupCreated' || variant === 'pending';
+  
   return (
     <ToastPrimitives.Root
       ref={ref}
-      className={cn(toastVariants({ variant }), "p-4", className)}
+      className={cn(
+        toastVariants({ variant }), 
+        "p-4 backdrop-blur-sm",
+        // Add subtle Bitcoin glow for Bitcoin-themed toasts
+        isBitcoinThemed && "ring-1 ring-[#F7931A]/20 dark:ring-[#F7931A]/30",
+        className
+      )}
       {...props}
     >
       <div className="flex items-start gap-3 flex-1">
         {IconComponent && (
-          <div className={cn("flex-shrink-0 p-2 rounded-full", iconBg)}>
-            <IconComponent className={cn("h-4 w-4", iconColor)} />
+          <div className={cn(
+            "flex-shrink-0 p-2.5 rounded-full transition-all duration-300",
+            iconBg,
+            // Add subtle pulse animation for Bitcoin-themed toasts
+            isBitcoinThemed && "animate-pulse"
+          )}>
+            <IconComponent className={cn("h-4 w-4 transition-colors duration-300", iconColor)} />
           </div>
         )}
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pt-0.5">
           {props.children}
         </div>
       </div>
@@ -137,7 +152,7 @@ const ToastClose = React.forwardRef<
   <ToastPrimitives.Close
     ref={ref}
     className={cn(
-      "absolute right-2 top-2 rounded-md p-1 text-gray-400 opacity-0 transition-opacity hover:text-gray-600 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 group-hover:opacity-100",
+      "absolute right-2 top-2 rounded-md p-1 text-gray-400 opacity-0 transition-opacity hover:text-gray-600 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 group-hover:opacity-100 dark:text-gray-500 dark:hover:text-gray-300 dark:focus:ring-gray-500 dark:focus:ring-offset-gray-800",
       className
     )}
     toast-close=""
@@ -154,7 +169,7 @@ const ToastTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Title
     ref={ref}
-    className={cn("text-sm font-semibold", className)}
+    className={cn("text-sm font-semibold leading-tight text-gray-900 dark:text-gray-100", className)}
     {...props}
   />
 ))
@@ -166,7 +181,7 @@ const ToastDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <ToastPrimitives.Description
     ref={ref}
-    className={cn("text-sm opacity-90", className)}
+    className={cn("text-sm text-gray-600 dark:text-gray-300 leading-relaxed mt-1", className)}
     {...props}
   />
 ))
