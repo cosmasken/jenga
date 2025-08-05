@@ -143,9 +143,9 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
 
 -- Allow anonymous users to read public data
 GRANT SELECT ON achievements TO anon;
-GRANT SELECT ON system_settings TO anon WHERE is_public = true;
 GRANT SELECT ON groups TO anon;
 GRANT SELECT ON platform_analytics TO anon;
+-- Note: system_settings access for anon users will be controlled by RLS policies when enabled
 
 -- =====================================================
 -- CONFIRMATION MESSAGE
