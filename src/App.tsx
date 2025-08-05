@@ -12,6 +12,8 @@ import { useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
+import BrowseChamas from "@/pages/browse-chamas";
+import ChamaDetail from "@/pages/chama-detail";
 import GroupDetail from "@/pages/group-detail";
 import Disputes from "@/pages/disputes";
 import Profile from "@/pages/profile";
@@ -37,6 +39,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/browse" component={BrowseChamas} />
+      <Route path="/chama/:id" component={ChamaDetail} />
       <Route path="/group/:id" component={GroupDetail} />
       <Route path="/disputes" component={Disputes} />
       <Route path="/profile" component={Profile} />
