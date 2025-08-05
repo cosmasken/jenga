@@ -8,6 +8,7 @@ const CITREA_EXPLORER_URL = "https://explorer.testnet.citrea.xyz";
 
 /**
  * Create a transaction link button for the toast action
+ * Styled with Bitcoin yellow theming and dark mode support
  */
 const createTxLinkAction = (txHash: string) => {
   const handleClick = () => {
@@ -19,10 +20,10 @@ const createTxLinkAction = (txHash: string) => {
       variant="ghost"
       size="sm"
       onClick={handleClick}
-      className="h-8 px-2 text-xs hover:bg-gray-100"
+      className="h-8 px-3 text-xs font-medium bg-[#F7931A]/10 hover:bg-[#F7931A]/20 text-[#F7931A] border border-[#F7931A]/20 hover:border-[#F7931A]/30 transition-all duration-200 dark:bg-[#F7931A]/15 dark:hover:bg-[#F7931A]/25 dark:border-[#F7931A]/30 dark:hover:border-[#F7931A]/40"
     >
-      <ExternalLink className="h-3 w-3 mr-1" />
-      View Tx
+      <ExternalLink className="h-3 w-3 mr-1.5" />
+      View Transaction
     </Button>
   );
 };
@@ -158,7 +159,72 @@ export function useRoscaToast() {
     });
   };
 
+  /**
+   * Show Bitcoin network status toast
+   */
+  const networkStatus = (status: 'connected' | 'disconnected' | 'slow') => {
+    const statusConfig = {
+      connected: {
+        variant: "success" as const,
+        title: "Network Connected! ⚡",
+        description: "Connected to Citrea testnet successfully"
+      },
+      disconnected: {
+        variant: "destructive" as const,
+        title: "Network Disconnected! 🔌",
+        description: "Lost connection to Citrea testnet"
+      },
+      slow: {
+        variant: "warning" as const,
+        title: "Network Slow! 🐌",
+        description: "Citrea testnet is experiencing delays"
+      }
+    };
+
+    const config = statusConfig[status];
+    return toast({
+      variant: config.variant,
+      title: config.title,
+      description: config.description,
+    });
+  };
+
+  /**
+   * Show Bitcoin price update toast (for fun/engagement)
+   */
+  const bitcoinPriceUpdate = (price: string, change: number) => {
+    const isPositive = change >= 0;
+    return toast({
+      variant: isPositive ? "success" : "warning",
+      title: `₿ Bitcoin ${isPositive ? '📈' : '📉'} $${price}`,
+      description: `${isPositive ? '+' : ''}${change.toFixed(2)}% in the last 24h`,
+    });
+  };
+
+  /**
+   * Show wallet balance update toast
+   */
+  const balanceUpdate = (newBalance: string, change?: string) => {
+    return toast({
+      variant: "contribution",
+      title: "Balance Updated! 💰",
+      description: `Your wallet balance: ${newBalance} cBTC${change ? ` (${change})` : ''}`,
+    });
+  };
+
+  /**
+   * Show group milestone toast
+   */
+  const groupMilestone = (milestone: string, groupName: string) => {
+    return toast({
+      variant: "groupCreated",
+      title: "Milestone Achieved! 🏆",
+      description: `${groupName} has reached ${milestone}`,
+    });
+  };
+
   return {
+    // Core ROSCA functions
     contributionSuccess,
     payoutReceived,
     groupCreated,
@@ -170,6 +236,13 @@ export function useRoscaToast() {
     welcome,
     roundCompleted,
     contributionReminder,
+    
+    // Bitcoin-specific functions
+    networkStatus,
+    bitcoinPriceUpdate,
+    balanceUpdate,
+    groupMilestone,
+    
     // Expose the base toast function for custom use
     toast,
   };
