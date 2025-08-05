@@ -33,6 +33,7 @@ import { Separator } from '@/components/ui/separator';
 import { useRosca } from '@/hooks/useRosca';
 import { useRoscaToast } from '@/hooks/use-rosca-toast';
 import { useErrorHandler } from '@/hooks/use-error-handler';
+import { WalletDropdown } from '@/components/WalletDropdown';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -311,6 +312,7 @@ export default function ChamaDetail() {
               <Button variant="outline" size="icon" onClick={handleShare}>
                 <Share2 className="h-4 w-4" />
               </Button>
+              <WalletDropdown />
               <ThemeToggle />
             </div>
           </div>

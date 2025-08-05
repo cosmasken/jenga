@@ -12,6 +12,7 @@ import { useRoscaToast } from "@/hooks/use-rosca-toast";
 import { useEventListener } from "@/hooks/use-event-listener";
 import { useNotifications } from "@/hooks/use-notifications";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { WalletDropdown } from "@/components/WalletDropdown";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet, Bell, BellOff } from "lucide-react";
 
@@ -151,6 +152,9 @@ export default function Dashboard() {
                                 {eventListener.isMonitoring ? 'Live' : 'Offline'}
                             </span>
                         </div>
+
+                        {/* Wallet Dropdown */}
+                        <WalletDropdown />
 
                         <ThemeToggle />
                     </div>
