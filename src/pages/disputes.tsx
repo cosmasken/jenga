@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 import { useRosca } from "../hooks/useRosca";
 import { useLocation } from "wouter";
-import { useToast } from "@/hooks/use-toast";
+import { useRoscaToast } from "@/hooks/use-rosca-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,7 +30,7 @@ export default function Disputes() {
     const isLoggedIn = useIsLoggedIn();
     const [, setLocation] = useLocation();
     const { isConnected, groupCount, getGroupCount } = useRosca();
-    const { toast } = useToast();
+    const { success, warning, error } = useRoscaToast();
 
     // Local state for disputes (in a real app, this would come from a backend/contract)
     const [disputes, setDisputes] = useState<Dispute[]>([]);
@@ -80,11 +80,7 @@ export default function Disputes() {
         }
 
         if (!primaryWallet?.address) {
-            toast({
-                title: "Wallet Error",
-                description: "Please ensure your wallet is connected",
-                variant: "destructive",
-            });
+            error("Wallet Error", "Please ensure your wallet is connected");
             return;
         }
 
@@ -112,10 +108,7 @@ export default function Disputes() {
         });
         setShowCreateForm(false);
 
-        toast({
-            title: "Dispute Submitted",
-            description: "Your dispute has been submitted and is under review",
-        });
+        success("Dispute Submitted! ⚖️", "Your dispute has been submitted and is under review");
     };
 
     const handleVoteOnDispute = (disputeId: string) => {

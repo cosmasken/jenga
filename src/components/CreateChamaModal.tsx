@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRosca } from '../hooks/useRosca';
+import { useRoscaToast } from '../hooks/use-rosca-toast';
 
 interface CreateChamaModalProps {
   open: boolean;
@@ -19,6 +20,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   
   const { primaryWallet, user } = useDynamicContext();
   const { createGroup, isLoading, error, isConnected } = useRosca();
+  const { groupCreated, error: showError, transactionPending } = useRoscaToast();
 
   // Form validation
   const formValidation = React.useMemo(() => {
@@ -77,16 +79,23 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     try {
       setCurrentStep('transaction');
       
+      // Show pending transaction toast
+      const pendingToast = transactionPending("group creation");
+      
       await createGroup({
         token: '0x0000000000000000000000000000000000000000', // ETH address for native token
         contribution: formData.contributionAmount,
         roundLength: parseInt(formData.roundLength) * 24 * 60 * 60 // Convert days to seconds
       });
       
-      // Success will be handled by the hook
+      // Dismiss pending toast and show success
+      pendingToast.dismiss();
+      groupCreated(formData.name, parseInt(formData.maxMembers));
+      
       setTimeout(() => resetModal(), 2000);
     } catch (err) {
       console.error('Error creating chama:', err);
+      showError("Group Creation Failed", "Please try again or check your wallet connection");
       setCurrentStep('preview'); // Go back to preview step
     }
   };
