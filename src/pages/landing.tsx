@@ -11,23 +11,27 @@ import {
   Star
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { DynamicConnectButton } from '@/components/ui/dynamic-connect-button';
+import { useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 
 export default function LandingPage() {
   const isLoggedIn = useIsLoggedIn();
   const [, setLocation] = useLocation();
-  const { setShowAuthFlow } = useDynamicContext();
-
-  const handleConnect = () => {
-    setShowAuthFlow(true);
-  };
 
   // Redirect authenticated users away from landing page
   useEffect(() => {
     const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
-    if (isLoggedIn && onboardingCompleted) {
-      console.log('🔄 Authenticated user on landing page, redirecting to dashboard');
-      setLocation('/dashboard');
+    
+    if (isLoggedIn) {
+      console.log('🔄 User connected wallet on landing page');
+      
+      if (onboardingCompleted) {
+        console.log('🔄 Onboarding completed, redirecting to dashboard');
+        setLocation('/dashboard');
+      } else {
+        console.log('🔄 Onboarding not completed, redirecting to onboarding');
+        setLocation('/onboarding');
+      }
     }
   }, [isLoggedIn, setLocation]);
 
@@ -98,14 +102,12 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-3">
-              <Button
-                onClick={handleConnect}
+              <DynamicConnectButton
+                connectText="Connect Wallet"
                 className="bg-bitcoin hover:bg-bitcoin/90 text-white text-sm sm:text-base"
-              >
-                <Wallet size={16} className="mr-2" />
-                <span className="hidden sm:inline">Connect Wallet</span>
-                <span className="inline sm:hidden">Connect</span>
-              </Button>
+                showIcon={true}
+                showConnectedState={false}
+              />
             </div>
           </div>
         </div>
@@ -130,15 +132,13 @@ export default function LandingPage() {
               Transparent, secure, and built for families, friends, and communities.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                onClick={handleConnect}
+              <DynamicConnectButton
+                connectText="Start Saving Now"
                 size="lg"
                 className="bg-bitcoin hover:bg-bitcoin/90 text-white px-8 py-4 text-lg"
-              >
-                <Wallet size={20} className="mr-2" />
-                Start Saving Now
-                <ArrowRight size={20} className="ml-2" />
-              </Button>
+                showIcon={true}
+                showConnectedState={false}
+              />
               <Button
                 variant="outline"
                 size="lg"
@@ -320,15 +320,13 @@ export default function LandingPage() {
             <p className="text-xl mb-8 opacity-90">
               Join thousands of families building wealth together with Bitcoin-powered ROSCA circles
             </p>
-            <Button
-              onClick={handleConnect}
+            <DynamicConnectButton
+              connectText="Connect Wallet & Start Saving"
               size="lg"
               className="bg-white text-bitcoin hover:bg-gray-100 px-8 py-4 text-lg font-semibold"
-            >
-              <Wallet size={20} className="mr-2" />
-              Connect Wallet & Start Saving
-              <ArrowRight size={20} className="ml-2" />
-            </Button>
+              showIcon={true}
+              showConnectedState={false}
+            />
           </motion.div>
         </div>
       </section>
