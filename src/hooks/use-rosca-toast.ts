@@ -1,4 +1,30 @@
 import { useToast } from "./use-toast";
+import { Button } from "@/components/ui/button";
+import { ExternalLink } from "lucide-react";
+
+// Citrea testnet explorer URL
+const CITREA_EXPLORER_URL = "https://explorer.testnet.citrea.xyz";
+
+/**
+ * Create a transaction link button for the toast action
+ */
+const createTxLinkAction = (txHash: string) => {
+  const handleClick = () => {
+    window.open(`${CITREA_EXPLORER_URL}/tx/${txHash}`, '_blank', 'noopener,noreferrer');
+  };
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={handleClick}
+      className="h-8 px-2 text-xs hover:bg-gray-100"
+    >
+      <ExternalLink className="h-3 w-3 mr-1" />
+      View Tx
+    </Button>
+  );
+};
 
 /**
  * Custom hook for ROSCA/Chama-specific toast notifications
@@ -10,33 +36,36 @@ export function useRoscaToast() {
   /**
    * Show success toast for contribution made
    */
-  const contributionSuccess = (amount: string, groupName?: string) => {
+  const contributionSuccess = (amount: string, groupName?: string, txHash?: string) => {
     return toast({
       variant: "contribution",
       title: "Contribution Successful! 🎉",
       description: `You contributed ${amount} cBTC${groupName ? ` to ${groupName}` : ''}`,
+      action: txHash ? createTxLinkAction(txHash) : undefined,
     });
   };
 
   /**
    * Show success toast for payout received
    */
-  const payoutReceived = (amount: string, groupName?: string) => {
+  const payoutReceived = (amount: string, groupName?: string, txHash?: string) => {
     return toast({
       variant: "payout",
       title: "Payout Received! 💰",
       description: `You received ${amount} cBTC${groupName ? ` from ${groupName}` : ''}`,
+      action: txHash ? createTxLinkAction(txHash) : undefined,
     });
   };
 
   /**
    * Show success toast for group creation
    */
-  const groupCreated = (groupName: string, memberCount?: number) => {
+  const groupCreated = (groupName: string, memberCount?: number, txHash?: string) => {
     return toast({
       variant: "groupCreated",
       title: "Group Created Successfully! 🚀",
       description: `${groupName} is ready${memberCount ? ` with ${memberCount} members` : ''}`,
+      action: txHash ? createTxLinkAction(txHash) : undefined,
     });
   };
 

@@ -77,7 +77,8 @@ export default function GroupDetail() {
         pendingToast.dismiss();
         contributionSuccess(
           formatContribution(group.contribution), 
-          group.name || `Group ${id}`
+          group.name || `Group ${id}`,
+          hash
         );
 
         // Reload group data after contribution
