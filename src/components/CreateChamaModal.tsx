@@ -17,12 +17,28 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     maxMembers: ''
   });
   const [showAdvancedDetails, setShowAdvancedDetails] = useState(false);
+  const [maxSpendable, setMaxSpendable] = useState<string>('0');
   
   const { primaryWallet, user } = useDynamicContext();
-  const { createGroup, isLoading, error, isConnected } = useRosca();
+  const { 
+    createGroup, 
+    isLoading, 
+    error, 
+    isConnected, 
+    balance, 
+    isLoadingBalance, 
+    getMaxSpendableAmount 
+  } = useRosca();
   const { groupCreated, error: showError, transactionPending } = useRoscaToast();
 
-  // Form validation
+  // Get max spendable amount when modal opens or balance changes
+  useEffect(() => {
+    if (open && isConnected) {
+      getMaxSpendableAmount().then(setMaxSpendable);
+    }
+  }, [open, isConnected, balance, getMaxSpendableAmount]);
+
+  // Enhanced form validation with balance checking
   const formValidation = React.useMemo(() => {
     if (!formData.contributionAmount) {
       return { isValid: true, error: null };
@@ -30,6 +46,8 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
     try {
       const contribution = parseFloat(formData.contributionAmount);
+      const maxSpendableNum = parseFloat(maxSpendable);
+      const balanceNum = parseFloat(balance);
       
       // Validate minimum contribution (0.0001 cBTC)
       if (contribution < 0.0001) {
@@ -37,6 +55,24 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
           isValid: false,
           error: 'Minimum contribution is 0.0001 cBTC',
           shortError: 'Below minimum'
+        };
+      }
+
+      // Validate against balance (accounting for gas)
+      if (contribution > maxSpendableNum) {
+        return {
+          isValid: false,
+          error: `Amount exceeds available balance. Maximum: ${maxSpendableNum} cBTC`,
+          shortError: 'Exceeds balance'
+        };
+      }
+
+      // Warning if using more than 80% of balance
+      if (contribution > balanceNum * 0.8) {
+        return {
+          isValid: true,
+          error: null,
+          warning: 'Using most of your balance. Ensure you have enough for future transactions.'
         };
       }
       
@@ -47,7 +83,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     } catch {
       return { isValid: true, error: null };
     }
-  }, [formData.contributionAmount]);
+  }, [formData.contributionAmount, maxSpendable, balance]);
 
   // Reset modal state
   const resetModal = () => {
@@ -210,6 +246,94 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                     cBTC
                   </span>
                 </div>
+
+                {/* Balance Information */}
+                <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center gap-2">
+                    <span>Balance:</span>
+                    {isLoadingBalance ? (
+                      <span className="animate-pulse">Loading...</span>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono">{parseFloat(balance).toFixed(6)} cBTC</span>
+                        <button
+                          type="button"
+                          onClick={() => getMaxSpendableAmount().then(setMaxSpendable)}
+                          className="text-bitcoin hover:text-bitcoin-dark transition-colors"
+                          disabled={isLoadingBalance}
+                          title="Refresh balance"
+                        >
+                          🔄
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span>Max (after gas):</span>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, contributionAmount: maxSpendable }))}
+                      className="font-mono text-bitcoin hover:text-bitcoin-dark underline cursor-pointer transition-colors"
+                      disabled={isLoadingBalance || parseFloat(maxSpendable) <= 0}
+                      title="Use maximum amount"
+                    >
+                      {parseFloat(maxSpendable).toFixed(6)} cBTC
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Amount Buttons */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-600 dark:text-gray-400">Quick amounts:</span>
+                  <div className="flex gap-1">
+                    {['0.001', '0.01', '0.1'].map((amount) => (
+                      <button
+                        key={amount}
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, contributionAmount: amount }))}
+                        className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                        disabled={parseFloat(amount) > parseFloat(maxSpendable)}
+                      >
+                        {amount}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, contributionAmount: (parseFloat(maxSpendable) * 0.5).toFixed(6) }))}
+                      className="px-2 py-1 text-xs bg-bitcoin/10 hover:bg-bitcoin/20 text-bitcoin rounded transition-colors"
+                      disabled={parseFloat(maxSpendable) <= 0}
+                    >
+                      50%
+                    </button>
+                  </div>
+                </div>
+
+                {/* Warning for high balance usage */}
+                {formValidation.warning && (
+                  <div className="flex items-center gap-2 text-sm text-yellow-600 dark:text-yellow-400">
+                    <span className="w-4 h-4">⚠️</span>
+                    <span>{formValidation.warning}</span>
+                  </div>
+                )}
+
+                {/* Low balance warning */}
+                {parseFloat(balance) < 0.01 && parseFloat(balance) > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-orange-600 dark:text-orange-400">
+                    <span className="w-4 h-4">⚠️</span>
+                    <span>
+                      Low balance detected. Consider getting more cBTC from the{' '}
+                      <a 
+                        href="https://faucet.testnet.citrea.xyz" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="underline hover:text-orange-700 dark:hover:text-orange-300"
+                      >
+                        faucet
+                      </a>
+                      .
+                    </span>
+                  </div>
+                )}
                 
                 {/* Validation Error */}
                 {!formValidation.isValid && (
