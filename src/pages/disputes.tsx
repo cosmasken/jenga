@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
-import { useRosca } from "@/hooks/useRosca";
+import { useRosca } from "../hooks/useRosca";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -14,15 +14,15 @@ import { Badge } from "@/components/ui/badge";
 import { Gavel, TriangleAlert, Clock, Check, AlertCircle, TrendingUp, Wallet, FileText, Users } from "lucide-react";
 
 interface Dispute {
-  id: string;
-  groupId: string;
-  groupName: string;
-  type: string;
-  description: string;
-  evidence: string;
-  status: 'pending' | 'investigating' | 'resolved';
-  createdAt: Date;
-  reporter: string;
+    id: string;
+    groupId: string;
+    groupName: string;
+    type: string;
+    description: string;
+    evidence: string;
+    status: 'pending' | 'investigating' | 'resolved';
+    createdAt: Date;
+    reporter: string;
 }
 
 export default function Disputes() {
@@ -102,7 +102,7 @@ export default function Disputes() {
         };
 
         setDisputes(prev => [newDispute, ...prev]);
-        
+
         // Reset form
         setDisputeForm({
             groupId: "",
@@ -312,7 +312,7 @@ export default function Disputes() {
                                             </Select>
                                         </div>
                                     </div>
-                                    
+
                                     <div>
                                         <Label htmlFor="description">Description *</Label>
                                         <Textarea
@@ -327,7 +327,7 @@ export default function Disputes() {
                                             required
                                         />
                                     </div>
-                                    
+
                                     <div>
                                         <Label htmlFor="evidence">Evidence (Optional)</Label>
                                         <Textarea
@@ -341,7 +341,7 @@ export default function Disputes() {
                                             rows={3}
                                         />
                                     </div>
-                                    
+
                                     <div className="flex gap-4">
                                         <Button
                                             type="submit"
@@ -374,7 +374,7 @@ export default function Disputes() {
                             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
                                 All Disputes
                             </h2>
-                            
+
                             {disputes.length === 0 ? (
                                 <div className="text-center py-12">
                                     <Gavel className="h-16 w-16 mx-auto mb-4 text-gray-400" />
@@ -415,11 +415,11 @@ export default function Disputes() {
                                                         {dispute.status.toUpperCase()}
                                                     </Badge>
                                                 </div>
-                                                
+
                                                 <p className="text-gray-700 dark:text-gray-300 mb-3">
                                                     {dispute.description}
                                                 </p>
-                                                
+
                                                 {dispute.evidence && (
                                                     <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 mb-3">
                                                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -430,7 +430,7 @@ export default function Disputes() {
                                                         </p>
                                                     </div>
                                                 )}
-                                                
+
                                                 <div className="flex gap-2">
                                                     <Button
                                                         size="sm"

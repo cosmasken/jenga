@@ -47,14 +47,18 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
   }, []);
 
   const handleNext = () => {
+    console.log('Next button clicked, current step:', currentStep, 'total steps:', totalSteps);
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
+      console.log('Moving to step:', currentStep + 1);
     }
   };
 
   const handlePrevious = () => {
+    console.log('Previous button clicked, current step:', currentStep);
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
+      console.log('Moving to step:', currentStep - 1);
     }
   };
 
@@ -88,10 +92,22 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     }
   };
 
-  const canProceedStep1 = isConnected && primaryWallet;
+  // Simplified validation for testing - can be made stricter later
+  const canProceedStep1 = true; // Always allow step 1 to proceed for testing
   const canProceedStep2 = displayName.trim().length >= 2;
   const canProceedStep3 = true; // Terms acceptance step
-  const canComplete = canProceedStep1 && canProceedStep2 && canProceedStep3;
+  const canComplete = isLoggedIn && primaryWallet && canProceedStep2;
+
+  // Debug logging
+  console.log('Onboarding validation:', {
+    currentStep,
+    isLoggedIn,
+    primaryWallet: !!primaryWallet,
+    displayName: displayName.length,
+    canProceedStep1,
+    canProceedStep2,
+    canProceedStep3
+  });
 
   if (!isLoggedIn || !open) {
     return null;
@@ -343,24 +359,41 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
 
             {/* Navigation Buttons */}
             <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200">
-              <Button
-                variant="outline"
-                onClick={handlePrevious}
-                disabled={currentStep === 1}
-                className="flex items-center gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Previous
-              </Button>
+              {/* Debug Info - Remove in production */}
+              <div className="text-xs text-gray-500 flex-1 mr-4">
+                Step {currentStep}/{totalSteps} | 
+                Logged: {isLoggedIn ? '✓' : '✗'} | 
+                Wallet: {primaryWallet ? '✓' : '✗'} | 
+                Name: {displayName.length}chars
+                <br />
+                <button 
+                  onClick={() => setCurrentStep(Math.min(currentStep + 1, totalSteps))}
+                  className="text-blue-500 underline text-xs mt-1"
+                >
+                  [Debug: Force Next]
+                </button>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handlePrevious}
+                  disabled={currentStep === 1}
+                  className="flex items-center gap-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Previous
+                </Button>
 
               {currentStep < totalSteps ? (
                 <Button
                   onClick={handleNext}
                   disabled={
                     (currentStep === 1 && !canProceedStep1) ||
-                    (currentStep === 2 && !canProceedStep2)
+                    (currentStep === 2 && !canProceedStep2) ||
+                    (currentStep === 3 && !canProceedStep3)
                   }
-                  className="flex items-center gap-2 bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)]"
+                  className="flex items-center gap-2 bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                   <ArrowRight className="h-4 w-4" />
@@ -375,6 +408,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
                   <Check className="h-4 w-4" />
                 </Button>
               )}
+              </div>
             </div>
           </div>
         </div>
