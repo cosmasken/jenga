@@ -4,16 +4,16 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Navigation } from "@/components/navigation";
+import { OnboardingModal } from "@/components/OnboardingModal";
 import { TransactionModal } from "@/components/modals/transaction-modal";
 import { InviteModal } from "@/components/modals/invite-modal";
 import { VotingModal } from "@/components/modals/voting-modal";
 import { queryClient } from "@/lib/queryClient";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 
 import Landing from "@/pages/landing";
-import Onboarding from "@/pages/onboarding";
 import Dashboard from "@/pages/dashboard";
 import GroupDetail from "@/pages/group-detail";
 import Disputes from "@/pages/disputes";
@@ -33,17 +33,12 @@ function Router() {
     const inviteCode = urlParams.get('invite');
     if (inviteCode) {
       localStorage.setItem('jenga_invite_code', inviteCode);
-      // Redirect to onboarding if not completed and logged in
-      if (isLoggedIn && !onboardingCompleted) {
-        setLocation('/onboarding');
-      }
     }
-  }, [isLoggedIn, onboardingCompleted, setLocation]);
+  }, []);
 
   return (
     <Switch>
       <Route path="/" component={Landing} />
-      <Route path="/onboarding" component={Onboarding} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/group/:id" component={GroupDetail} />
       <Route path="/disputes" component={Disputes} />
@@ -66,31 +61,53 @@ function Router() {
 function App() {
   const [location, setLocation] = useLocation();
   const isLoggedIn = useIsLoggedIn();
+  const [showOnboarding, setShowOnboarding] = useState(false);
   
   // Check onboarding completion from localStorage
   const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
 
+  // Handle onboarding modal visibility
+  useEffect(() => {
+    if (isLoggedIn && !onboardingCompleted) {
+      setShowOnboarding(true);
+    } else {
+      setShowOnboarding(false);
+    }
+  }, [isLoggedIn, onboardingCompleted]);
+
   // Auto-redirect logic for authenticated users
   useEffect(() => {
-    if (isLoggedIn) {
-      // If user is logged in but hasn't completed onboarding
-      if (!onboardingCompleted && location !== '/onboarding' && location !== '/') {
-        setLocation('/onboarding');
-      }
+    if (isLoggedIn && onboardingCompleted) {
       // If user completed onboarding but is on landing page, redirect to dashboard
-      else if (onboardingCompleted && location === '/') {
+      if (location === '/') {
         setLocation('/dashboard');
       }
     }
   }, [isLoggedIn, onboardingCompleted, location, setLocation]);
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    // Redirect to dashboard after onboarding
+    setLocation('/dashboard');
+  };
 
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
           <div className="min-h-screen bg-background text-foreground font-sans">
-            <Navigation />
+            {/* Only show navigation if user is logged in and onboarded */}
+            {isLoggedIn && onboardingCompleted && <Navigation />}
+            
             <Router />
+            
+            {/* Onboarding Modal */}
+            <OnboardingModal 
+              open={showOnboarding} 
+              onComplete={handleOnboardingComplete}
+            />
+            
+            {/* Other Modals */}
             <TransactionModal />
             <InviteModal />
             <VotingModal />
