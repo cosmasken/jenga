@@ -65,12 +65,21 @@ function App() {
 
   // Handle onboarding modal visibility
   useEffect(() => {
-    if (isLoggedIn && !onboardingCompleted) {
-      setShowOnboarding(true);
-    } else {
-      setShowOnboarding(false);
-    }
-  }, [isLoggedIn, onboardingCompleted]);
+    const handleLoginSuccess = () => {
+      const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
+      if (onboardingCompleted) {
+        setLocation('/dashboard');
+      } else {
+        setShowOnboarding(true);
+      }
+    };
+
+    window.addEventListener('dynamic_login_success', handleLoginSuccess);
+
+    return () => {
+      window.removeEventListener('dynamic_login_success', handleLoginSuccess);
+    };
+  }, [setLocation]);
 
   // Auto-redirect logic for authenticated users
   useEffect(() => {
