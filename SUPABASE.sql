@@ -446,14 +446,7 @@ CREATE TRIGGER update_dispute_votes_updated_at BEFORE UPDATE ON dispute_votes FO
 CREATE TRIGGER update_achievements_updated_at BEFORE UPDATE ON achievements FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_system_settings_updated_at BEFORE UPDATE ON system_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Function to set configuration for RLS policies
-CREATE OR REPLACE FUNCTION set_config(setting_name text, setting_value text, is_local boolean DEFAULT false)
-RETURNS text AS $$
-BEGIN
-    PERFORM set_config(setting_name, setting_value, is_local);
-    RETURN setting_value;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- Function to calculate user trust score (set_config function removed since RLS is disabled)
 CREATE OR REPLACE FUNCTION calculate_trust_score(user_wallet TEXT)
 RETURNS DECIMAL(3,2) AS $$
 DECLARE
@@ -537,40 +530,40 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- =====================================================
--- ROW LEVEL SECURITY (RLS) POLICIES
+-- ROW LEVEL SECURITY (RLS) POLICIES - DISABLED FOR DEVELOPMENT
 -- =====================================================
+-- RLS is disabled for development to avoid authentication complications
+-- For production deployment, run ENABLERLS.sql to enable proper security
+-- All tables use simple role-based access control during development
 
--- Enable RLS on sensitive tables (temporarily disable for users during development)
+-- RLS is disabled on all tables for development
 -- ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
-ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE contributions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE disputes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE dispute_votes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_achievements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE contributions ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE disputes ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE dispute_votes ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE user_achievements ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
--- Users policies (commented out while RLS is disabled)
+-- Users policies (disabled for development)
 -- CREATE POLICY "Users can view own profile" ON users FOR SELECT USING (wallet_address = current_setting('app.current_user_wallet', true));
 -- CREATE POLICY "Users can update own profile" ON users FOR UPDATE USING (wallet_address = current_setting('app.current_user_wallet', true));
 -- CREATE POLICY "Users can insert own profile" ON users FOR INSERT WITH CHECK (wallet_address = current_setting('app.current_user_wallet', true));
 
--- Allow users to create their initial profile (for onboarding)
--- CREATE POLICY "Allow user creation during onboarding" ON users FOR INSERT WITH CHECK (true);
+-- Groups policies (disabled for development)
+-- CREATE POLICY "Groups are publicly readable" ON groups FOR SELECT USING (true);
+-- CREATE POLICY "Creators can modify their groups" ON groups FOR ALL USING (creator_wallet_address = current_setting('app.current_user_wallet', true));
 
--- Groups are publicly readable, but only creators can modify
-CREATE POLICY "Groups are publicly readable" ON groups FOR SELECT USING (true);
-CREATE POLICY "Creators can modify their groups" ON groups FOR ALL USING (creator_wallet_address = current_setting('app.current_user_wallet', true));
+-- Group members policies (disabled for development)
+-- CREATE POLICY "Group members can view group membership" ON group_members FOR SELECT USING (
+--     wallet_address = current_setting('app.current_user_wallet', true) OR
+--     group_id IN (SELECT group_id FROM group_members WHERE wallet_address = current_setting('app.current_user_wallet', true))
+-- );
 
--- Group members can see members of groups they belong to
-CREATE POLICY "Group members can view group membership" ON group_members FOR SELECT USING (
-    wallet_address = current_setting('app.current_user_wallet', true) OR
-    group_id IN (SELECT group_id FROM group_members WHERE wallet_address = current_setting('app.current_user_wallet', true))
-);
-
--- Users can only see their own notifications
-CREATE POLICY "Users can view own notifications" ON notifications FOR SELECT USING (user_wallet_address = current_setting('app.current_user_wallet', true));
-CREATE POLICY "Users can update own notifications" ON notifications FOR UPDATE USING (user_wallet_address = current_setting('app.current_user_wallet', true));
+-- Notifications policies (disabled for development)
+-- CREATE POLICY "Users can view own notifications" ON notifications FOR SELECT USING (user_wallet_address = current_setting('app.current_user_wallet', true));
+-- CREATE POLICY "Users can update own notifications" ON notifications FOR UPDATE USING (user_wallet_address = current_setting('app.current_user_wallet', true));
 
 -- =====================================================
 -- INITIAL DATA SEEDING
@@ -1055,35 +1048,35 @@ CREATE TRIGGER update_group_invitations_updated_at BEFORE UPDATE ON group_invita
 CREATE TRIGGER update_referrals_updated_at BEFORE UPDATE ON referrals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
--- ADDITIONAL RLS POLICIES
+-- ADDITIONAL RLS POLICIES - DISABLED FOR DEVELOPMENT
 -- =====================================================
 
--- Enable RLS on new tables
-ALTER TABLE savings_goals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE savings_transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
-ALTER TABLE group_invitations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
+-- RLS disabled on extended tables for development
+-- ALTER TABLE savings_goals ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE savings_transactions ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE group_invitations ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
 
--- Savings goals policies
-CREATE POLICY "Users can manage own savings goals" ON savings_goals FOR ALL USING (user_wallet_address = current_setting('app.current_user_wallet', true));
-CREATE POLICY "Public savings goals are viewable" ON savings_goals FOR SELECT USING (is_public = true);
+-- Savings goals policies (disabled for development)
+-- CREATE POLICY "Users can manage own savings goals" ON savings_goals FOR ALL USING (user_wallet_address = current_setting('app.current_user_wallet', true));
+-- CREATE POLICY "Public savings goals are viewable" ON savings_goals FOR SELECT USING (is_public = true);
 
--- Savings transactions policies
-CREATE POLICY "Users can manage own savings transactions" ON savings_transactions FOR ALL USING (user_wallet_address = current_setting('app.current_user_wallet', true));
+-- Savings transactions policies (disabled for development)
+-- CREATE POLICY "Users can manage own savings transactions" ON savings_transactions FOR ALL USING (user_wallet_address = current_setting('app.current_user_wallet', true));
 
--- User preferences policies
-CREATE POLICY "Users can manage own preferences" ON user_preferences FOR ALL USING (user_wallet_address = current_setting('app.current_user_wallet', true));
+-- User preferences policies (disabled for development)
+-- CREATE POLICY "Users can manage own preferences" ON user_preferences FOR ALL USING (user_wallet_address = current_setting('app.current_user_wallet', true));
 
--- Group invitations policies
-CREATE POLICY "Inviters can manage their invitations" ON group_invitations FOR ALL USING (inviter_wallet_address = current_setting('app.current_user_wallet', true));
-CREATE POLICY "Invitees can view their invitations" ON group_invitations FOR SELECT USING (invitee_wallet_address = current_setting('app.current_user_wallet', true));
+-- Group invitations policies (disabled for development)
+-- CREATE POLICY "Inviters can manage their invitations" ON group_invitations FOR ALL USING (inviter_wallet_address = current_setting('app.current_user_wallet', true));
+-- CREATE POLICY "Invitees can view their invitations" ON group_invitations FOR SELECT USING (invitee_wallet_address = current_setting('app.current_user_wallet', true));
 
--- Referrals policies
-CREATE POLICY "Users can view referrals they're involved in" ON referrals FOR SELECT USING (
-    referrer_wallet_address = current_setting('app.current_user_wallet', true) OR 
-    referee_wallet_address = current_setting('app.current_user_wallet', true)
-);
+-- Referrals policies (disabled for development)
+-- CREATE POLICY "Users can view referrals they're involved in" ON referrals FOR SELECT USING (
+--     referrer_wallet_address = current_setting('app.current_user_wallet', true) OR 
+--     referee_wallet_address = current_setting('app.current_user_wallet', true)
+-- );
 
 -- =====================================================
 -- ADDITIONAL VIEWS
@@ -1163,6 +1156,40 @@ ON CONFLICT (key) DO UPDATE SET
     category = EXCLUDED.category,
     is_public = EXCLUDED.is_public,
     updated_at = NOW();
+
+-- =====================================================
+-- PERMISSIONS FOR DEVELOPMENT (WITHOUT RLS)
+-- =====================================================
+
+-- Grant full access to authenticated users on all tables
+GRANT ALL ON users TO authenticated;
+GRANT ALL ON groups TO authenticated;
+GRANT ALL ON group_members TO authenticated;
+GRANT ALL ON contributions TO authenticated;
+GRANT ALL ON disputes TO authenticated;
+GRANT ALL ON dispute_votes TO authenticated;
+GRANT ALL ON achievements TO authenticated;
+GRANT ALL ON user_achievements TO authenticated;
+GRANT ALL ON notifications TO authenticated;
+GRANT ALL ON activity_log TO authenticated;
+GRANT ALL ON system_settings TO authenticated;
+GRANT ALL ON savings_goals TO authenticated;
+GRANT ALL ON savings_transactions TO authenticated;
+GRANT ALL ON user_preferences TO authenticated;
+GRANT ALL ON group_invitations TO authenticated;
+GRANT ALL ON referrals TO authenticated;
+GRANT ALL ON platform_analytics TO authenticated;
+
+-- Grant sequence access
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+
+-- Grant function execution
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
+
+-- Allow anonymous users to read public data
+GRANT SELECT ON achievements TO anon;
+GRANT SELECT ON groups TO anon;
+GRANT SELECT ON platform_analytics TO anon;
 
 -- =====================================================
 -- END OF ENHANCED SCHEMA
