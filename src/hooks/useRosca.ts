@@ -1,4 +1,4 @@
-import { useDynamicContext, useBalance } from "@dynamic-labs/sdk-react-core";
+import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { parseAbi, parseEther, formatEther } from "viem";
 import type { Address, Hash } from "viem";
@@ -55,38 +55,69 @@ export function useRosca() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ContractError | null>(null);
   const [groupCount, setGroupCount] = useState<number>(0);
-
-  // Use Dynamic's built-in balance hook
-  const { 
-    data: balanceData, 
-    isLoading: isLoadingBalance, 
-    refetch: refreshBalance 
-  } = useBalance({
-    address: primaryWallet?.address as Address
-  });
-
-  // Format balance for display with debugging
-  const balance = React.useMemo(() => {
-    console.log('🔍 Balance data from Dynamic:', balanceData);
-    if (!balanceData) {
-      console.log('🔍 No balance data, returning 0');
-      return '0';
-    }
-    
-    try {
-      const formattedBalance = formatEther(BigInt(balanceData.balance));
-      console.log('🔍 Formatted balance:', formattedBalance);
-      return formattedBalance;
-    } catch (error) {
-      console.error('❌ Error formatting balance:', error);
-      return '0';
-    }
-  }, [balanceData]);
+  const [balance, setBalance] = useState<string>('0');
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
 
   // Clear error when wallet changes
   useEffect(() => {
     setError(null);
   }, [primaryWallet]);
+
+  /**
+   * Get user's cBTC balance using Dynamic's getPublicClient
+   */
+  const getBalance = useCallback(async (): Promise<string> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      console.log('🔍 getBalance: No wallet or not Ethereum wallet');
+      setBalance('0');
+      return '0';
+    }
+
+    try {
+      setIsLoadingBalance(true);
+      console.log('🔍 getBalance: Fetching balance for address:', primaryWallet.address);
+      
+      // Use Dynamic's getPublicClient method as per documentation
+      const publicClient = await primaryWallet.getPublicClient();
+      console.log('🔍 getBalance: Got public client:', publicClient);
+      
+      const balance = await publicClient.getBalance({
+        address: primaryWallet.address as Address
+      });
+      
+      console.log('🔍 getBalance: Raw balance:', balance);
+      const formattedBalance = formatEther(balance);
+      console.log('🔍 getBalance: Formatted balance:', formattedBalance);
+      
+      setBalance(formattedBalance);
+      return formattedBalance;
+    } catch (error) {
+      console.error('❌ Error fetching balance:', error);
+      setBalance('0');
+      return '0';
+    } finally {
+      setIsLoadingBalance(false);
+    }
+  }, [primaryWallet]);
+
+  /**
+   * Manually refresh balance
+   */
+  const refreshBalance = useCallback(async (): Promise<void> => {
+    console.log('🔄 Manual balance refresh triggered');
+    await getBalance();
+  }, [getBalance]);
+
+  // Auto-fetch balance when wallet connects
+  useEffect(() => {
+    if (primaryWallet && isEthereumWallet(primaryWallet)) {
+      console.log('🔍 useEffect: Auto-fetching balance for wallet:', primaryWallet.address);
+      getBalance();
+    } else {
+      console.log('🔍 useEffect: No wallet connected, setting balance to 0');
+      setBalance('0');
+    }
+  }, [primaryWallet, getBalance]);
 
   /**
    * Get user's cBTC balance (using Dynamic's balance)
@@ -130,10 +161,15 @@ export function useRosca() {
     setError(null);
 
     try {
+      // Get both public and wallet clients as per Dynamic documentation
+      const publicClient = await primaryWallet.getPublicClient();
       const walletClient = await primaryWallet.getWalletClient();
+      
+      console.log('🔍 createGroup: Creating group with params:', params);
       
       // Convert contribution to wei for ETH, or token units for ERC20
       const contributionWei = parseEther(params.contribution);
+      console.log('🔍 createGroup: Contribution in wei:', contributionWei);
       
       const hash = await walletClient.writeContract({
         address: ROSCA_CONTRACT_ADDRESS,
@@ -146,15 +182,28 @@ export function useRosca() {
         ],
       } as any);
 
+      console.log('🔍 createGroup: Transaction hash:', hash);
+
+      // Wait for transaction receipt as per Dynamic documentation
+      const receipt = await publicClient.getTransactionReceipt({
+        hash,
+      });
+
+      console.log('🔍 createGroup: Transaction receipt:', receipt);
+
+      // Refresh balance after successful transaction
+      await getBalance();
+
       return hash;
     } catch (err) {
       const contractError = err as ContractError;
+      console.error('❌ createGroup error:', contractError);
       setError(contractError);
       throw contractError;
     } finally {
       setIsLoading(false);
     }
-  }, [primaryWallet]);
+  }, [primaryWallet, getBalance]);
 
   /**
    * Contribute to a ROSCA group
@@ -170,8 +219,10 @@ export function useRosca() {
     setError(null);
 
     try {
-      const walletClient = await primaryWallet.getWalletClient();
       const publicClient = await primaryWallet.getPublicClient();
+      const walletClient = await primaryWallet.getWalletClient();
+
+      console.log('🔍 contribute: Contributing to group:', groupId);
 
       // First, get the group info to determine contribution amount
       const groupInfo = await publicClient.readContract({
@@ -184,6 +235,8 @@ export function useRosca() {
       const contribution = groupInfo[4]; // contribution is at index 4
       const token = groupInfo[3]; // token is at index 3
 
+      console.log('🔍 contribute: Group contribution amount:', contribution);
+
       // If token is zero address, it's ETH
       const isEthGroup = token === "0x0000000000000000000000000000000000000000";
 
@@ -195,15 +248,75 @@ export function useRosca() {
         value: isEthGroup ? contribution : undefined,
       } as any);
 
+      console.log('🔍 contribute: Transaction hash:', hash);
+
+      // Wait for transaction receipt
+      const receipt = await publicClient.getTransactionReceipt({
+        hash,
+      });
+
+      console.log('🔍 contribute: Transaction receipt:', receipt);
+
+      // Refresh balance after successful transaction
+      await getBalance();
+
       return hash;
     } catch (err) {
       const contractError = err as ContractError;
+      console.error('❌ contribute error:', contractError);
       setError(contractError);
       throw contractError;
     } finally {
       setIsLoading(false);
     }
-  }, [primaryWallet]);
+  }, [primaryWallet, getBalance]);
+
+  /**
+   * Send a simple transaction (for testing or transfers)
+   * Following Dynamic documentation pattern
+   */
+  const sendTransaction = useCallback(async (to: Address, amount: string): Promise<Hash | undefined> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      throw new Error("Wallet not connected or not Ethereum compatible");
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const publicClient = await primaryWallet.getPublicClient();
+      const walletClient = await primaryWallet.getWalletClient();
+
+      console.log('🔍 sendTransaction: Sending', amount, 'cBTC to', to);
+
+      const transaction = {
+        to: to,
+        value: amount ? parseEther(amount) : undefined,
+      };
+
+      const hash = await walletClient.sendTransaction(transaction);
+      console.log('🔍 sendTransaction: Transaction hash:', hash);
+
+      // Wait for transaction receipt
+      const receipt = await publicClient.getTransactionReceipt({
+        hash,
+      });
+
+      console.log('🔍 sendTransaction: Transaction receipt:', receipt);
+
+      // Refresh balance after successful transaction
+      await getBalance();
+
+      return hash;
+    } catch (err) {
+      const contractError = err as ContractError;
+      console.error('❌ sendTransaction error:', contractError);
+      setError(contractError);
+      throw contractError;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [primaryWallet, getBalance]);
 
   /**
    * Get information about a specific ROSCA group
@@ -365,6 +478,7 @@ export function useRosca() {
     // Contract interactions
     createGroup,
     contribute,
+    sendTransaction,
     getGroupInfo,
     getGroupCount,
     leaveGroup,
