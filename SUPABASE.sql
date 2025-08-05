@@ -565,7 +565,7 @@ CREATE POLICY "Users can update own notifications" ON notifications FOR UPDATE U
 -- INITIAL DATA SEEDING
 -- =====================================================
 
--- Insert default achievements
+-- Insert default achievements (using ON CONFLICT to handle duplicates)
 INSERT INTO achievements (name, description, category, requirements, reward_points, badge_color, rarity) VALUES
 ('First Contribution', 'Made your first contribution to a ROSCA group', 'contribution', '{"type": "contribution_count", "required_count": 1}', 10, '#10b981', 'common'),
 ('Consistent Contributor', 'Made 10 contributions without missing any', 'contribution', '{"type": "contribution_streak", "required_streak": 10}', 50, '#3b82f6', 'uncommon'),
@@ -573,16 +573,30 @@ INSERT INTO achievements (name, description, category, requirements, reward_poin
 ('Community Builder', 'Created 5 successful ROSCA groups', 'social', '{"type": "groups_created", "required_count": 5}', 100, '#f59e0b', 'rare'),
 ('Milestone Master', 'Completed 3 full ROSCA cycles', 'milestone', '{"type": "completed_cycles", "required_count": 3}', 75, '#ef4444', 'uncommon'),
 ('Dispute Resolver', 'Successfully resolved 5 disputes', 'governance', '{"type": "disputes_resolved", "required_count": 5}', 150, '#06b6d4', 'epic'),
-('Bitcoin Pioneer', 'One of the first 100 users on the platform', 'special', '{"type": "early_adopter", "user_rank": 100}', 200, '#f97316', 'legendary');
+('Bitcoin Pioneer', 'One of the first 100 users on the platform', 'special', '{"type": "early_adopter", "user_rank": 100}', 200, '#f97316', 'legendary')
+ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description,
+    category = EXCLUDED.category,
+    requirements = EXCLUDED.requirements,
+    reward_points = EXCLUDED.reward_points,
+    badge_color = EXCLUDED.badge_color,
+    rarity = EXCLUDED.rarity,
+    updated_at = NOW();
 
--- Insert default system settings
+-- Insert default system settings (using ON CONFLICT to handle duplicates)
 INSERT INTO system_settings (key, value, description, category, is_public) VALUES
 ('platform_fee_percentage', '0.01', 'Platform fee as a percentage of contributions', 'financial', true),
 ('min_group_size', '3', 'Minimum number of members required for a group', 'groups', true),
 ('max_group_size', '20', 'Maximum number of members allowed in a group', 'groups', true),
 ('dispute_voting_period_days', '7', 'Number of days for dispute voting period', 'disputes', true),
 ('achievement_points_multiplier', '1.0', 'Multiplier for achievement points', 'gamification', false),
-('notification_retention_days', '90', 'Number of days to retain notifications', 'system', false);
+('notification_retention_days', '90', 'Number of days to retain notifications', 'system', false)
+ON CONFLICT (key) DO UPDATE SET
+    value = EXCLUDED.value,
+    description = EXCLUDED.description,
+    category = EXCLUDED.category,
+    is_public = EXCLUDED.is_public,
+    updated_at = NOW();
 
 -- =====================================================
 -- VIEWS FOR COMMON QUERIES
@@ -1108,22 +1122,36 @@ ORDER BY total_referrals DESC, qualified_referrals DESC;
 -- ADDITIONAL INITIAL DATA
 -- =====================================================
 
--- Insert additional achievements for savings and referrals
+-- Insert additional achievements for savings and referrals (using ON CONFLICT to handle duplicates)
 INSERT INTO achievements (name, description, category, requirements, reward_points, badge_color, rarity) VALUES
 ('First Savings Goal', 'Created your first savings goal', 'milestone', '{"type": "savings_goals_created", "required_count": 1}', 15, '#10b981', 'common'),
 ('Goal Achiever', 'Completed your first savings goal', 'milestone', '{"type": "savings_goals_completed", "required_count": 1}', 50, '#3b82f6', 'uncommon'),
 ('Super Saver', 'Completed 5 savings goals', 'milestone', '{"type": "savings_goals_completed", "required_count": 5}', 150, '#8b5cf6', 'rare'),
 ('Referral Master', 'Referred 10 users to the platform', 'social', '{"type": "referrals_made", "required_count": 10}', 100, '#f59e0b', 'uncommon'),
-('Community Builder', 'Referred 25 users to the platform', 'social', '{"type": "referrals_made", "required_count": 25}', 250, '#ef4444', 'epic'),
-('Invitation Expert', 'Sent 50 group invitations', 'social', '{"type": "invitations_sent", "required_count": 50}', 75, '#06b6d4', 'uncommon');
+('Community Ambassador', 'Referred 25 users to the platform', 'social', '{"type": "referrals_made", "required_count": 25}', 250, '#ef4444', 'epic'),
+('Invitation Expert', 'Sent 50 group invitations', 'social', '{"type": "invitations_sent", "required_count": 50}', 75, '#06b6d4', 'uncommon')
+ON CONFLICT (name) DO UPDATE SET
+    description = EXCLUDED.description,
+    category = EXCLUDED.category,
+    requirements = EXCLUDED.requirements,
+    reward_points = EXCLUDED.reward_points,
+    badge_color = EXCLUDED.badge_color,
+    rarity = EXCLUDED.rarity,
+    updated_at = NOW();
 
--- Insert additional system settings
+-- Insert additional system settings (using ON CONFLICT to handle duplicates)
 INSERT INTO system_settings (key, value, description, category, is_public) VALUES
 ('referral_reward_amount', '0.001', 'Reward amount for successful referrals (in cBTC)', 'referral', false),
 ('savings_goal_max_count', '10', 'Maximum number of active savings goals per user', 'savings', true),
 ('invitation_expiry_days', '7', 'Number of days before group invitations expire', 'invitations', true),
 ('analytics_retention_days', '365', 'Number of days to retain analytics data', 'analytics', false),
-('max_referral_rewards_per_user', '100', 'Maximum number of referral rewards per user', 'referral', false);
+('max_referral_rewards_per_user', '100', 'Maximum number of referral rewards per user', 'referral', false)
+ON CONFLICT (key) DO UPDATE SET
+    value = EXCLUDED.value,
+    description = EXCLUDED.description,
+    category = EXCLUDED.category,
+    is_public = EXCLUDED.is_public,
+    updated_at = NOW();
 
 -- =====================================================
 -- END OF ENHANCED SCHEMA
