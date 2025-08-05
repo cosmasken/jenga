@@ -47,18 +47,14 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
   }, []);
 
   const handleNext = () => {
-    console.log('Next button clicked, current step:', currentStep, 'total steps:', totalSteps);
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
-      console.log('Moving to step:', currentStep + 1);
     }
   };
 
   const handlePrevious = () => {
-    console.log('Previous button clicked, current step:', currentStep);
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
-      console.log('Moving to step:', currentStep - 1);
     }
   };
 
@@ -92,22 +88,11 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     }
   };
 
-  // Simplified validation for testing - can be made stricter later
-  const canProceedStep1 = true; // Always allow step 1 to proceed for testing
-  const canProceedStep2 = displayName.trim().length >= 2;
-  const canProceedStep3 = true; // Terms acceptance step
+  // Proper validation logic
+  const canProceedStep1 = isLoggedIn && primaryWallet; // Step 1: wallet must be connected
+  const canProceedStep2 = displayName.trim().length >= 2; // Step 2: name must be at least 2 chars
+  const canProceedStep3 = true; // Step 3: invite code is optional
   const canComplete = isLoggedIn && primaryWallet && canProceedStep2;
-
-  // Debug logging
-  console.log('Onboarding validation:', {
-    currentStep,
-    isLoggedIn,
-    primaryWallet: !!primaryWallet,
-    displayName: displayName.length,
-    canProceedStep1,
-    canProceedStep2,
-    canProceedStep3
-  });
 
   if (!isLoggedIn || !open) {
     return null;
@@ -358,9 +343,9 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
             </AnimatePresence>
 
             {/* Navigation Buttons */}
-            <div className="flex items-center justify-between mt-8 pt-6 border-t border-gray-200">
+            <div className="mt-8 pt-6 border-t border-gray-200">
               {/* Debug Info - Remove in production */}
-              <div className="text-xs text-gray-500 flex-1 mr-4">
+              <div className="text-xs text-gray-500 mb-4 text-center">
                 Step {currentStep}/{totalSteps} | 
                 Logged: {isLoggedIn ? '✓' : '✗'} | 
                 Wallet: {primaryWallet ? '✓' : '✗'} | 
@@ -374,16 +359,18 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
                 </button>
               </div>
               
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={currentStep === 1}
-                  className="flex items-center gap-2"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Previous
-                </Button>
+              <div className={`flex items-center gap-3 ${currentStep === 1 ? 'justify-center' : 'justify-between'}`}>
+                {/* Only show Previous button if not on step 1 */}
+                {currentStep > 1 && (
+                  <Button
+                    variant="outline"
+                    onClick={handlePrevious}
+                    className="flex items-center gap-2"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                )}
 
               {currentStep < totalSteps ? (
                 <Button
