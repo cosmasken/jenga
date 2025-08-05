@@ -29,6 +29,17 @@ export default function Dashboard() {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const { contributionReminder, memberJoined, success } = useRoscaToast();
 
+    // Get user display name from stored onboarding data or fallback to identifiers
+    const getUserDisplayName = () => {
+        const storedName = localStorage.getItem('jenga_user_display_name');
+        if (storedName) return storedName;
+        
+        if (user?.email) return user.email;
+        if (user?.phone) return user.phone;
+        if (primaryWallet?.address) return `${primaryWallet.address.slice(0, 6)}...${primaryWallet.address.slice(-4)}`;
+        return 'User';
+    };
+
     useEffect(() => {
         if (isConnected && primaryWallet) {
             getGroupCount();
@@ -98,7 +109,7 @@ export default function Dashboard() {
                             Dashboard
                         </h1>
                         <p className="text-gray-600 dark:text-gray-400">
-                            Welcome back, {user?.email || `${primaryWallet.address?.slice(0, 6)}...${primaryWallet.address?.slice(-4)}`}
+                            Welcome back, {getUserDisplayName()}
                         </p>
                     </div>
                     <ThemeToggle />

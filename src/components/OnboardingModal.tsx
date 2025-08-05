@@ -20,7 +20,7 @@ const profileIcons = [
 ];
 
 export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
-  const { user } = useDynamicContext();
+  const { user, primaryWallet } = useDynamicContext();
   const isLoggedIn = useIsLoggedIn();
   const { welcome, error: showError } = useRoscaToast();
   
@@ -28,18 +28,59 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
   const [selectedIcon, setSelectedIcon] = useState(profileIcons[0]);
   const [isCompleting, setIsCompleting] = useState(false);
 
-  // Auto-populate username from user data
+  // Get available user identifier (email, phone, or wallet address)
+  const getUserIdentifier = () => {
+    if (user?.email) return user.email;
+    if (user?.phone) return user.phone;
+    if (primaryWallet?.address) return primaryWallet.address;
+    return null;
+  };
+
+  // Get display name for the identifier
+  const getIdentifierDisplay = () => {
+    if (user?.email) return { type: 'email', value: user.email };
+    if (user?.phone) return { type: 'phone', value: user.phone };
+    if (primaryWallet?.address) return { 
+      type: 'wallet', 
+      value: `${primaryWallet.address.slice(0, 6)}...${primaryWallet.address.slice(-4)}` 
+    };
+    return null;
+  };
+
+  // Auto-populate username from available user data
   useEffect(() => {
-    if (user?.email && !username) {
-      setUsername(user.email.split('@')[0]);
+    if (!username) {
+      const identifier = getUserIdentifier();
+      if (identifier) {
+        if (user?.email) {
+          // Use email prefix for social login users
+          setUsername(user.email.split('@')[0]);
+        } else if (user?.phone) {
+          // Use phone for phone login users
+          setUsername(`user_${user.phone.slice(-4)}`);
+        } else if (primaryWallet?.address) {
+          // Use address suffix for wallet users
+          setUsername(`user_${primaryWallet.address.slice(-6)}`);
+        }
+      }
     }
-  }, [user, username]);
+  }, [user, primaryWallet, username]);
 
   const handleComplete = async () => {
     if (!username.trim() || username.trim().length < 2) {
       showError(
         "Invalid Username",
         "Please enter a username with at least 2 characters."
+      );
+      return;
+    }
+
+    // Check if user has any valid identifier
+    const identifier = getUserIdentifier();
+    if (!identifier) {
+      showError(
+        "Authentication Required", 
+        "Please connect your wallet or sign in to complete onboarding"
       );
       return;
     }
@@ -51,9 +92,21 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
       localStorage.setItem('jenga_onboarding_completed', 'true');
       localStorage.setItem('jenga_user_display_name', username.trim());
       localStorage.setItem('jenga_user_profile_icon', selectedIcon.id);
+      
+      // Store the identifier type and value for future reference
+      const identifierDisplay = getIdentifierDisplay();
+      if (identifierDisplay) {
+        localStorage.setItem('jenga_user_identifier_type', identifierDisplay.type);
+        localStorage.setItem('jenga_user_identifier_value', identifierDisplay.value);
+      }
 
-      // Show welcome toast
-      welcome(username.trim());
+      // Show welcome toast with appropriate message
+      const identifierDisplay2 = getIdentifierDisplay();
+      if (identifierDisplay2?.type === 'wallet') {
+        welcome(`Welcome to ROSCA, ${username.trim()}! Your wallet is connected and ready.`);
+      } else {
+        welcome(`Welcome to ROSCA, ${username.trim()}! Start your Bitcoin savings journey.`);
+      }
 
       // Complete onboarding
       onComplete();
@@ -67,7 +120,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     }
   };
 
-  const canComplete = username.trim().length >= 2;
+  const canComplete = username.trim().length >= 2 && getUserIdentifier() !== null;
 
   if (!isLoggedIn || !open) {
     return null;
@@ -131,14 +184,28 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
             </p>
           </div>
 
-          {/* Connected Email Display */}
-          {user?.email && (
-            <div className="bg-gray-50 rounded-lg p-3 text-center">
-              <p className="text-sm text-gray-600">
-                Connected as: <span className="font-medium">{user.email}</span>
-              </p>
-            </div>
-          )}
+          {/* Connected User Display */}
+          {getUserIdentifier() && (() => {
+            const identifierDisplay = getIdentifierDisplay();
+            if (!identifierDisplay) return null;
+            
+            return (
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Connected as: <span className="font-medium text-gray-900 dark:text-gray-100">
+                    {identifierDisplay.type === 'email' && identifierDisplay.value}
+                    {identifierDisplay.type === 'phone' && identifierDisplay.value}
+                    {identifierDisplay.type === 'wallet' && `Wallet ${identifierDisplay.value}`}
+                  </span>
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                  {identifierDisplay.type === 'email' && '📧 Social Login'}
+                  {identifierDisplay.type === 'phone' && '📱 Phone Login'}
+                  {identifierDisplay.type === 'wallet' && '👛 Wallet Connection'}
+                </p>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Complete Button */}
@@ -146,7 +213,8 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
           <Button
             onClick={handleComplete}
             disabled={!canComplete || isCompleting}
-            className="w-full bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)] disabled:opacity-50"
+            variant="bitcoin"
+            className="w-full shadow-bitcoin hover:shadow-bitcoin-strong disabled:opacity-50"
           >
             {isCompleting ? "Setting up..." : "Complete Setup"}
           </Button>
