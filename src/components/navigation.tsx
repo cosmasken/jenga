@@ -12,11 +12,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Home, UserPlus, LayoutDashboard, Users, Gavel, User, Moon, Sun, Copy, LogOut, Wallet } from "lucide-react";
+import { Home, LayoutDashboard, Users, Gavel, User, Moon, Sun, Copy, LogOut, Wallet } from "lucide-react";
 
 const navItems = [
-  { path: "/", label: "Landing", icon: Home },
-  { path: "/onboarding", label: "Onboarding", icon: UserPlus },
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/disputes", label: "Disputes", icon: Gavel },
   { path: "/profile", label: "Profile", icon: User },
@@ -59,68 +57,70 @@ export function Navigation() {
     });
   };
 
-  // Don't show navigation on landing page for non-authenticated users
-  // or if user hasn't completed onboarding (except on onboarding page)
-  if (!isLoggedIn || (location === "/" && !onboardingCompleted) || (!onboardingCompleted && location !== "/onboarding")) {
-    return (
-      <Button
-        onClick={toggleTheme}
-        variant="outline"
-        size="icon"
-        className="fixed top-4 right-4 z-50 bg-[hsl(27,87%,54%)] text-white border-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)] hover:border-[hsl(27,87%,49%)] rounded-full shadow-lg"
-        data-testid="button-theme-toggle"
-      >
-        {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-      </Button>
-    );
+  // Don't render navigation if user is not logged in or hasn't completed onboarding
+  if (!isLoggedIn || !onboardingCompleted) {
+    return null;
   }
 
   return (
     <>
       {/* Desktop Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 hidden md:block">
-        <div className="flex items-center justify-between px-4">
-          <div className="flex overflow-x-auto">
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 hidden md:block">
+        <div className="flex items-center justify-between px-6 h-16">
+          {/* Logo/Brand */}
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[hsl(27,87%,54%)] rounded-lg">
+              <Wallet className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-gray-900 dark:text-gray-100">Jenga</h1>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Bitcoin Chama</p>
+            </div>
+          </div>
+
+          {/* Navigation Items */}
+          <div className="flex items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = location === item.path || 
                 (item.path === "/dashboard" && location.startsWith("/group"));
               
               return (
-                <button
+                <Button
                   key={item.path}
+                  variant={isActive ? "default" : "ghost"}
+                  size="sm"
                   onClick={() => setLocation(item.path)}
-                  className={`flex-shrink-0 px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                    isActive
-                      ? "border-[hsl(27,87%,54%)] text-[hsl(27,87%,54%)]"
-                      : "border-transparent hover:border-[hsl(27,87%,54%)] text-gray-600 dark:text-gray-400"
+                  className={`flex items-center gap-2 ${
+                    isActive 
+                      ? "bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)] text-white" 
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
                   }`}
-                  data-testid={`nav-${item.label.toLowerCase()}`}
                 >
-                  <Icon className="w-4 h-4 mr-2 inline" />
+                  <Icon className="w-4 h-4" />
                   {item.label}
-                </button>
+                </Button>
               );
             })}
           </div>
 
-          {/* Desktop User Menu */}
-          <div className="flex items-center gap-2">
+          {/* User Menu */}
+          <div className="flex items-center gap-3">
             <Button
               onClick={toggleTheme}
               variant="ghost"
-              size="icon"
-              className="rounded-full"
+              size="sm"
+              className="rounded-full w-9 h-9 p-0"
             >
               {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </Button>
 
-            {isLoggedIn && primaryWallet && (
+            {primaryWallet && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-[hsl(27,87%,54%)] text-white">
+                  <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
+                    <Avatar className="h-9 w-9">
+                      <AvatarFallback className="bg-[hsl(27,87%,54%)] text-white text-sm">
                         {user?.email?.[0]?.toUpperCase() || primaryWallet.address?.[2]?.toUpperCase() || "U"}
                       </AvatarFallback>
                     </Avatar>
@@ -130,7 +130,7 @@ export function Navigation() {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {user?.email || "Anonymous User"}
+                        {user?.email || localStorage.getItem('jenga_user_display_name') || "Anonymous User"}
                       </p>
                       <div className="flex items-center gap-2">
                         <p className="text-xs leading-none text-muted-foreground font-mono">
@@ -140,7 +140,7 @@ export function Navigation() {
                           variant="ghost"
                           size="sm"
                           onClick={copyAddress}
-                          className="h-4 w-4 p-0"
+                          className="h-4 w-4 p-0 hover:bg-gray-100 dark:hover:bg-gray-800"
                         >
                           <Copy className="h-3 w-3" />
                         </Button>
@@ -169,8 +169,8 @@ export function Navigation() {
       </nav>
 
       {/* Mobile Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden">
-        <div className="grid grid-cols-6 gap-1">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 md:hidden">
+        <div className="grid grid-cols-4 gap-1 p-2">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = location === item.path || 
@@ -180,12 +180,11 @@ export function Navigation() {
               <button
                 key={item.path}
                 onClick={() => setLocation(item.path)}
-                className={`flex flex-col items-center justify-center py-3 px-2 text-xs transition-colors ${
+                className={`flex flex-col items-center justify-center py-3 px-2 text-xs rounded-lg transition-colors ${
                   isActive
-                    ? "text-[hsl(27,87%,54%)]"
-                    : "text-gray-600 dark:text-gray-400"
+                    ? "bg-[hsl(27,87%,54%)] text-white"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
                 }`}
-                data-testid={`nav-mobile-${item.label.toLowerCase()}`}
               >
                 <Icon className="w-5 h-5 mb-1" />
                 <span className="truncate">{item.label}</span>
@@ -194,10 +193,10 @@ export function Navigation() {
           })}
           
           {/* Mobile User Menu */}
-          {isLoggedIn && primaryWallet && (
+          {primaryWallet && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex flex-col items-center justify-center py-3 px-2 text-xs text-gray-600 dark:text-gray-400">
+                <button className="flex flex-col items-center justify-center py-3 px-2 text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
                   <Avatar className="w-5 h-5 mb-1">
                     <AvatarFallback className="bg-[hsl(27,87%,54%)] text-white text-xs">
                       {user?.email?.[0]?.toUpperCase() || primaryWallet.address?.[2]?.toUpperCase() || "U"}
@@ -210,7 +209,7 @@ export function Navigation() {
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      {user?.email || "Anonymous User"}
+                      {user?.email || localStorage.getItem('jenga_user_display_name') || "Anonymous User"}
                     </p>
                     <div className="flex items-center gap-2">
                       <p className="text-xs leading-none text-muted-foreground font-mono">

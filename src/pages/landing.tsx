@@ -1,20 +1,24 @@
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import { DynamicWidget, useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
-import { Bitcoin, TrendingUp, Users, Shield } from "lucide-react";
+import { Bitcoin, TrendingUp, Users, Shield, Sparkles } from "lucide-react";
 import { useEffect } from "react";
+import { Button } from "@/components/ui/button";
 
 export default function Landing() {
   const [, setLocation] = useLocation();
   const isLoggedIn = useIsLoggedIn();
   const { primaryWallet } = useDynamicContext();
+  
+  // Check onboarding completion
+  const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
 
-  // Redirect authenticated users to dashboard
+  // Redirect authenticated and onboarded users to dashboard
   useEffect(() => {
-    if (isLoggedIn && primaryWallet) {
+    if (isLoggedIn && primaryWallet && onboardingCompleted) {
       setLocation("/dashboard");
     }
-  }, [isLoggedIn, primaryWallet, setLocation]);
+  }, [isLoggedIn, primaryWallet, onboardingCompleted, setLocation]);
 
   const handleConnectWallet = () => {
     // This will be handled by the DynamicWidget
@@ -155,7 +159,7 @@ export default function Landing() {
             transition={{ duration: 0.8, delay: 0.8 }}
           >
             <div className="flex justify-center">
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20 shadow-2xl">
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 border border-white/20 shadow-2xl max-w-md w-full">
                 <div className="text-center mb-6">
                   <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
                     <Bitcoin className="h-8 w-8 text-white" />
@@ -168,6 +172,23 @@ export default function Landing() {
                   </p>
                 </div>
                 <DynamicWidget />
+                
+                {/* Connection Status */}
+                {isLoggedIn && (
+                  <motion.div
+                    className="mt-4 p-3 bg-green-500/20 rounded-lg border border-green-400/30"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="flex items-center justify-center gap-2 text-green-100">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                      <span className="text-sm font-medium">
+                        {onboardingCompleted ? "Welcome back!" : "Setting up your account..."}
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
               </div>
             </div>
           </motion.div>
