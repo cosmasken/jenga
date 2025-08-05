@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet } from "lucide-react";
+import { useRoscaToast } from "@/hooks/use-rosca-toast";
 
 export default function Dashboard() {
     const [, setLocation] = useLocation();
@@ -25,6 +25,7 @@ export default function Dashboard() {
 
     const [userGroups, setUserGroups] = useState<any[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const { contributionReminder, memberJoined, success } = useRoscaToast();
 
     useEffect(() => {
         if (isConnected && primaryWallet) {
@@ -32,6 +33,19 @@ export default function Dashboard() {
             // TODO: Implement getUserGroups when available in contract
         }
     }, [isConnected, primaryWallet, getGroupCount]);
+
+    // Show welcome message for first-time visitors
+    useEffect(() => {
+        const hasSeenWelcome = localStorage.getItem('jenga_dashboard_welcome_shown');
+        const userName = localStorage.getItem('jenga_user_display_name');
+        
+        if (!hasSeenWelcome && userName && isLoggedIn) {
+            setTimeout(() => {
+                success(`Welcome to your Dashboard, ${userName}! 🏠`, "Start by creating your first savings group or joining an existing one");
+                localStorage.setItem('jenga_dashboard_welcome_shown', 'true');
+            }, 1000);
+        }
+    }, [isLoggedIn, success]);
 
     // Redirect to landing if not logged in
     useEffect(() => {

@@ -8,13 +8,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Bitcoin, Edit, TrendingUp, Trophy, Crown, Target, Star, Zap, Gem, Flame, Wallet, Copy, Users } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useRoscaToast } from "@/hooks/use-rosca-toast";
 
 export default function Profile() {
   const { primaryWallet, user } = useDynamicContext();
   const isLoggedIn = useIsLoggedIn();
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
+  const { success, error } = useRoscaToast();
   const { 
     isConnected, 
     groupCount, 
@@ -41,10 +41,7 @@ export default function Profile() {
   const copyAddress = () => {
     if (primaryWallet?.address) {
       navigator.clipboard.writeText(primaryWallet.address);
-      toast({
-        title: "Address copied",
-        description: "Wallet address copied to clipboard",
-      });
+      success("Address Copied! 📋", "Wallet address copied to clipboard");
     }
   };
 

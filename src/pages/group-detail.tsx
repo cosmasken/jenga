@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useToast } from "@/hooks/use-toast";
+import { useRoscaToast } from "@/hooks/use-rosca-toast";
 import { ArrowLeft, Users, Share2, History, AlertTriangle, Check, Clock, Bitcoin, Wallet, Copy } from "lucide-react";
 
 export default function GroupDetail() {
@@ -17,7 +17,7 @@ export default function GroupDetail() {
   const [, setLocation] = useLocation();
   const { primaryWallet, user } = useDynamicContext();
   const isLoggedIn = useIsLoggedIn();
-  const { toast } = useToast();
+  const { contributionSuccess, error: showError, transactionPending, success } = useRoscaToast();
   const {
     isConnected,
     getGroupInfo,
@@ -66,24 +66,30 @@ export default function GroupDetail() {
     if (!group || !id) return;
 
     setIsContributing(true);
+    
+    // Show pending transaction toast
+    const pendingToast = transactionPending("contribution");
+    
     try {
       const hash = await contribute(parseInt(id));
       if (hash) {
-        toast({
-          title: "Contribution Submitted",
-          description: `Transaction hash: ${hash.slice(0, 10)}...`,
-        });
+        // Dismiss pending toast and show success
+        pendingToast.dismiss();
+        contributionSuccess(
+          formatContribution(group.contribution), 
+          group.name || `Group ${id}`
+        );
 
         // Reload group data after contribution
         const updatedGroup = await getGroupInfo(parseInt(id));
         setGroup(updatedGroup);
       }
     } catch (error: any) {
-      toast({
-        title: "Contribution Failed",
-        description: error.message || "Failed to submit contribution",
-        variant: "destructive",
-      });
+      pendingToast.dismiss();
+      showError(
+        "Contribution Failed", 
+        error.message || "Failed to submit contribution. Please try again."
+      );
     } finally {
       setIsContributing(false);
     }
@@ -92,18 +98,12 @@ export default function GroupDetail() {
   const handleShare = () => {
     const shareUrl = `${window.location.origin}/group/${id}`;
     navigator.clipboard.writeText(shareUrl);
-    toast({
-      title: "Link Copied",
-      description: "Group link copied to clipboard",
-    });
+    success("Link Copied! 🔗", "Group link copied to clipboard");
   };
 
   const handleInvite = () => {
     // TODO: Implement invite functionality
-    toast({
-      title: "Coming Soon",
-      description: "Invite functionality will be available soon",
-    });
+    success("Coming Soon! 🚀", "Invite functionality will be available soon");
   };
 
   if (!isConnected || !primaryWallet) {
