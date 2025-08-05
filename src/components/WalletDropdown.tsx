@@ -50,7 +50,11 @@ export function WalletDropdown({ className = '' }: WalletDropdownProps) {
     setShowDynamicUserProfile 
   } = useDynamicContext();
   const isLoggedIn = useIsLoggedIn();
-  const { balance, isLoadingBalance } = useRosca();
+  const { 
+    balance, 
+    isLoadingBalance, 
+    refreshBalance 
+  } = useRosca();
   const toast = useRoscaToast();
   const [isOpen, setIsOpen] = useState(false);
 

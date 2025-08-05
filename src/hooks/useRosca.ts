@@ -1,8 +1,8 @@
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useDynamicContext, useBalance } from "@dynamic-labs/sdk-react-core";
 import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { parseAbi, parseEther, formatEther } from "viem";
 import type { Address, Hash } from "viem";
-import { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 
 // Contract configuration
 const ROSCA_CONTRACT_ADDRESS = "0xd1d60342211284859F6F857cdC866Dec7b8F483C" as Address;
@@ -55,8 +55,33 @@ export function useRosca() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ContractError | null>(null);
   const [groupCount, setGroupCount] = useState<number>(0);
-  const [balance, setBalance] = useState<string>('0');
-  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+
+  // Use Dynamic's built-in balance hook
+  const { 
+    data: balanceData, 
+    isLoading: isLoadingBalance, 
+    refetch: refreshBalance 
+  } = useBalance({
+    address: primaryWallet?.address as Address
+  });
+
+  // Format balance for display with debugging
+  const balance = React.useMemo(() => {
+    console.log('🔍 Balance data from Dynamic:', balanceData);
+    if (!balanceData) {
+      console.log('🔍 No balance data, returning 0');
+      return '0';
+    }
+    
+    try {
+      const formattedBalance = formatEther(BigInt(balanceData.balance));
+      console.log('🔍 Formatted balance:', formattedBalance);
+      return formattedBalance;
+    } catch (error) {
+      console.error('❌ Error formatting balance:', error);
+      return '0';
+    }
+  }, [balanceData]);
 
   // Clear error when wallet changes
   useEffect(() => {
@@ -64,60 +89,32 @@ export function useRosca() {
   }, [primaryWallet]);
 
   /**
-   * Get user's cBTC balance
+   * Get user's cBTC balance (using Dynamic's balance)
    */
   const getBalance = useCallback(async (): Promise<string> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
-      return '0';
-    }
-
-    try {
-      setIsLoadingBalance(true);
-      const walletClient = await primaryWallet.getWalletClient();
-      const balance = await walletClient.getBalance({
-        address: primaryWallet.address as Address
-      });
-      
-      const formattedBalance = formatEther(balance);
-      setBalance(formattedBalance);
-      return formattedBalance;
-    } catch (error) {
-      console.error('Error fetching balance:', error);
-      return '0';
-    } finally {
-      setIsLoadingBalance(false);
-    }
-  }, [primaryWallet]);
+    console.log('🔍 getBalance: Using Dynamic balance:', balance);
+    return balance;
+  }, [balance]);
 
   /**
    * Calculate maximum spendable amount (balance - estimated gas)
    */
   const getMaxSpendableAmount = useCallback(async (): Promise<string> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
-      return '0';
-    }
-
     try {
-      const currentBalance = await getBalance();
-      const balanceNum = parseFloat(currentBalance);
+      const balanceNum = parseFloat(balance);
+      console.log('🔍 getMaxSpendableAmount: Current balance:', balanceNum);
       
       // Estimate gas for createGroup transaction (conservative estimate)
       const estimatedGasInEth = 0.001; // ~0.001 cBTC for gas (conservative)
       
       const maxSpendable = Math.max(0, balanceNum - estimatedGasInEth);
+      console.log('🔍 getMaxSpendableAmount: Max spendable:', maxSpendable);
       return maxSpendable.toFixed(6); // 6 decimal places for precision
     } catch (error) {
       console.error('Error calculating max spendable amount:', error);
       return '0';
     }
-  }, [getBalance, primaryWallet]);
-
-  // Auto-fetch balance when wallet connects
-  useEffect(() => {
-    if (primaryWallet && isEthereumWallet(primaryWallet)) {
-      getBalance();
-    }
-  }, [primaryWallet, getBalance]);
+  }, [balance]);
 
   /**
    * Create a new ROSCA group
@@ -375,6 +372,7 @@ export function useRosca() {
     
     // Balance functions
     getBalance,
+    refreshBalance,
     getMaxSpendableAmount,
     
     // Utilities
