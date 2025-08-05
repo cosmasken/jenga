@@ -4,16 +4,16 @@
  */
 
 import { 
-  FormattedError, 
+  type FormattedError, 
   ErrorCategory, 
   ErrorSeverity, 
-  ErrorCode, 
+  type ErrorCode, 
   ERROR_CODES,
-  ErrorContext,
-  WalletErrorContext,
-  ContractErrorContext,
-  TransactionErrorContext,
-  NetworkErrorContext
+  type ErrorContext,
+  type WalletErrorContext,
+  type ContractErrorContext,
+  type TransactionErrorContext,
+  type NetworkErrorContext
 } from '@/types/errors';
 
 export class ErrorFormatterService {

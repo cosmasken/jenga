@@ -48,6 +48,7 @@ import {
 import { useRosca } from '@/hooks/useRosca';
 import { useRoscaToast } from '@/hooks/use-rosca-toast';
 import { useErrorHandler } from '@/hooks/use-error-handler';
+import { WalletDropdown } from '@/components/WalletDropdown';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 // Mock data for demonstration - in real app, this would come from the contract
@@ -346,6 +347,7 @@ export default function BrowseChamas() {
               >
                 <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               </Button>
+              <WalletDropdown />
               <ThemeToggle />
             </div>
           </div>
