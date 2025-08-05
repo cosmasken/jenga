@@ -7,22 +7,47 @@ import React, { useState, useCallback, useEffect } from "react";
 // Contract configuration
 const ROSCA_CONTRACT_ADDRESS = "0xd1d60342211284859F6F857cdC866Dec7b8F483C" as Address;
 
-// Define the ABI directly to avoid JSON import issues
+// Enhanced ABI with all new functions
 const roscaAbi = parseAbi([
-  "function createGroup(address _token, uint96 _contribution, uint40 _roundLength) external returns (uint256 gid)",
+  // Core functions
+  "function createGroup(address _token, uint96 _contribution, uint40 _roundLength, uint8 _maxMembers) external returns (uint256 gid)",
+  "function joinGroup(uint256 gid) external payable",
   "function contribute(uint256 gid) external payable",
   "function leaveGroup(uint256 gid) external",
   "function rageQuit(uint256 gid) external",
   "function scheduleRoundLength(uint256 gid, uint40 newLen) external",
+  
+  // Group management
+  "function setGroupStatus(uint256 gid, bool _isActive) external",
+  "function kickMember(uint256 gid, address member) external",
+  
+  // Dispute resolution
+  "function createDispute(uint256 gid, address defendant, string calldata reason) external returns (uint256 disputeId)",
+  "function voteOnDispute(uint256 disputeId, bool support) external",
+  
+  // View functions
   "function groupCount() external view returns (uint256)",
+  "function disputeCount() external view returns (uint256)",
   "function groups(uint256) external view returns (uint40 id, uint40 roundLength, uint40 nextDue, address token, uint96 contribution, uint8 currentRound, uint40 newRoundLength, uint40 changeActivates)",
-  "event Created(uint256 indexed id, address indexed token, uint256 contribution, uint256 roundLength)",
+  "function getGroupMembers(uint256 gid) external view returns (address[] memory)",
+  "function getGroupDetails(uint256 gid) external view returns (uint40 id, uint40 roundLength, uint40 nextDue, address token, uint96 contribution, uint8 currentRound, uint8 maxMembers, bool isActive, address creator, uint256 memberCount, uint256 totalPaidOut, uint256 disputeCount)",
+  "function getDispute(uint256 disputeId) external view returns (uint256 groupId, address complainant, address defendant, string memory reason, uint8 status, uint256 createdAt, uint256 votesFor, uint256 votesAgainst)",
+  "function hasVotedOnDispute(uint256 disputeId, address voter) external view returns (bool)",
+  
+  // Events
+  "event Created(uint256 indexed id, address indexed creator, address indexed token, uint256 contribution, uint256 roundLength, uint8 maxMembers)",
+  "event Joined(uint256 indexed id, address indexed member)",
   "event Contrib(uint256 indexed id, address indexed member, uint256 amount)",
-  "event Payout(uint256 indexed id, address indexed recipient, uint256 amount)",
-  "event Leave(uint256 indexed id, address indexed member)"
+  "event Payout(uint256 indexed id, address indexed recipient, uint256 amount, uint8 round)",
+  "event Leave(uint256 indexed id, address indexed member)",
+  "event RoundLenChangeScheduled(uint256 indexed id, uint256 newLength, uint256 activates)",
+  "event GroupStatusChanged(uint256 indexed id, bool isActive)",
+  "event DisputeCreated(uint256 indexed disputeId, uint256 indexed groupId, address indexed complainant, address defendant, string reason)",
+  "event DisputeVoted(uint256 indexed disputeId, address indexed voter, bool support)",
+  "event DisputeResolved(uint256 indexed disputeId, bool upheld)"
 ]);
 
-// TypeScript interfaces for better type safety
+// Enhanced TypeScript interfaces
 export interface RoscaGroup {
   id: number;
   roundLength: number;
@@ -30,6 +55,12 @@ export interface RoscaGroup {
   token: Address;
   contribution: bigint;
   currentRound: number;
+  maxMembers: number;
+  isActive: boolean;
+  creator: Address;
+  memberCount: number;
+  totalPaidOut: bigint;
+  disputeCount: number;
   newRoundLength: number;
   changeActivates: number;
   members?: Address[];
@@ -39,6 +70,19 @@ export interface CreateGroupParams {
   token: Address;
   contribution: string; // in ETH/token units
   roundLength: number; // in seconds
+  maxMembers: number; // 2-50
+}
+
+export interface DisputeInfo {
+  id: number;
+  groupId: number;
+  complainant: Address;
+  defendant: Address;
+  reason: string;
+  status: 'None' | 'Active' | 'Resolved' | 'Rejected';
+  createdAt: number;
+  votesFor: number;
+  votesAgainst: number;
 }
 
 export interface ContractError extends Error {
@@ -47,8 +91,8 @@ export interface ContractError extends Error {
 }
 
 /**
- * Custom hook for interacting with the ROSCA smart contract using viem
- * Provides functions for creating groups, contributing, and reading group data
+ * Custom hook for interacting with the enhanced ROSCA smart contract
+ * Provides functions for all group operations, disputes, and management
  */
 export function useRosca() {
   const { primaryWallet } = useDynamicContext();
@@ -142,8 +186,8 @@ export function useRosca() {
   }, [balance]);
 
   /**
-   * Create a new ROSCA group
-   * @param params - Group creation parameters
+   * Create a new ROSCA group with enhanced parameters
+   * @param params - Group creation parameters including maxMembers
    * @returns Transaction hash if successful
    */
   const createGroup = useCallback(async (params: CreateGroupParams): Promise<Hash | undefined> => {
@@ -172,7 +216,8 @@ export function useRosca() {
         args: [
           params.token,
           contributionWei,
-          BigInt(params.roundLength)
+          BigInt(params.roundLength),
+          params.maxMembers
         ],
       } as any);
 
@@ -192,6 +237,77 @@ export function useRosca() {
     } catch (err) {
       const contractError = err as ContractError;
       console.error('❌ createGroup error:', contractError);
+      setError(contractError);
+      throw contractError;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [primaryWallet, getBalance]);
+
+  /**
+   * Join an existing ROSCA group
+   * @param groupId - The group ID to join
+   * @returns Transaction hash if successful
+   */
+  const joinGroup = useCallback(async (groupId: number): Promise<Hash | undefined> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      throw new Error("Wallet not connected or not Ethereum compatible");
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const publicClient = await primaryWallet.getPublicClient();
+      const walletClient = await primaryWallet.getWalletClient();
+
+      console.log('🔍 joinGroup: Joining group:', groupId);
+
+      // First, get the group info to determine contribution amount and token
+      const groupDetails = await publicClient.readContract({
+        address: ROSCA_CONTRACT_ADDRESS,
+        abi: roscaAbi,
+        functionName: "getGroupDetails",
+        args: [BigInt(groupId)],
+      }) as readonly [number, number, number, Address, bigint, number, number, boolean, Address, number, bigint, number];
+
+      const contribution = groupDetails[4]; // contribution amount
+      const token = groupDetails[3]; // token address
+      const isActive = groupDetails[7]; // group is active
+
+      if (!isActive) {
+        throw new Error("Group is not accepting new members");
+      }
+
+      console.log('🔍 joinGroup: Group contribution amount:', contribution);
+
+      // If token is zero address, it's ETH - send contribution as value
+      const isEthGroup = token === "0x0000000000000000000000000000000000000000";
+
+      const hash = await walletClient.writeContract({
+        address: ROSCA_CONTRACT_ADDRESS,
+        abi: roscaAbi,
+        functionName: "joinGroup",
+        args: [BigInt(groupId)],
+        value: isEthGroup ? contribution : undefined,
+      } as any);
+
+      console.log('🔍 joinGroup: Transaction hash:', hash);
+
+      // Wait for transaction receipt
+      const receipt = await publicClient.getTransactionReceipt({
+        hash,
+      });
+
+      console.log('🔍 joinGroup: Transaction receipt:', receipt);
+
+      // Refresh balance after successful transaction
+      await getBalance();
+
+      return hash;
+    } catch (err) {
+      const contractError = err as ContractError;
+      console.error('❌ joinGroup error:', contractError);
       setError(contractError);
       throw contractError;
     } finally {
@@ -313,9 +429,9 @@ export function useRosca() {
   }, [primaryWallet, getBalance]);
 
   /**
-   * Get information about a specific ROSCA group
+   * Get comprehensive information about a specific ROSCA group
    * @param groupId - The group ID to query
-   * @returns Group information
+   * @returns Enhanced group information
    */
   const getGroupInfo = useCallback(async (groupId: number): Promise<RoscaGroup | null> => {
     if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
@@ -328,13 +444,21 @@ export function useRosca() {
       const groupData = await publicClient.readContract({
         address: ROSCA_CONTRACT_ADDRESS,
         abi: roscaAbi,
-        functionName: "groups",
+        functionName: "getGroupDetails",
         args: [BigInt(groupId)],
-      }) as readonly [number, number, number, Address, bigint, number, number, number];
+      }) as readonly [number, number, number, Address, bigint, number, number, boolean, Address, number, bigint, number];
 
       if (!groupData || groupData[0] === 0) {
         return null; // Group doesn't exist
       }
+
+      // Also get the members list
+      const members = await publicClient.readContract({
+        address: ROSCA_CONTRACT_ADDRESS,
+        abi: roscaAbi,
+        functionName: "getGroupMembers",
+        args: [BigInt(groupId)],
+      }) as readonly Address[];
 
       return {
         id: Number(groupData[0]),
@@ -343,12 +467,117 @@ export function useRosca() {
         token: groupData[3] as Address,
         contribution: groupData[4] as bigint,
         currentRound: Number(groupData[5]),
-        newRoundLength: Number(groupData[6]),
-        changeActivates: Number(groupData[7]),
+        maxMembers: Number(groupData[6]),
+        isActive: groupData[7] as boolean,
+        creator: groupData[8] as Address,
+        memberCount: Number(groupData[9]),
+        totalPaidOut: groupData[10] as bigint,
+        disputeCount: Number(groupData[11]),
+        newRoundLength: 0, // Will be fetched separately if needed
+        changeActivates: 0, // Will be fetched separately if needed
+        members: members as Address[],
       };
     } catch (err) {
       console.error("Error fetching group info:", err);
       return null;
+    }
+  }, [primaryWallet]);
+
+  /**
+   * Get information about a specific dispute
+   * @param disputeId - The dispute ID to query
+   * @returns Dispute information
+   */
+  const getDisputeInfo = useCallback(async (disputeId: number): Promise<DisputeInfo | null> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      return null;
+    }
+
+    try {
+      const publicClient = await primaryWallet.getPublicClient();
+      
+      const disputeData = await publicClient.readContract({
+        address: ROSCA_CONTRACT_ADDRESS,
+        abi: roscaAbi,
+        functionName: "getDispute",
+        args: [BigInt(disputeId)],
+      }) as readonly [number, Address, Address, string, number, number, number, number];
+
+      if (!disputeData || disputeData[0] === 0) {
+        return null; // Dispute doesn't exist
+      }
+
+      const statusMap = ['None', 'Active', 'Resolved', 'Rejected'] as const;
+
+      return {
+        id: disputeId,
+        groupId: Number(disputeData[0]),
+        complainant: disputeData[1] as Address,
+        defendant: disputeData[2] as Address,
+        reason: disputeData[3] as string,
+        status: statusMap[disputeData[4]] || 'None',
+        createdAt: Number(disputeData[5]),
+        votesFor: Number(disputeData[6]),
+        votesAgainst: Number(disputeData[7]),
+      };
+    } catch (err) {
+      console.error("Error fetching dispute info:", err);
+      return null;
+    }
+  }, [primaryWallet]);
+
+  /**
+   * Check if user has voted on a specific dispute
+   * @param disputeId - The dispute ID to check
+   * @param voter - The voter address (defaults to current user)
+   * @returns True if user has voted
+   */
+  const hasVotedOnDispute = useCallback(async (disputeId: number, voter?: Address): Promise<boolean> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      return false;
+    }
+
+    try {
+      const publicClient = await primaryWallet.getPublicClient();
+      const voterAddress = voter || (primaryWallet.address as Address);
+      
+      const hasVoted = await publicClient.readContract({
+        address: ROSCA_CONTRACT_ADDRESS,
+        abi: roscaAbi,
+        functionName: "hasVotedOnDispute",
+        args: [BigInt(disputeId), voterAddress],
+      }) as boolean;
+
+      return hasVoted;
+    } catch (err) {
+      console.error("Error checking vote status:", err);
+      return false;
+    }
+  }, [primaryWallet]);
+
+  /**
+   * Get the total number of disputes created
+   * @returns Total dispute count
+   */
+  const getDisputeCount = useCallback(async (): Promise<number> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      return 0;
+    }
+
+    try {
+      const publicClient = await primaryWallet.getPublicClient();
+      
+      const count = await publicClient.readContract({
+        address: ROSCA_CONTRACT_ADDRESS,
+        abi: roscaAbi,
+        functionName: "disputeCount",
+        args: [],
+      } as any) as bigint;
+
+      return Number(count);
+    } catch (err) {
+      console.error("Error fetching dispute count:", err);
+      return 0;
     }
   }, [primaryWallet]);
 
@@ -381,10 +610,161 @@ export function useRosca() {
   }, [primaryWallet]);
 
   /**
-   * Leave a ROSCA group (only after being paid out)
-   * @param groupId - The group ID to leave
+   * Create a dispute against another group member
+   * @param groupId - The group ID where the dispute occurs
+   * @param defendant - Address of the member being disputed
+   * @param reason - Reason for the dispute
    * @returns Transaction hash if successful
    */
+  const createDispute = useCallback(async (groupId: number, defendant: Address, reason: string): Promise<Hash | undefined> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      throw new Error("Wallet not connected or not Ethereum compatible");
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const walletClient = await primaryWallet.getWalletClient();
+      
+      console.log('🔍 createDispute: Creating dispute in group:', groupId, 'against:', defendant);
+
+      const hash = await walletClient.writeContract({
+        address: ROSCA_CONTRACT_ADDRESS,
+        abi: roscaAbi,
+        functionName: "createDispute",
+        args: [BigInt(groupId), defendant, reason],
+      } as any);
+
+      console.log('🔍 createDispute: Transaction hash:', hash);
+
+      return hash;
+    } catch (err) {
+      const contractError = err as ContractError;
+      console.error('❌ createDispute error:', contractError);
+      setError(contractError);
+      throw contractError;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [primaryWallet]);
+
+  /**
+   * Vote on a dispute
+   * @param disputeId - The dispute ID to vote on
+   * @param support - True to support the dispute, false to reject
+   * @returns Transaction hash if successful
+   */
+  const voteOnDispute = useCallback(async (disputeId: number, support: boolean): Promise<Hash | undefined> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      throw new Error("Wallet not connected or not Ethereum compatible");
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const walletClient = await primaryWallet.getWalletClient();
+      
+      console.log('🔍 voteOnDispute: Voting on dispute:', disputeId, 'support:', support);
+
+      const hash = await walletClient.writeContract({
+        address: ROSCA_CONTRACT_ADDRESS,
+        abi: roscaAbi,
+        functionName: "voteOnDispute",
+        args: [BigInt(disputeId), support],
+      } as any);
+
+      console.log('🔍 voteOnDispute: Transaction hash:', hash);
+
+      return hash;
+    } catch (err) {
+      const contractError = err as ContractError;
+      console.error('❌ voteOnDispute error:', contractError);
+      setError(contractError);
+      throw contractError;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [primaryWallet]);
+
+  /**
+   * Set group status (active/inactive) - only for group creator
+   * @param groupId - The group ID to modify
+   * @param isActive - Whether the group should accept new members
+   * @returns Transaction hash if successful
+   */
+  const setGroupStatus = useCallback(async (groupId: number, isActive: boolean): Promise<Hash | undefined> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      throw new Error("Wallet not connected or not Ethereum compatible");
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const walletClient = await primaryWallet.getWalletClient();
+      
+      console.log('🔍 setGroupStatus: Setting group status:', groupId, 'active:', isActive);
+
+      const hash = await walletClient.writeContract({
+        address: ROSCA_CONTRACT_ADDRESS,
+        abi: roscaAbi,
+        functionName: "setGroupStatus",
+        args: [BigInt(groupId), isActive],
+      } as any);
+
+      console.log('🔍 setGroupStatus: Transaction hash:', hash);
+
+      return hash;
+    } catch (err) {
+      const contractError = err as ContractError;
+      console.error('❌ setGroupStatus error:', contractError);
+      setError(contractError);
+      throw contractError;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [primaryWallet]);
+
+  /**
+   * Kick a member from the group - only for group creator, before round starts
+   * @param groupId - The group ID
+   * @param member - Address of the member to kick
+   * @returns Transaction hash if successful
+   */
+  const kickMember = useCallback(async (groupId: number, member: Address): Promise<Hash | undefined> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      throw new Error("Wallet not connected or not Ethereum compatible");
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const walletClient = await primaryWallet.getWalletClient();
+      
+      console.log('🔍 kickMember: Kicking member:', member, 'from group:', groupId);
+
+      const hash = await walletClient.writeContract({
+        address: ROSCA_CONTRACT_ADDRESS,
+        abi: roscaAbi,
+        functionName: "kickMember",
+        args: [BigInt(groupId), member],
+      } as any);
+
+      console.log('🔍 kickMember: Transaction hash:', hash);
+
+      return hash;
+    } catch (err) {
+      const contractError = err as ContractError;
+      console.error('❌ kickMember error:', contractError);
+      setError(contractError);
+      throw contractError;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [primaryWallet]);
   const leaveGroup = useCallback(async (groupId: number): Promise<Hash | undefined> => {
     if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
       throw new Error("Wallet not connected or not Ethereum compatible");
@@ -469,21 +849,33 @@ export function useRosca() {
     balance,
     isLoadingBalance,
     
-    // Contract interactions
+    // Core group operations
     createGroup,
+    joinGroup,
     contribute,
-    sendTransaction,
-    getGroupInfo,
-    getGroupCount,
     leaveGroup,
     rageQuit,
     
-    // Balance functions
+    // Group management (creator only)
+    setGroupStatus,
+    kickMember,
+    
+    // Dispute resolution
+    createDispute,
+    voteOnDispute,
+    
+    // View functions
+    getGroupInfo,
+    getGroupCount,
+    getDisputeInfo,
+    getDisputeCount,
+    hasVotedOnDispute,
+    
+    // Utility functions
+    sendTransaction,
     getBalance,
     refreshBalance,
     getMaxSpendableAmount,
-    
-    // Utilities
     formatContribution,
     
     // Constants
