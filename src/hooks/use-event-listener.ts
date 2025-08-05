@@ -14,7 +14,7 @@ import type { Notification } from '@/types/notifications';
 
 // Default configuration
 const DEFAULT_EVENT_CONFIG: EventMonitorConfig = {
-  contractAddress: '0xbCd9c60030c34dF782eec0249b931851BD941235' as Address, // Your contract address
+  contractAddress: '0x5fbdF85C6A600036a2719167aD94f037Bd20De82' as Address, // Your contract address
   rpcUrl: 'https://rpc.testnet.citrea.xyz',
   pollingInterval: 5000, // 5 seconds
   fromBlock: 0n,
