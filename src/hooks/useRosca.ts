@@ -119,13 +119,7 @@ export function useRosca() {
     }
   }, [primaryWallet, getBalance]);
 
-  /**
-   * Get user's cBTC balance (using Dynamic's balance)
-   */
-  const getBalance = useCallback(async (): Promise<string> => {
-    console.log('🔍 getBalance: Using Dynamic balance:', balance);
-    return balance;
-  }, [balance]);
+
 
   /**
    * Calculate maximum spendable amount (balance - estimated gas)
