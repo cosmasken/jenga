@@ -1,77 +1,94 @@
-import React, { useState, useEffect } from "react";
-import { DynamicWidget } from "@dynamic-labs/sdk-react-core";
-import { useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
-import { useDarkMode } from './lib/useDarkMode';
-import { Landing } from './components/Landing';
-import { Dashboard } from './components/Dashboard';
-import { OnboardingFlow } from './components/OnboardingFlow';
-import { ToastProvider } from './components/Toast';
-import "./App.css";
+import { Switch, Route } from "wouter";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Navigation } from "@/components/navigation";
+import { TransactionModal } from "@/components/modals/transaction-modal";
+import { InviteModal } from "@/components/modals/invite-modal";
+import { VotingModal } from "@/components/modals/voting-modal";
+import { queryClient } from "@/lib/queryClient";
+import { useStore } from "@/lib/store";
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 
-function App() {
-  const { isDarkMode } = useDarkMode();
-  const isLoggedIn = useIsLoggedIn();
-  const [showOnboarding, setShowOnboarding] = useState(false);
+import Landing from "@/pages/landing";
+import Onboarding from "@/pages/onboarding";
+import Dashboard from "@/pages/dashboard";
+import GroupDetail from "@/pages/group-detail";
+import Disputes from "@/pages/disputes";
+import Profile from "@/pages/profile";
+import NotFound from "@/pages/not-found";
 
-  // Check if user has completed onboarding
+
+
+
+function Router() {
+  const { onboardingCompleted, setInviteCode } = useStore();
+  const [location, setLocation] = useLocation();
+
   useEffect(() => {
-    if (isLoggedIn) {
-      const hasCompletedOnboarding = localStorage.getItem('jenga_onboarding_completed');
-      if (!hasCompletedOnboarding) {
-        setShowOnboarding(true);
+    // Check for invite code in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteCode = urlParams.get('invite');
+    if (inviteCode) {
+      setInviteCode(inviteCode);
+      // Redirect to onboarding if not completed
+      if (!onboardingCompleted) {
+        setLocation('/onboarding');
       }
     }
-  }, [isLoggedIn]);
-
-  const handleOnboardingComplete = () => {
-    setShowOnboarding(false);
-  };
+  }, [setInviteCode, onboardingCompleted, setLocation]);
 
   return (
-    <ToastProvider>
-      <div className={`app-container ${isDarkMode ? 'dark' : 'light'}`}>
-        <div className="container">
-          {/* Header Section */}
-          <header className="app-header">
-            <h1 className="app-title">
-              <span className="bitcoin-symbol">₿</span>
-              Jenga
-              <span className="bitcoin-symbol">₿</span>
-            </h1>
-            <p className="app-subtitle">
-              Bitcoin Chama dApp - Build Your Financial Future Together
-            </p>
-            <p className="text-muted">
-              Create and manage Bitcoin savings circles on Citrea testnet
-            </p>
-          </header>
+    <Switch>
+      <Route path="/" component={Landing} />
+      <Route path="/onboarding" component={Onboarding} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/group/:id" component={GroupDetail} />
+      <Route path="/disputes" component={Disputes} />
+      <Route path="/profile" component={Profile} />
+      <Route path="/invite/:code">
+        {(params) => {
+          // Handle invite redirect
+          useEffect(() => {
+            setInviteCode(params.code);
+            setLocation(`/?invite=${params.code}`);
+          }, [params.code]);
+          return null;
+        }}
+      </Route>
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
 
-          {/* Main Content */}
-          <main className="modal">
-            {/* Wallet Connection Section */}
-            <section className="wallet-section">
-              <DynamicWidget />
-            </section>
+function App() {
+  const { onboardingCompleted } = useStore();
+  const [location, setLocation] = useLocation();
 
-            {/* Conditional Content Based on Login Status */}
-            {isLoggedIn ? <Dashboard /> : <Landing />}
-          </main>
+  // Auto-redirect to onboarding if needed
+  useEffect(() => {
+    if (!onboardingCompleted && location !== '/onboarding' && location !== '/') {
+      setLocation('/onboarding');
+    }
+  }, [onboardingCompleted, location, setLocation]);
 
-          {/* Footer */}
-          <footer className="app-footer">
-            <p className="text-muted">
-              Built with ❤️ for the Bitcoin community • Powered by Citrea testnet
-            </p>
-          </footer>
-        </div>
-
-        {/* Onboarding Flow */}
-        <OnboardingFlow 
-          open={showOnboarding} 
-          onComplete={handleOnboardingComplete} 
-        />
-      </div>
-    </ToastProvider>
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <TooltipProvider>
+          <div className="min-h-screen bg-background text-foreground font-sans">
+            <Navigation />
+            <Router />
+            <TransactionModal />
+            <InviteModal />
+            <VotingModal />
+            <Toaster />
+          </div>
+        </TooltipProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 
