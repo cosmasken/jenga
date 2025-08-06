@@ -11,12 +11,13 @@ import { NotificationService, type NotificationServiceConfig } from '@/services/
 import { useRoscaToast } from './use-rosca-toast';
 import { type BlockchainEvent, EventType } from '@/types/events';
 import type { Notification } from '@/types/notifications';
+import { CONTRACT_ADDRESSES, NETWORK_CONFIG, UI_CONFIG } from '../config';
 
 // Default configuration
 const DEFAULT_EVENT_CONFIG: EventMonitorConfig = {
-  contractAddress: '0x5fbdF85C6A600036a2719167aD94f037Bd20De82' as Address, // Your contract address
-  rpcUrl: 'https://rpc.testnet.citrea.xyz',
-  pollingInterval: 5000, // 5 seconds
+  contractAddress: CONTRACT_ADDRESSES.ROSCA,
+  rpcUrl: NETWORK_CONFIG.RPC_URL,
+  pollingInterval: UI_CONFIG.POLLING_INTERVAL,
   fromBlock: 0n,
   batchSize: 100
 };

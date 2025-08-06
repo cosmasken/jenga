@@ -3,8 +3,10 @@ import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { parseAbi, parseEther, formatEther } from "viem";
 import type { Abi, Address, Hash } from "viem";
 import React, { useState, useCallback, useEffect } from "react";
+import { CONTRACT_ADDRESSES, TRANSACTION_CONFIG } from "../config";
+
 // Contract configuration
-export const ROSCA_CONTRACT_ADDRESS = "0xD85b914037Fe36fa28Fc60C1E542Dc52A8e66B0b" as Address;
+export const ROSCA_CONTRACT_ADDRESS = CONTRACT_ADDRESSES.ROSCA;
 
 // Define the ABI directly to avoid JSON import issues
 export const roscaAbi = parseAbi([
@@ -212,12 +214,14 @@ export function useRosca() {
 
       console.log('🔍 createGroup: Transaction hash:', hash);
 
-      // Wait for transaction receipt as per Dynamic documentation
-      const receipt = await publicClient.getTransactionReceipt({
+      // Wait for transaction to be mined and confirmed
+      console.log('⏳ Waiting for transaction confirmation...');
+      const receipt = await publicClient.waitForTransactionReceipt({
         hash,
+        timeout: TRANSACTION_CONFIG.TIMEOUT_MS,
       });
 
-      console.log('🔍 createGroup: Transaction receipt:', receipt);
+      console.log('✅ createGroup: Transaction confirmed:', receipt);
 
       // Refresh balance after successful transaction
       await getBalance();
@@ -258,11 +262,24 @@ export function useRosca() {
         abi: roscaAbi,
         functionName: "getGroupDetails",
         args: [BigInt(groupId)],
-      }) as readonly [number, number, number, Address, bigint, number, number, boolean, Address, number, bigint, number];
+      }) as {
+        id: number;
+        roundLength: number;
+        nextDue: number;
+        token: Address;
+        contribution: bigint;
+        currentRound: number;
+        maxMembers: number;
+        isActive: boolean;
+        creator: Address;
+        memberCount: bigint;
+        totalPaidOut: bigint;
+        groupDisputeCount: bigint;
+      };
 
-      const contribution = groupDetails[4]; // contribution amount
-      const token = groupDetails[3]; // token address
-      const isActive = groupDetails[7]; // group is active
+      const contribution = groupDetails.contribution;
+      const token = groupDetails.token;
+      const isActive = groupDetails.isActive;
 
       if (!isActive) {
         throw new Error("Group is not accepting new members");
@@ -283,12 +300,14 @@ export function useRosca() {
 
       console.log('🔍 joinGroup: Transaction hash:', hash);
 
-      // Wait for transaction receipt
-      const receipt = await publicClient.getTransactionReceipt({
+      // Wait for transaction to be mined and confirmed
+      console.log('⏳ Waiting for transaction confirmation...');
+      const receipt = await publicClient.waitForTransactionReceipt({
         hash,
+        timeout: TRANSACTION_CONFIG.TIMEOUT_MS,
       });
 
-      console.log('🔍 joinGroup: Transaction receipt:', receipt);
+      console.log('✅ joinGroup: Transaction confirmed:', receipt);
 
       // Refresh balance after successful transaction
       await getBalance();
@@ -349,12 +368,14 @@ export function useRosca() {
 
       console.log('🔍 contribute: Transaction hash:', hash);
 
-      // Wait for transaction receipt
-      const receipt = await publicClient.getTransactionReceipt({
+      // Wait for transaction to be mined and confirmed
+      console.log('⏳ Waiting for transaction confirmation...');
+      const receipt = await publicClient.waitForTransactionReceipt({
         hash,
+        timeout: TRANSACTION_CONFIG.TIMEOUT_MS,
       });
 
-      console.log('🔍 contribute: Transaction receipt:', receipt);
+      console.log('✅ contribute: Transaction confirmed:', receipt);
 
       // Refresh balance after successful transaction
       await getBalance();
@@ -396,12 +417,14 @@ export function useRosca() {
       const hash = await walletClient.sendTransaction(transaction);
       console.log('🔍 sendTransaction: Transaction hash:', hash);
 
-      // Wait for transaction receipt
-      const receipt = await publicClient.getTransactionReceipt({
+      // Wait for transaction to be mined and confirmed
+      console.log('⏳ Waiting for transaction confirmation...');
+      const receipt = await publicClient.waitForTransactionReceipt({
         hash,
+        timeout: TRANSACTION_CONFIG.TIMEOUT_MS,
       });
 
-      console.log('🔍 sendTransaction: Transaction receipt:', receipt);
+      console.log('✅ sendTransaction: Transaction confirmed:', receipt);
 
       // Refresh balance after successful transaction
       await getBalance();
@@ -459,9 +482,9 @@ export function useRosca() {
         maxMembers: Number(groupData.maxMembers),
         isActive: groupData.isActive as boolean,
         creator: groupData.creator as Address,
-        memberCount: Number(groupData.memberCount),
+        memberCount: groupData.memberCount as bigint,
         totalPaidOut: groupData.totalPaidOut as bigint,
-        groupDisputeCount: Number(groupData.groupDisputeCount),
+        groupDisputeCount: groupData.groupDisputeCount as bigint,
         members: members as Address[],
       };
     } catch (err) {
@@ -488,9 +511,9 @@ export function useRosca() {
         abi: roscaAbi,
         functionName: "getDispute",
         args: [BigInt(disputeId)],
-      }) as readonly [number, Address, Address, string, number, number, number, number];
+      }) as readonly [bigint, Address, Address, string, number, bigint, bigint, bigint];
 
-      if (!disputeData || disputeData[0] === 0) {
+      if (!disputeData || disputeData[0] === 0n) {
         return null; // Dispute doesn't exist
       }
 
