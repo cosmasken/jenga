@@ -223,6 +223,62 @@ export function useRosca() {
 
       console.log('✅ createGroup: Transaction confirmed:', receipt);
 
+      // Extract group ID from the Created event logs
+      let groupId: bigint | undefined;
+      if (receipt.logs && receipt.logs.length > 0) {
+        try {
+          // Look for the Created event in the logs
+          for (const log of receipt.logs) {
+            try {
+              const decodedLog = publicClient.decodeEventLog({
+                abi: roscaAbi,
+                data: log.data,
+                topics: log.topics,
+              });
+              
+              if (decodedLog.eventName === 'Created') {
+                groupId = decodedLog.args.id as bigint;
+                console.log('🔍 createGroup: Extracted group ID:', groupId);
+                break;
+              }
+            } catch (decodeError) {
+              // Skip logs that don't match our ABI
+              continue;
+            }
+          }
+        } catch (logError) {
+          console.warn('⚠️ createGroup: Could not decode logs:', logError);
+        }
+      }
+
+      // Automatically activate the group after creation
+      if (groupId !== undefined) {
+        try {
+          console.log('🔄 createGroup: Activating group:', groupId);
+          const activateHash = await walletClient.writeContract({
+            address: ROSCA_CONTRACT_ADDRESS,
+            abi: roscaAbi,
+            functionName: "setGroupStatus",
+            args: [groupId, true],
+          } as any);
+
+          console.log('🔍 createGroup: Group activation hash:', activateHash);
+          
+          // Wait for activation transaction
+          await publicClient.waitForTransactionReceipt({
+            hash: activateHash,
+            timeout: TRANSACTION_CONFIG.TIMEOUT_MS,
+          });
+          
+          console.log('✅ createGroup: Group activated successfully');
+        } catch (activateError) {
+          console.error('⚠️ createGroup: Failed to activate group, but creation succeeded:', activateError);
+          // Don't throw here - group creation was successful, activation can be done manually
+        }
+      } else {
+        console.warn('⚠️ createGroup: Could not extract group ID from receipt, group may need manual activation');
+      }
+
       // Refresh balance after successful transaction
       await getBalance();
 
@@ -282,7 +338,14 @@ export function useRosca() {
       const isActive = groupDetails.isActive;
 
       if (!isActive) {
-        throw new Error("Group is not accepting new members");
+        console.log('❌ joinGroup: Group is not active:', {
+          groupId,
+          isActive,
+          creator: groupDetails.creator,
+          memberCount: Number(groupDetails.memberCount),
+          maxMembers: groupDetails.maxMembers
+        });
+        throw new Error(`Group ${groupId} is currently closed to new members. The group creator may need to activate it first.`);
       }
 
       console.log('🔍 joinGroup: Group contribution amount:', contribution);
