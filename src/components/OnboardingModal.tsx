@@ -178,11 +178,19 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
           // Don't fail onboarding if notification fails
         }
 
-        // Store onboarding completion in localStorage (for backward compatibility)
+      // Store onboarding completion in localStorage (for backward compatibility)
         localStorage.setItem('jenga_onboarding_completed', 'true');
         localStorage.setItem('jenga_user_display_name', username.trim());
         localStorage.setItem('jenga_user_profile_icon', selectedIcon.id);
         localStorage.setItem('jenga_user_supabase_id', createdUser.id);
+        
+        // Update user with onboarding completion in database
+        const updatedUser = await upsertUser({
+          ...userData,
+          onboarding_completed: true,
+          onboarding_completed_at: new Date().toISOString()
+        });
+        console.log('✅ Onboarding completion updated in database:', updatedUser);
         
         // Store the identifier type and value for future reference
         const identifierDisplay = getIdentifierDisplay();

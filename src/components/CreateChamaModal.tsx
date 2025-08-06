@@ -7,9 +7,10 @@ import { useRoscaToast } from '../hooks/use-rosca-toast';
 interface CreateChamaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onGroupCreated?: () => void; // Callback for when group is successfully created
 }
 
-export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpenChange }) => {
+export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpenChange, onGroupCreated }) => {
   const [currentStep, setCurrentStep] = useState<'form' | 'preview' | 'transaction'>('form');
   const [formData, setFormData] = useState({
     name: '',
@@ -37,7 +38,6 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     getMaxSpendableAmount
   } = useRosca();
   const {
-    createGroup: createSupabaseGroup,
     logActivity,
     createNotification,
     awardAchievement,
@@ -132,7 +132,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       // Show pending transaction toast
       const pendingToast = transactionPending("group creation");
 
-      // Step 1: Send blockchain transaction FIRST
+      // Send blockchain transaction
       console.log('🔄 Sending blockchain transaction...');
       const result = await createGroup({
         token: '0x0000000000000000000000000000000000000000',
@@ -149,36 +149,23 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       console.log('✅ Transaction hash received:', hash);
       console.log('✅ Chain group ID:', chainGroupId);
 
-      // Step 2: Create group in Supabase ONLY after blockchain success
-      console.log('🔄 Creating group in Supabase after blockchain confirmation...');
-      const supabaseGroup = await createSupabaseGroup({
-        name: formData.name,
-        description: formData.description || undefined,
-        contribution_amount: parseFloat(formData.contributionAmount),
-        token_address: '0x0000000000000000000000000000000000000000', // ETH address for native token
-        round_length_days: parseInt(formData.roundLength),
-        max_members: parseInt(formData.maxMembers),
-        category: formData.category,
-        tags: formData.tags,
-        is_private: formData.isPrivate,
-        status: 'active', // Set as active since blockchain transaction succeeded
-        transaction_hash: hash, // Include transaction hash immediately
-        chain_group_id: chainGroupId // Store the blockchain group ID
-      });
+      // Dismiss pending toast
+      pendingToast.dismiss();
 
-      if (!supabaseGroup) {
-        console.warn('⚠️ Blockchain transaction succeeded but failed to create group in database');
-        // Don't throw error here - blockchain transaction succeeded
-      } else {
-        console.log('✅ Group created in Supabase:', supabaseGroup.id);
-        setCreatedGroupId(supabaseGroup.id);
+      // Show success message
+      groupCreated(
+        formData.name,
+        formData.contributionAmount,
+        hash
+      );
 
-        // Step 3: Log activity (only if Supabase group was created)
-        try {
+      // Optional: Log activity for analytics (non-critical)
+      try {
+        if (chainGroupId !== undefined) {
           await logActivity(
             'group_created',
-            'group',
-            supabaseGroup.id,
+            'chama',
+            chainGroupId.toString(),
             `Created ROSCA group: ${formData.name}`,
             {
               group_name: formData.name,
@@ -186,52 +173,57 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
               max_members: formData.maxMembers,
               transaction_hash: hash
             }
-          );
-        } catch (activityError) {
-          console.warn('⚠️ Could not log activity:', activityError);
-        }
-
-        // Step 4: Award achievement for group creation
-        try {
-          await awardAchievement('group-creator', primaryWallet.address, {
-            group_id: supabaseGroup.id,
-            transaction_hash: hash
-          });
-          console.log('✅ Group Creator achievement awarded');
-        } catch (achievementError) {
-          console.warn('⚠️ Could not award achievement:', achievementError);
-        }
-
-        // Step 5: Create notification for group creation
-        try {
-          await createNotification({
-            user_wallet_address: primaryWallet.address,
-            title: 'Group Created Successfully! 🎉',
-            message: `Your ROSCA group "${formData.name}" has been created and confirmed on the blockchain.`,
-            type: 'success',
-            category: 'group',
-            group_id: supabaseGroup.id,
-            data: {
+            `Created ROSCA group "${formData.name}"`,
+            { 
               group_name: formData.name,
               transaction_hash: hash,
-              contribution_amount: formData.contributionAmount
+              contribution_amount: formData.contributionAmount,
+              max_members: formData.maxMembers
             }
-          });
-          console.log('✅ Group creation notification sent');
-        } catch (notificationError) {
-          console.warn('⚠️ Could not create notification:', notificationError);
+          );
         }
+      } catch (activityError) {
+        console.warn('⚠️ Could not log activity:', activityError);
       }
 
-      // Dismiss pending toast and show success
-      pendingToast.dismiss();
-      groupCreated(formData.name, parseInt(formData.maxMembers), hash);
+      // Optional: Award achievement for group creation (non-critical)
+      try {
+        await awardAchievement('group-creator', {
+          transaction_hash: hash,
+          group_id: chainGroupId?.toString()
+        });
+        console.log('✅ Group Creator achievement awarded');
+      } catch (achievementError) {
+        console.warn('⚠️ Could not award achievement:', achievementError);
+      }
 
+      // Optional: Create notification for group creation (non-critical)
+      try {
+        await createNotification(
+          primaryWallet.address,
+          'Group Created Successfully! 🎉',
+          `Your ROSCA group "${formData.name}" has been created and confirmed on the blockchain.`,
+          'success',
+          {
+            group_name: formData.name,
+            transaction_hash: hash,
+            contribution_amount: formData.contributionAmount,
+            chain_group_id: chainGroupId
+          }
+        );
+        console.log('✅ Group creation notification sent');
+      } catch (notificationError) {
+        console.warn('⚠️ Could not create notification:', notificationError);
+      }
+
+      // Trigger callback for dashboard refresh
+      if (onGroupCreated) {
+        onGroupCreated();
+      }
+      
       setTimeout(() => resetModal(), 2000);
     } catch (err) {
       console.error('❌ Error creating chama:', err);
-
-      // Since we do blockchain first, if it fails, no cleanup needed in Supabase
       showError("Group Creation Failed", "Please try again or check your wallet connection");
       setCurrentStep('preview'); // Go back to preview step
     }

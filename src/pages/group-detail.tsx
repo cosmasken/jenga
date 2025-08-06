@@ -27,10 +27,9 @@ export default function GroupDetail() {
     isLoading,
     error
   } = useRosca();
-  const { getGroups } = useSupabase();
+  const { logActivity, createNotification } = useSupabase();
 
   const [group, setGroup] = useState<any>(null);
-  const [supabaseGroup, setSupabaseGroup] = useState<any>(null);
   const [isContributing, setIsContributing] = useState(false);
   const [loadingGroup, setLoadingGroup] = useState(true);
 
@@ -42,424 +41,398 @@ export default function GroupDetail() {
   }, [isLoggedIn, setLocation]);
 
   // Load group data
+  // Load group data from blockchain only
   useEffect(() => {
     const loadGroup = async () => {
       if (!id || !isConnected) return;
 
       setLoadingGroup(true);
       try {
-        // First, get the group from Supabase using the UUID
-        console.log('🔄 Loading group from Supabase:', id);
-        const supabaseGroups = await getGroups({ limit: 1 });
-        const supabaseGroup = supabaseGroups.find(g => g.id === id);
-        
-        if (!supabaseGroup) {
-          throw new Error('Group not found in database');
+        // Parse the group ID from URL (should be numeric for blockchain ID)
+        const groupId = parseInt(id);
+        if (isNaN(groupId)) {
+          throw new Error('Invalid group ID - must be numeric blockchain ID');
         }
-        
-        setSupabaseGroup(supabaseGroup);
-        console.log('✅ Supabase group loaded:', supabaseGroup);
 
-        // Then, get contract data if chain_group_id exists
-        if (supabaseGroup.chain_group_id) {
-          console.log('🔄 Loading contract data for chain group ID:', supabaseGroup.chain_group_id);
-          const contractData = await getGroupInfo(supabaseGroup.chain_group_id);
-          
-          if (contractData) {
-            // Merge Supabase and contract data
-            setGroup({
-              ...supabaseGroup,
-              ...contractData,
-              // Keep Supabase data for fields that might not be in contract
-              name: supabaseGroup.name,
-              description: supabaseGroup.description,
-              category: supabaseGroup.category,
-              tags: supabaseGroup.tags
-            });
-            console.log('✅ Contract data loaded and merged');
-          } else {
-            console.warn('⚠️ Contract data not found, using Supabase data only');
-            setGroup(supabaseGroup);
-          }
-        } else {
-          console.warn('⚠️ No chain_group_id found, using Supabase data only');
-          setGroup(supabaseGroup);
+        console.log('🔄 Loading group from blockchain:', groupId);
+
+        // Get group data directly from blockchain
+        const groupData = await getGroupInfo(groupId);
+
+        if (!groupData) {
+          throw new Error('Group not found on blockchain');
         }
+
+        setGroup(groupData);
+        console.log('✅ Blockchain group loaded:', groupData);
+
       } catch (error) {
         console.error("Error loading group:", error);
-        setError(error as Error);
+        showError('Group Not Found', 'Could not load group information from blockchain.');
+        setLocation('/dashboard'); // Redirect back to dashboard
       } finally {
         setLoadingGroup(false);
       }
     };
 
     loadGroup();
-  }, [id, isConnected, getGroupInfo, getGroups]);
+  }, [id, isConnected, getGroupInfo, showError, setLocation]);
 
   const handleContribute = async () => {
-    if (!group || !supabaseGroup?.chain_group_id) {
-      console.error('Cannot contribute: missing group data or chain_group_id');
+    if (!group || !group.id) {
+      console.error('Cannot contribute: missing group data');
       return;
     }
 
     setIsContributing(true);
-    
+
     // Show pending transaction toast
     const pendingToast = transactionPending("contribution");
-    
+
     try {
-      const hash = await contribute(supabaseGroup.chain_group_id);
+      const hash = await contribute(group.id);
       if (hash) {
         // Dismiss pending toast and show success
         pendingToast.dismiss();
         contributionSuccess(
-          formatContribution(group.contribution), 
-          group.name || `Group ${id}`,
+          formatContribution(group.contribution),
+          group.name || `Group ${group.id}`,
           hash
         );
 
         // Reload group data after contribution
-        if (supabaseGroup?.chain_group_id) {
-          const updatedGroup = await getGroupInfo(supabaseGroup.chain_group_id);
-          if (updatedGroup) {
-            setGroup({
-              ...supabaseGroup,
-              ...updatedGroup,
-              name: supabaseGroup.name,
-              description: supabaseGroup.description,
-              category: supabaseGroup.category,
-              tags: supabaseGroup.tags
-            });
-          }
+        const updatedGroup = await getGroupInfo(group.id);
+        if (updatedGroup) {
+          setGroup(updatedGroup);
         }
       }
     } catch (error: any) {
-      pendingToast.dismiss();
-      showError(
-        "Contribution Failed", 
-        error.message || "Failed to submit contribution. Please try again."
-      );
-    } finally {
-      setIsContributing(false);
-    }
-  };
-
-  const handleShare = () => {
-    const shareUrl = `${window.location.origin}/group/${id}`;
-    navigator.clipboard.writeText(shareUrl);
-    success("Link Copied! 🔗", "Group link copied to clipboard");
-  };
-
-  const handleInvite = () => {
-    // TODO: Implement invite functionality
-    success("Coming Soon! 🚀", "Invite functionality will be available soon");
-  };
-
-  if (!isConnected || !primaryWallet) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center">
-            <Wallet className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <h2 className="text-xl font-bold mb-2">Wallet Not Connected</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Please connect your wallet to view group details.
-            </p>
-            <Button onClick={() => setLocation("/")} className="w-full">
-              Go to Landing
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+    pendingToast.dismiss();
+    showError(
+      "Contribution Failed",
+      error.message || "Failed to submit contribution. Please try again."
     );
+  } finally {
+    setIsContributing(false);
   }
+};
 
-  if (loadingGroup) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[hsl(27,87%,54%)] mx-auto mb-4"></div>
-            <h2 className="text-xl font-bold mb-2">Loading Group</h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              Fetching group details from the blockchain...
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+const handleShare = () => {
+  const shareUrl = `${window.location.origin}/group/${id}`;
+  navigator.clipboard.writeText(shareUrl);
+  success("Link Copied! 🔗", "Group link copied to clipboard");
+};
 
-  if (!group) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center">
-            <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-red-500" />
-            <h2 className="text-xl font-bold mb-2">Group Not Found</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              The group you're looking for doesn't exist or hasn't been created yet.
-            </p>
-            <Button onClick={() => setLocation("/dashboard")} className="w-full">
-              Back to Dashboard
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+const handleInvite = () => {
+  // TODO: Implement invite functionality
+  success("Coming Soon! 🚀", "Invite functionality will be available soon");
+};
 
-  const progressPercentage = group.totalRounds > 0 ? (group.currentRound / group.totalRounds) * 100 : 0;
-  const isActive = group.currentRound < group.totalRounds;
-  const nextDueDate = new Date(group.nextDue * 1000);
-  const isEthGroup = group.token === "0x0000000000000000000000000000000000000000";
-
+if (!isConnected || !primaryWallet) {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <motion.div
-          className="mb-6"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <div className="flex items-center gap-4 mb-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setLocation("/dashboard")}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                Group #{group.id}
-              </h1>
-              <Badge variant={isActive ? "default" : "secondary"}>
-                {isActive ? "Active" : "Completed"}
-              </Badge>
-            </div>
-          </div>
-        </motion.div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <Card className="w-full max-w-md">
+        <CardContent className="pt-6 text-center">
+          <Wallet className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <h2 className="text-xl font-bold mb-2">Wallet Not Connected</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            Please connect your wallet to view group details.
+          </p>
+          <Button onClick={() => setLocation("/")} className="w-full">
+            Go to Landing
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
-        {/* Group Overview */}
-        <motion.div
-          className="mb-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <Card>
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-                    Group Details
-                  </h2>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Group ID:</span>
-                      <span className="font-mono text-gray-900 dark:text-gray-100">#{group.id}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Contribution:</span>
-                      <span className="font-semibold text-gray-900 dark:text-gray-100">
-                        {isEthGroup ? "Ξ" : "₿"} {formatContribution(group.contribution)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Round Length:</span>
-                      <span className="text-gray-900 dark:text-gray-100">
-                        {Math.floor(group.roundLength / 86400)} days
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600 dark:text-gray-400">Token:</span>
-                      <span className="font-mono text-sm text-gray-900 dark:text-gray-100">
-                        {isEthGroup ? "ETH" : `${group.token.slice(0, 6)}...${group.token.slice(-4)}`}
-                      </span>
-                    </div>
+if (loadingGroup) {
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <Card className="w-full max-w-md">
+        <CardContent className="pt-6 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[hsl(27,87%,54%)] mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold mb-2">Loading Group</h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            Fetching group details from the blockchain...
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+if (!group) {
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <Card className="w-full max-w-md">
+        <CardContent className="pt-6 text-center">
+          <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+          <h2 className="text-xl font-bold mb-2">Group Not Found</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            The group you're looking for doesn't exist or hasn't been created yet.
+          </p>
+          <Button onClick={() => setLocation("/dashboard")} className="w-full">
+            Back to Dashboard
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+const progressPercentage = group.totalRounds > 0 ? (group.currentRound / group.totalRounds) * 100 : 0;
+const isActive = group.currentRound < group.totalRounds;
+const nextDueDate = new Date(group.nextDue * 1000);
+const isEthGroup = group.token === "0x0000000000000000000000000000000000000000";
+
+return (
+  <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
+    <div className="max-w-4xl mx-auto">
+      {/* Header */}
+      <motion.div
+        className="mb-6"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div className="flex items-center gap-4 mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setLocation("/dashboard")}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              Group #{group.id}
+            </h1>
+            <Badge variant={isActive ? "default" : "secondary"}>
+              {isActive ? "Active" : "Completed"}
+            </Badge>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Group Overview */}
+      <motion.div
+        className="mb-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        <Card>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                  Group Details
+                </h2>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Group ID:</span>
+                    <span className="font-mono text-gray-900 dark:text-gray-100">#{group.id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Contribution:</span>
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">
+                      {isEthGroup ? "Ξ" : "₿"} {formatContribution(group.contribution)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Round Length:</span>
+                    <span className="text-gray-900 dark:text-gray-100">
+                      {Math.floor(group.roundLength / 86400)} days
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Token:</span>
+                    <span className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                      {isEthGroup ? "ETH" : `${group.token.slice(0, 6)}...${group.token.slice(-4)}`}
+                    </span>
                   </div>
                 </div>
+              </div>
 
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-                    Progress
-                  </h2>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-sm mb-2">
-                        <span className="text-gray-600 dark:text-gray-400">Round Progress</span>
-                        <span className="text-gray-900 dark:text-gray-100">
-                          {group.currentRound}/{group.totalRounds || "∞"}
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                  Progress
+                </h2>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-gray-600 dark:text-gray-400">Round Progress</span>
+                      <span className="text-gray-900 dark:text-gray-100">
+                        {group.currentRound}/{group.totalRounds || "∞"}
+                      </span>
+                    </div>
+                    <Progress value={progressPercentage} className="h-2" />
+                  </div>
+
+                  {isActive && (
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock className="h-4 w-4 text-blue-500" />
+                        <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                          Next Due Date
                         </span>
                       </div>
-                      <Progress value={progressPercentage} className="h-2" />
+                      <p className="text-sm text-blue-600 dark:text-blue-400">
+                        {nextDueDate.toLocaleDateString()} at {nextDueDate.toLocaleTimeString()}
+                      </p>
                     </div>
-
-                    {isActive && (
-                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Clock className="h-4 w-4 text-blue-500" />
-                          <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                            Next Due Date
-                          </span>
-                        </div>
-                        <p className="text-sm text-blue-600 dark:text-blue-400">
-                          {nextDueDate.toLocaleDateString()} at {nextDueDate.toLocaleTimeString()}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-        {/* Actions */}
-        <motion.div
-          className="mb-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <Card>
-            <CardContent className="p-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-                Actions
+      {/* Actions */}
+      <motion.div
+        className="mb-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.2 }}
+      >
+        <Card>
+          <CardContent className="p-6">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+              Actions
+            </h2>
+            <div className="flex flex-wrap gap-4">
+              {isActive && (
+                <Button
+                  onClick={handleContribute}
+                  disabled={isContributing || isLoading}
+                  className="bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)]"
+                >
+                  <Bitcoin className="h-4 w-4 mr-2" />
+                  {isContributing ? "Contributing..." : "Contribute"}
+                </Button>
+              )}
+
+              <Button variant="outline" onClick={handleShare}>
+                <Share2 className="h-4 w-4 mr-2" />
+                Share Group
+              </Button>
+
+              <Button variant="outline" onClick={handleInvite}>
+                <Users className="h-4 w-4 mr-2" />
+                Invite Members
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Group History */}
+      <motion.div
+        className="mb-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+      >
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <History className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                Group History
               </h2>
-              <div className="flex flex-wrap gap-4">
-                {isActive && (
-                  <Button
-                    onClick={handleContribute}
-                    disabled={isContributing || isLoading}
-                    className="bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)]"
-                  >
-                    <Bitcoin className="h-4 w-4 mr-2" />
-                    {isContributing ? "Contributing..." : "Contribute"}
-                  </Button>
-                )}
+            </div>
 
-                <Button variant="outline" onClick={handleShare}>
-                  <Share2 className="h-4 w-4 mr-2" />
-                  Share Group
-                </Button>
+            <div className="text-center py-8">
+              <History className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                No History Available
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400">
+                Group history and transaction details will appear here once available.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-                <Button variant="outline" onClick={handleInvite}>
-                  <Users className="h-4 w-4 mr-2" />
-                  Invite Members
-                </Button>
+      {/* Technical Details */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+      >
+        <Card>
+          <CardContent className="p-6">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+              Technical Details
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Token Address:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-gray-900 dark:text-gray-100">
+                      {group.token.slice(0, 6)}...{group.token.slice(-4)}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(group.token);
+                        toast({ title: "Address copied to clipboard" });
+                      }}
+                      className="h-6 w-6 p-0"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Round Length:</span>
+                  <span className="text-gray-900 dark:text-gray-100">{group.roundLength}s</span>
+                </div>
               </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Next Due:</span>
+                  <span className="text-gray-900 dark:text-gray-100">{group.nextDue}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600 dark:text-gray-400">Change Activates:</span>
+                  <span className="text-gray-900 dark:text-gray-100">{group.changeActivates}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-        {/* Group History */}
+      {/* Error Display */}
+      {error && (
         <motion.div
-          className="mb-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
+          className="mt-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
         >
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <History className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  Group History
-                </h2>
-              </div>
-
-              <div className="text-center py-8">
-                <History className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  No History Available
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Group history and transaction details will appear here once available.
+          <Card className="border-red-200 bg-red-50 dark:bg-red-900/20">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+                <p className="text-red-600 dark:text-red-400">
+                  Error: {error.message}
                 </p>
               </div>
             </CardContent>
           </Card>
         </motion.div>
-
-        {/* Technical Details */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-        >
-          <Card>
-            <CardContent className="p-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-                Technical Details
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Token Address:</span>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-gray-900 dark:text-gray-100">
-                        {group.token.slice(0, 6)}...{group.token.slice(-4)}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(group.token);
-                          toast({ title: "Address copied to clipboard" });
-                        }}
-                        className="h-6 w-6 p-0"
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Round Length:</span>
-                    <span className="text-gray-900 dark:text-gray-100">{group.roundLength}s</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Next Due:</span>
-                    <span className="text-gray-900 dark:text-gray-100">{group.nextDue}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Change Activates:</span>
-                    <span className="text-gray-900 dark:text-gray-100">{group.changeActivates}</span>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Error Display */}
-        {error && (
-          <motion.div
-            className="mt-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <Card className="border-red-200 bg-red-50 dark:bg-red-900/20">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-red-500" />
-                  <p className="text-red-600 dark:text-red-400">
-                    Error: {error.message}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-        {/* End Error Display */}
-      </div>
+      )}
+      {/* End Error Display */}
     </div>
-  );
+  </div>
+);
 }
