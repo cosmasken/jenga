@@ -286,9 +286,17 @@ export function JoinGroupModal({ isOpen, onClose, groupId }: JoinGroupModalProps
 
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600 dark:text-gray-400">Status:</span>
-                      <Badge variant={groupInfo.isActive ? "default" : "secondary"}>
-                        {groupInfo.isActive ? "Accepting Members" : "Closed"}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={groupInfo.isActive ? "default" : "secondary"}>
+                          {groupInfo.isActive ? "Accepting Members" : "Closed"}
+                        </Badge>
+                        {!groupInfo.isActive && (
+                          <Info 
+                            className="h-4 w-4 text-orange-500 cursor-help" 
+                            title="This group has been closed by the creator. Contact the group creator to request access."
+                          />
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -349,7 +357,10 @@ export function JoinGroupModal({ isOpen, onClose, groupId }: JoinGroupModalProps
                             Group Not Accepting Members
                           </p>
                           <p className="text-xs text-orange-600 dark:text-orange-300 mt-1">
-                            This group is currently closed to new members.
+                            This group has been closed by the creator. The group may be full, completed, or temporarily closed for new members.
+                          </p>
+                          <p className="text-xs text-orange-600 dark:text-orange-300 mt-1">
+                            Creator: {groupInfo.creator.slice(0, 6)}...{groupInfo.creator.slice(-4)}
                           </p>
                         </div>
                       </div>
