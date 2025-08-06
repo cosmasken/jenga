@@ -79,7 +79,7 @@ export const DYNAMIC_NETWORK_CONFIG = [
  * Smart Contract Addresses
  */
 export const CONTRACT_ADDRESSES = {
-  ROSCA: '0xD85b914037Fe36fa28Fc60C1E542Dc52A8e66B0b' as Address,
+  ROSCA: '0xB7AdF792C054976E1F40B45CB768f6D09E42358A' as Address,
   // Add other contract addresses here as needed
   // GOVERNANCE: '0x...' as Address,
   // TOKEN: '0x...' as Address,

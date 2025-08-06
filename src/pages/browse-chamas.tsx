@@ -86,10 +86,8 @@ export default function BrowseChamas() {
   const isConnected = useIsLoggedIn();
   const [, setLocation] = useLocation();
   const { primaryWallet } = useDynamicContext();
-  const { balance, getBalance, joinGroup, isGroupMember, isGroupCreator } = useRosca();
+  const { balance, getBalance, joinGroup, isGroupMember, isGroupCreator, getGroupCount, getGroupInfo } = useRosca();
   const {
-    getGroups,
-    subscribeToGroup,
     logActivity,
     isLoading: isSupabaseLoading
   } = useSupabase();
@@ -129,29 +127,46 @@ export default function BrowseChamas() {
       setIsLoadingGroups(true);
 
       const filters: any = {
-        limit: 50,
-        offset: 0
+        status: selectedStatus,
+        category: selectedCategory,
+        tags: selectedTags,
+        sortBy: sortBy,
       };
 
-      // Apply status filter
-      if (selectedStatus !== 'all') {
-        filters.status = selectedStatus;
+      // Get total group count from blockchain
+      const totalGroups = await getGroupCount();
+      console.log('📊 Total groups on blockchain:', totalGroups);
+
+      if (totalGroups === 0) {
+        setGroups([]);
+        return;
       }
 
-      // Apply category filter
-      if (selectedCategory !== 'all') {
-        filters.category = selectedCategory;
+      // Load groups by iterating through group IDs
+      const fetchedGroups = [];
+      const maxGroupsToLoad = Math.min(totalGroups, 50); // Limit to 50 for performance
+
+      for (let i = 0; i < maxGroupsToLoad; i++) {
+        try {
+          const groupInfo = await getGroupInfo(i);
+          if (groupInfo) {
+            fetchedGroups.push({
+              ...groupInfo,
+              id: i, // Ensure ID is set
+              // Add default values for UI
+              name: groupInfo.name || `Group ${i}`,
+              description: `ROSCA Group #${i}`,
+              category: 'savings',
+              tags: ['rosca', 'savings'],
+              status: groupInfo.isActive ? 'active' : 'completed'
+            });
+          }
+        } catch (error) {
+          console.warn(`⚠️ Could not load group ${i}:`, error);
+        }
       }
 
-      // Apply tags filter
-      if (selectedTags.length > 0) {
-        filters.tags = selectedTags;
-      }
-
-      console.log('🔄 Loading groups with filters:', filters);
-      const fetchedGroups = await getGroups(filters);
-
-      console.log('✅ Loaded groups:', fetchedGroups.length);
+      console.log('✅ Loaded groups from blockchain:', fetchedGroups.length);
       setGroups(fetchedGroups);
 
       // Check membership status for all groups if user is connected
@@ -178,26 +193,19 @@ export default function BrowseChamas() {
       console.log('🔍 Checking membership status for', groupsToCheck.length, 'groups');
       const statusPromises = groupsToCheck.map(async (group) => {
         try {
-          // Skip groups that don't have a chain_group_id (not yet synced to blockchain)
-          if (!group.chain_group_id) {
-            console.warn(`🔍 Group ${group.name} (${group.id}) has no chain_group_id, skipping contract checks`);
-            return {
-              groupId: group.id,
-              isMember: false,
-              isCreator: false,
-              contractInfo: null
-            };
-          }
+          // Use the group ID directly (blockchain ID)
+          const groupId = group.id;
 
           const [isMember, isCreator] = await Promise.all([
-            isGroupMember(group.chain_group_id),
-            isGroupCreator(group.chain_group_id)
+            isGroupMember(groupId),
+            isGroupCreator(groupId)
           ]);
 
           return {
             groupId: group.id,
             isMember,
-            isCreator
+            isCreator,
+            contractInfo: group
           };
         } catch (error) {
           console.error(`Failed to check membership for group ${group.id}:`, error);
@@ -226,365 +234,347 @@ export default function BrowseChamas() {
     }
   };
 
-  // Handle joining a group - open modal instead of direct join
-  const handleJoinGroup = async (groupId: string, groupName: string) => {
-    if (!primaryWallet?.address) {
-      toast.error('Wallet Required', 'Please connect your wallet to join a group.');
-      return;
-    }
+// Handle joining a group - open modal instead of direct join
+const handleJoinGroup = async (groupId: string, groupName: string) => {
+  if (!primaryWallet?.address) {
+    toast.error('Wallet Required', 'Please connect your wallet to join a group.');
+    return;
+  }
 
-    // Open join modal with the selected group
-    setSelectedGroupId(parseInt(groupId));
-    setShowJoinModal(true);
-  };
+  // Open join modal with the selected group
+  setSelectedGroupId(parseInt(groupId));
+  setShowJoinModal(true);
+};
 
-  // Handle successful join from modal
-  const handleJoinSuccess = async () => {
-    // Refresh groups to update member count
-    await loadGroups();
-  };
+// Handle successful join from modal
+const handleJoinSuccess = async () => {
+  // Refresh groups to update member count
+  await loadGroups();
+};
 
-  // Real-time updates for groups
-  useEffect(() => {
-    const unsubscribeFunctions: (() => void)[] = [];
+// Real-time updates removed - using blockchain data only
+// Groups are loaded fresh from blockchain on each page load
 
-    groups.forEach(group => {
-      const unsubscribe = subscribeToGroup(group.id, (payload) => {
-        console.log('🔄 Real-time group update:', payload);
-        setGroups(prevGroups =>
-          prevGroups.map(g =>
-            g.id === group.id ? { ...g, ...payload.new } : g
-          )
-        );
-      });
-      unsubscribeFunctions.push(unsubscribe);
-    });
+// Filter and sort groups
+const filteredAndSortedGroups = useMemo(() => {
+  let filtered = groups;
 
-    return () => {
-      unsubscribeFunctions.forEach(unsubscribe => unsubscribe());
-    };
-  }, [groups.map(g => g.id).join(',')]);
+  // Apply search filter
+  if (searchQuery.trim()) {
+    const query = searchQuery.toLowerCase();
+    filtered = filtered.filter(group =>
+      group.name.toLowerCase().includes(query) ||
+      group.description?.toLowerCase().includes(query) ||
+      group.tags?.some((tag: string) => tag.toLowerCase().includes(query))
+    );
+  }
 
-  // Filter and sort groups
-  const filteredAndSortedGroups = useMemo(() => {
-    let filtered = groups;
-
-    // Apply search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(group =>
-        group.name.toLowerCase().includes(query) ||
-        group.description?.toLowerCase().includes(query) ||
-        group.tags?.some((tag: string) => tag.toLowerCase().includes(query))
-      );
-    }
-
-    // Sort groups
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'newest':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        case 'oldest':
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        case 'contribution-high':
-          return b.contribution_amount - a.contribution_amount;
-        case 'contribution-low':
-          return a.contribution_amount - b.contribution_amount;
-        case 'members':
-          return b.current_members - a.current_members;
-        default:
-          return 0;
-      }
-    });
-
-    return filtered;
-  }, [groups, searchQuery, sortBy]);
-
-
-  // Get all unique tags
-  const allTags = useMemo(() => {
-    const tags = new Set<string>();
-    groups.forEach(group => group.tags?.forEach((tag: string) => tags.add(tag)));
-    return Array.from(tags).sort();
-  }, [groups]);
-
-  const handleViewDetails = (chamaId: string) => {
-    setLocation(`/chama/${chamaId}`);
-  };
-
-  const handleManageGroup = (chamaId: string) => {
-    // Navigate to group management page or open management modal
-    setLocation(`/group/${chamaId}`);
-  };
-
-  const getStatusColor = (status: ChamaGroup['status']) => {
-    switch (status) {
-      case 'open':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-      case 'active':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
-      case 'full':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
-      case 'completed':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+  // Sort groups
+  filtered.sort((a, b) => {
+    switch (sortBy) {
+      case 'newest':
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case 'oldest':
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      case 'contribution-high':
+        return b.contribution_amount - a.contribution_amount;
+      case 'contribution-low':
+        return a.contribution_amount - b.contribution_amount;
+      case 'members':
+        return b.current_members - a.current_members;
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+        return 0;
     }
-  };
+  });
 
-  const canJoinChama = (chama: ChamaGroup) => {
-    if (!isConnected) return false;
+  return filtered;
+}, [groups, searchQuery, sortBy]);
 
-    const status = membershipStatus[chama.id];
 
-    // Can't join if already a member
-    if (status?.isMember) return false;
+// Get all unique tags
+const allTags = useMemo(() => {
+  const tags = new Set<string>();
+  groups.forEach(group => group.tags?.forEach((tag: string) => tags.add(tag)));
+  return Array.from(tags).sort();
+}, [groups]);
 
-    return chama.status === 'open' &&
-      chama.currentMembers < chama.maxMembers &&
-      parseFloat(balance) >= chama.contributionAmount;
-  };
+const handleViewDetails = (chamaId: string) => {
+  setLocation(`/chama/${chamaId}`);
+};
 
-  const getButtonConfig = (chama: ChamaGroup) => {
-    if (!isConnected) {
-      return { text: 'Connect Wallet', action: 'connect', disabled: false };
-    }
+const handleManageGroup = (chamaId: string) => {
+  // Navigate to group management page or open management modal
+  setLocation(`/group/${chamaId}`);
+};
 
-    const status = membershipStatus[chama.id];
+const getStatusColor = (status: ChamaGroup['status']) => {
+  switch (status) {
+    case 'open':
+      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
+    case 'active':
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+    case 'full':
+      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
+    case 'completed':
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+    default:
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
+  }
+};
 
-    if (status?.isCreator) {
-      return { text: 'Manage', action: 'manage', disabled: false };
-    }
+const canJoinChama = (chama: ChamaGroup) => {
+  if (!isConnected) return false;
 
-    if (status?.isMember) {
-      return { text: 'View Details', action: 'view', disabled: false };
-    }
+  const status = membershipStatus[chama.id];
 
-    if (chama.status === 'full') {
-      return { text: 'Full', action: 'none', disabled: true };
-    }
+  // Can't join if already a member
+  if (status?.isMember) return false;
 
-    if (parseFloat(balance) < chama.contributionAmount) {
-      return { text: 'Insufficient Balance', action: 'none', disabled: true };
-    }
+  return chama.status === 'open' &&
+    chama.currentMembers < chama.maxMembers &&
+    parseFloat(balance) >= chama.contributionAmount;
+};
 
-    if (chama.status !== 'open') {
-      return { text: 'Closed', action: 'none', disabled: true };
-    }
+const getButtonConfig = (chama: ChamaGroup) => {
+  if (!isConnected) {
+    return { text: 'Connect Wallet', action: 'connect', disabled: false };
+  }
 
-    return { text: 'Join', action: 'join', disabled: false };
-  };
+  const status = membershipStatus[chama.id];
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setLocation('/dashboard')}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Browse Chamas
-                </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Discover and join ROSCA groups
-                </p>
-              </div>
-            </div>
+  if (status?.isCreator) {
+    return { text: 'Manage', action: 'manage', disabled: false };
+  }
 
-            <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={loadGroups}
-                disabled={isLoading}
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-              </Button>
-              <WalletDropdown />
-              <ThemeToggle />
-            </div>
-          </div>
-        </div>
-      </div>
+  if (status?.isMember) {
+    return { text: 'View Details', action: 'view', disabled: false };
+  }
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Search and Filters */}
-        <div className="mb-8 space-y-4">
-          {/* Search Bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search chamas by name, description, or tags..."
-              value={searchQuery}
-              onChange={(e: unknown) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+  if (chama.status === 'full') {
+    return { text: 'Full', action: 'none', disabled: true };
+  }
 
-          {/* Filter Controls */}
-          <div className="flex flex-wrap items-center gap-4">
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="full">Full</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-              </SelectContent>
-            </Select>
+  if (parseFloat(balance) < chama.contributionAmount) {
+    return { text: 'Insufficient Balance', action: 'none', disabled: true };
+  }
 
-            <Select value={contributionRange} onValueChange={setContributionRange}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Contribution Range" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Amounts</SelectItem>
-                <SelectItem value="low">Low (&lt; 0.01 cBTC)</SelectItem>
-                <SelectItem value="medium">Medium (0.01 - 0.05 cBTC)</SelectItem>
-                <SelectItem value="high">High (&gt; 0.05 cBTC)</SelectItem>
-              </SelectContent>
-            </Select>
+  if (chama.status !== 'open') {
+    return { text: 'Closed', action: 'none', disabled: true };
+  }
 
-            <Select value={sortBy} onValueChange={(value: unknown) => setSortBy(value as SortOption)}>
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="Sort by" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Newest First</SelectItem>
-                <SelectItem value="oldest">Oldest First</SelectItem>
-                <SelectItem value="contribution-high">Highest Contribution</SelectItem>
-                <SelectItem value="contribution-low">Lowest Contribution</SelectItem>
-                <SelectItem value="members">Most Spots Available</SelectItem>
-                <SelectItem value="trust-score">Highest Trust Score</SelectItem>
-              </SelectContent>
-            </Select>
+  return { text: 'Join', action: 'join', disabled: false };
+};
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Tags {selectedTags.length > 0 && `(${selectedTags.length})`}
-                  <ChevronDown className="h-4 w-4 ml-2" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56">
-                {allTags.map((tag) => (
-                  <DropdownMenuCheckboxItem
-                    key={tag}
-                    checked={selectedTags.includes(tag)}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setSelectedTags([...selectedTags, tag]);
-                      } else {
-                        setSelectedTags(selectedTags.filter(t => t !== tag));
-                      }
-                    }}
-                  >
-                    {tag}
-                  </DropdownMenuCheckboxItem>
-                ))}
-                {selectedTags.length > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setSelectedTags([])}>
-                      Clear All
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              {filteredAndSortedGroups.length} chama{filteredAndSortedGroups.length !== 1 ? 's' : ''} found
-            </div>
-          </div>
-        </div>
-
-        {/* Chamas Grid */}
-        <AnimatePresence>
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardHeader>
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
-                      <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : filteredAndSortedGroups.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                No chamas found
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                Try adjusting your search or filters
+return (
+  <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    {/* Header */}
+    <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setLocation('/dashboard')}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                Browse Chamas
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Discover and join ROSCA groups
               </p>
-              <Button onClick={() => {
-                setSearchQuery('');
-                setSelectedStatus('all');
-                setSelectedTags([]);
-                setContributionRange('all');
-              }}>
-                Clear Filters
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={loadGroups}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
+            <WalletDropdown />
+            <ThemeToggle />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Search and Filters */}
+      <div className="mb-8 space-y-4">
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search chamas by name, description, or tags..."
+            value={searchQuery}
+            onChange={(e: unknown) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+
+        {/* Filter Controls */}
+        <div className="flex flex-wrap items-center gap-4">
+          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="full">Full</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={contributionRange} onValueChange={setContributionRange}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Contribution Range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Amounts</SelectItem>
+              <SelectItem value="low">Low (&lt; 0.01 cBTC)</SelectItem>
+              <SelectItem value="medium">Medium (0.01 - 0.05 cBTC)</SelectItem>
+              <SelectItem value="high">High (&gt; 0.05 cBTC)</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={sortBy} onValueChange={(value: unknown) => setSortBy(value as SortOption)}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest First</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+              <SelectItem value="contribution-high">Highest Contribution</SelectItem>
+              <SelectItem value="contribution-low">Lowest Contribution</SelectItem>
+              <SelectItem value="members">Most Spots Available</SelectItem>
+              <SelectItem value="trust-score">Highest Trust Score</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Filter className="h-4 w-4 mr-2" />
+                Tags {selectedTags.length > 0 && `(${selectedTags.length})`}
+                <ChevronDown className="h-4 w-4 ml-2" />
               </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredAndSortedGroups.map((chama, index) => (
-                <motion.div
-                  key={chama.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56">
+              {allTags.map((tag) => (
+                <DropdownMenuCheckboxItem
+                  key={tag}
+                  checked={selectedTags.includes(tag)}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedTags([...selectedTags, tag]);
+                    } else {
+                      setSelectedTags(selectedTags.filter(t => t !== tag));
+                    }
+                  }}
                 >
-                  <ChamaCard
-                    chama={chama}
-                    onJoin={() => handleJoinGroup(chama.id, chama.name)}
-                    onViewDetails={() => handleViewDetails(chama.id)}
-                    onManage={() => handleManageGroup(chama.id)}
-                    buttonConfig={getButtonConfig(chama)}
-                    getStatusColor={getStatusColor}
-                  />
-                </motion.div>
+                  {tag}
+                </DropdownMenuCheckboxItem>
               ))}
-            </div>
-          )}
-        </AnimatePresence>
+              {selectedTags.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setSelectedTags([])}>
+                    Clear All
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            {filteredAndSortedGroups.length} chama{filteredAndSortedGroups.length !== 1 ? 's' : ''} found
+          </div>
+        </div>
       </div>
 
-      {/* Join Group Modal */}
-      <JoinGroupModal
-        isOpen={showJoinModal}
-        onClose={() => {
-          setShowJoinModal(false);
-          setSelectedGroupId(null);
-        }}
-        groupId={selectedGroupId}
-      />
+      {/* Chamas Grid */}
+      <AnimatePresence>
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(6)].map((_, i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader>
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                  <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+                    <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : filteredAndSortedGroups.length === 0 ? (
+          <div className="text-center py-12">
+            <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              No chamas found
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Try adjusting your search or filters
+            </p>
+            <Button onClick={() => {
+              setSearchQuery('');
+              setSelectedStatus('all');
+              setSelectedTags([]);
+              setContributionRange('all');
+            }}>
+              Clear Filters
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredAndSortedGroups.map((chama, index) => (
+              <motion.div
+                key={chama.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+              >
+                <ChamaCard
+                  chama={chama}
+                  onJoin={() => handleJoinGroup(chama.id, chama.name)}
+                  onViewDetails={() => handleViewDetails(chama.id)}
+                  onManage={() => handleManageGroup(chama.id)}
+                  buttonConfig={getButtonConfig(chama)}
+                  getStatusColor={getStatusColor}
+                />
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </AnimatePresence>
     </div>
-  );
+
+    {/* Join Group Modal */}
+    <JoinGroupModal
+      isOpen={showJoinModal}
+      onClose={() => {
+        setShowJoinModal(false);
+        setSelectedGroupId(null);
+      }}
+      groupId={selectedGroupId}
+    />
+  </div>
+);
 }
 
 // Chama Card Component

@@ -43,7 +43,6 @@ export function JoinGroupModal({ isOpen, onClose, groupId }: JoinGroupModalProps
     getMaxSpendableAmount 
   } = useRosca();
   const { 
-    joinGroup: joinSupabaseGroup,
     logActivity,
     createNotification 
   } = useSupabase();
@@ -102,7 +101,7 @@ export function JoinGroupModal({ isOpen, onClose, groupId }: JoinGroupModalProps
       
       const pendingToast = transactionPending("joining group");
       
-      // Step 1: Join group on blockchain
+      // Join group on blockchain
       console.log('🔄 Joining group on blockchain...');
       const hash = await joinGroup(groupInfo.id);
       
@@ -112,50 +111,49 @@ export function JoinGroupModal({ isOpen, onClose, groupId }: JoinGroupModalProps
 
       console.log('✅ Join transaction hash:', hash);
 
-      // Step 2: Update Supabase (only after transaction hash is returned)
-      console.log('🔄 Updating Supabase group membership...');
-      const supabaseSuccess = await joinSupabaseGroup(groupInfo.id.toString());
-      
-      if (!supabaseSuccess) {
-        console.warn('⚠️ Failed to update Supabase membership');
-        // Don't fail the entire process for this
-      }
+      // Dismiss pending toast
+      pendingToast.dismiss();
 
-      // Step 3: Log activity
-      await logActivity(
-        'group_joined',
-        'group',
-        groupInfo.id.toString(),
-        `Joined ROSCA group: ${groupInfo.id}`,
-        {
-          group_id: groupInfo.id,
-          transaction_hash: hash,
-          contribution_amount: formatContribution(groupInfo.contribution)
-        }
+      // Show success message
+      success(
+        'Successfully Joined Group! 🎉',
+        `You are now a member of ${groupInfo.name}. Transaction: ${hash.slice(0, 10)}...`
       );
 
-      // Step 4: Create notification
+      // Optional: Log activity for analytics (non-critical)
       try {
-        await createNotification({
-          user_wallet_address: primaryWallet.address,
-          title: 'Successfully Joined Group! 🎉',
-          message: `You have joined the ROSCA group and your contribution has been processed.`,
-          type: 'success',
-          category: 'group',
-          group_id: groupInfo.id.toString(),
-          data: {
-            group_id: groupInfo.id,
+        await logActivity(
+          'group_joined',
+          'chama',
+          groupInfo.id.toString(),
+          `Joined ROSCA group "${groupInfo.name}"`,
+          { 
+            group_name: groupInfo.name,
             transaction_hash: hash,
             contribution_amount: formatContribution(groupInfo.contribution)
           }
-        });
+        );
+      } catch (activityError) {
+        console.warn('⚠️ Could not log activity:', activityError);
+      }
+
+      // Optional: Create notification (non-critical)
+      try {
+        await createNotification(
+          primaryWallet.address,
+          'Welcome to the Group! 🎉',
+          `You have successfully joined "${groupInfo.name}". Your first contribution is due soon.`,
+          'success',
+          {
+            group_name: groupInfo.name,
+            transaction_hash: hash,
+            group_id: groupInfo.id
+          }
+        );
       } catch (notificationError) {
         console.warn('⚠️ Could not create notification:', notificationError);
       }
 
-      pendingToast.dismiss();
-      success('Joined Group!', `You have successfully joined the ROSCA group.`);
-      
       setCurrentStep('success');
       setTimeout(() => onClose(), 2000);
       
@@ -163,6 +161,8 @@ export function JoinGroupModal({ isOpen, onClose, groupId }: JoinGroupModalProps
       console.error('❌ Failed to join group:', error);
       showError('Join Failed', 'Could not join the group. Please try again.');
       setCurrentStep('review');
+    } finally {
+      setIsContributing(false);
     }
   };
 

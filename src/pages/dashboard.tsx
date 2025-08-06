@@ -32,7 +32,6 @@ export default function Dashboard() {
     } = useRosca();
     const {
         getUser,
-        getGroups,
         getUserAchievements,
         getNotifications,
         subscribeToNotifications,
@@ -41,7 +40,6 @@ export default function Dashboard() {
     } = useSupabase();
 
     const [userProfile, setUserProfile] = useState<any>(null);
-    const [userGroups, setUserGroups] = useState<any[]>([]);
     const [userAchievements, setUserAchievements] = useState<any[]>([]);
     const [recentNotifications, setRecentNotifications] = useState<any[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -54,6 +52,7 @@ export default function Dashboard() {
         completedCycles: 0,
         trustScore: 4.0
     });
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     
     const { contributionReminder, memberJoined, success } = useRoscaToast();
 
@@ -64,13 +63,13 @@ export default function Dashboard() {
     });
     const notifications = useNotifications();
 
-    // Load user data from Supabase
+    // Load user data from Supabase and refresh when needed
     useEffect(() => {
         if (isConnected && primaryWallet?.address) {
             loadUserData();
             setupRealtimeSubscriptions();
         }
-    }, [isConnected, primaryWallet?.address]);
+    }, [isConnected, primaryWallet?.address, refreshTrigger]);
 
     const loadUserData = async () => {
         if (!primaryWallet?.address) return;
@@ -78,37 +77,10 @@ export default function Dashboard() {
         try {
             console.log('🔄 Loading user dashboard data...');
 
-            // Load user profile
+            // Load user profile (onboarding data only)
             const profile = await getUser(primaryWallet.address);
             setUserProfile(profile);
             console.log('✅ User profile loaded:', profile);
-
-            // Load user's groups (both created and joined)
-            const [createdGroups, joinedGroups] = await Promise.all([
-                getGroups({ creator: primaryWallet.address, limit: 10 }),
-                getGroups({ limit: 50 }) // We'll filter joined groups client-side for now
-            ]);
-
-            // Combine and deduplicate groups with data validation
-            const allUserGroups = [...createdGroups].filter(group => {
-                // Filter out invalid groups and log warnings
-                if (!group || !group.id) {
-                    console.warn('⚠️ Invalid group data found:', group);
-                    return false;
-                }
-                return true;
-            }).map(group => ({
-                ...group,
-                // Ensure required fields have default values
-                name: group.name || 'Unnamed Group',
-                contribution: group.contribution || BigInt(0),
-                currentRound: group.currentRound || 0,
-                totalRounds: group.totalRounds || 0,
-                status: group.status || 'unknown'
-            }));
-            
-            setUserGroups(allUserGroups);
-            console.log('✅ User groups loaded:', allUserGroups.length);
 
             // Load user achievements (only for onboarded users)
             const currentUser = await getUser(primaryWallet.address);
@@ -133,7 +105,7 @@ export default function Dashboard() {
             const stats = {
                 totalContributions: profile?.total_contributions || 0,
                 totalSaved: profile?.total_contributions || 0, // Simplified for now
-                activeGroups: allUserGroups.filter(g => g.status === 'active').length,
+                activeGroups: 0, // TODO: Get from blockchain
                 completedCycles: profile?.successful_rounds || 0,
                 trustScore: profile?.trust_score || 4.0
             };
@@ -224,6 +196,13 @@ export default function Dashboard() {
 
     const handleGroupClick = (groupId: string) => {
         setLocation(`/group/${groupId}`);
+    };
+
+    // Refresh dashboard data after group creation
+    const handleGroupCreated = () => {
+        console.log('🔄 Group created, refreshing dashboard data...');
+        setRefreshTrigger(prev => prev + 1);
+        getGroupCount(); // Also refresh the group count immediately
     };
 
     if (!isConnected || !primaryWallet) {
@@ -347,7 +326,7 @@ export default function Dashboard() {
                                             Your Groups
                                         </p>
                                         <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                            {userGroups.length}
+                                            {groupCount || 0}
                                         </p>
                                     </div>
                                     <Bitcoin className="h-8 w-8 text-[hsl(27,87%,54%)]" />
@@ -493,10 +472,10 @@ export default function Dashboard() {
                                 <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
                                     Your Groups
                                 </h2>
-                                <Badge variant="secondary">{userGroups.length}</Badge>
+                                <Badge variant="secondary">{groupCount || 0}</Badge>
                             </div>
                             
-                            {userGroups.length === 0 ? (
+                            {(groupCount || 0) === 0 ? (
                                 <div className="text-center py-12">
                                     <Bitcoin className="h-16 w-16 mx-auto mb-4 text-gray-400" />
                                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
@@ -514,36 +493,11 @@ export default function Dashboard() {
                                     </Button>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {userGroups.filter(group => group && group.id).map((group, index) => (
-                                        <Card 
-                                            key={group.id} 
-                                            className="cursor-pointer hover:shadow-lg transition-shadow"
-                                            onClick={() => handleGroupClick(group.id)}
-                                        >
-                                            <CardContent className="p-4">
-                                                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                                                    {group.name || 'Unnamed Group'}
-                                                </h3>
-                                                <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                                                    <div className="flex justify-between">
-                                                        <span>Contribution:</span>
-                                                        <span>₿ {formatContribution(group.contribution)}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span>Round:</span>
-                                                        <span>{group.currentRound || 0}/{group.totalRounds || 0}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span>Status:</span>
-                                                        <Badge variant={group.status === 'active' ? 'default' : 'secondary'}>
-                                                            {group.status || 'unknown'}
-                                                        </Badge>
-                                                    </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
+                                <div className="text-center py-8">
+                                    <p className="text-gray-600 dark:text-gray-400">
+                                        You have created {groupCount} group{groupCount !== 1 ? 's' : ''}. 
+                                        Individual group details will be shown here once the feature is implemented.
+                                    </p>
                                 </div>
                             )}
                         </CardContent>
@@ -571,7 +525,8 @@ export default function Dashboard() {
             {/* Create Chama Modal */}
             <CreateChamaModal 
                 open={showCreateModal} 
-                onOpenChange={setShowCreateModal} 
+                onOpenChange={setShowCreateModal}
+                onGroupCreated={handleGroupCreated}
             />
 
             {/* Notification Sidebar */}
