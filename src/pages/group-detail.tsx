@@ -60,7 +60,7 @@ export default function GroupDetail() {
     };
 
     loadGroup();
-  }, [id, isConnected, getGroupInfo, toast]);
+  }, [id, isConnected, getGroupInfo]);
 
   const handleContribute = async () => {
     if (!group || !id) return;
