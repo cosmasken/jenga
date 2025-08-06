@@ -70,7 +70,7 @@ The app is configured for **Citrea Testnet**:
 
 ### Getting Testnet Funds
 
-Visit the [Citrea Faucet](https://faucet.testnet.citrea.xyz) to get testnet cBTC for testing.
+Visit the [Citrea Faucet](https://citrea.xyz/faucet) to get testnet cBTC for testing.
 
 ## 🚀 Development
 

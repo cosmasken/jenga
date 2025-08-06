@@ -101,7 +101,7 @@ export class ErrorFormatterService {
         context,
         action: {
           label: 'Get Testnet Funds',
-          handler: () => window.open('https://faucet.testnet.citrea.xyz', '_blank')
+          handler: () => window.open('https://citrea.xyz/faucet', '_blank')
         }
       };
     }
