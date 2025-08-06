@@ -179,9 +179,9 @@ export function useRosca() {
   /**
    * Create a new ROSCA group with enhanced parameters
    * @param params - Group creation parameters including maxMembers
-   * @returns Transaction hash if successful
+   * @returns Object with transaction hash and group ID if successful
    */
-  const createGroup = useCallback(async (params: CreateGroupParams): Promise<Hash | undefined> => {
+  const createGroup = useCallback(async (params: CreateGroupParams): Promise<{ hash: Hash; groupId?: number } | undefined> => {
     if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
       throw new Error("Wallet not connected or not Ethereum compatible");
     }
@@ -224,25 +224,32 @@ export function useRosca() {
       console.log('✅ createGroup: Transaction confirmed:', receipt);
 
       // Extract group ID from the Created event logs
-      let groupId: bigint | undefined;
+      let extractedGroupId: number | undefined;
       if (receipt.logs && receipt.logs.length > 0) {
         try {
           // Look for the Created event in the logs
           for (const log of receipt.logs) {
             try {
+              // Check if this log is from our contract
+              if (log.address.toLowerCase() !== ROSCA_CONTRACT_ADDRESS.toLowerCase()) {
+                continue;
+              }
+
               const decodedLog = publicClient.decodeEventLog({
                 abi: roscaAbi,
                 data: log.data,
                 topics: log.topics,
               });
               
+              console.log('🔍 createGroup: Decoded log:', decodedLog);
+              
               if (decodedLog.eventName === 'Created') {
-                groupId = decodedLog.args.id as bigint;
-                console.log('🔍 createGroup: Extracted group ID:', groupId);
+                extractedGroupId = Number(decodedLog.args.id);
+                console.log('🔍 createGroup: Extracted group ID:', extractedGroupId);
                 break;
               }
             } catch (decodeError) {
-              // Skip logs that don't match our ABI
+              console.log('🔍 createGroup: Could not decode log:', decodeError);
               continue;
             }
           }
@@ -251,15 +258,15 @@ export function useRosca() {
         }
       }
 
-      // Automatically activate the group after creation
-      if (groupId !== undefined) {
+      // Automatically activate the group after creation (groups should be active by default, but just in case)
+      if (extractedGroupId !== undefined) {
         try {
-          console.log('🔄 createGroup: Activating group:', groupId);
+          console.log('🔄 createGroup: Ensuring group is active:', extractedGroupId);
           const activateHash = await walletClient.writeContract({
             address: ROSCA_CONTRACT_ADDRESS,
             abi: roscaAbi,
             functionName: "setGroupStatus",
-            args: [groupId, true],
+            args: [BigInt(extractedGroupId), true],
           } as any);
 
           console.log('🔍 createGroup: Group activation hash:', activateHash);
@@ -282,7 +289,7 @@ export function useRosca() {
       // Refresh balance after successful transaction
       await getBalance();
 
-      return hash;
+      return { hash, groupId: extractedGroupId };
     } catch (err) {
       const contractError = err as ContractError;
       console.error('❌ createGroup error:', contractError);
@@ -513,6 +520,12 @@ export function useRosca() {
       return null;
     }
 
+    // Validate groupId
+    if (!groupId || isNaN(groupId) || groupId < 0) {
+      console.warn(`🔍 getGroupInfo: Invalid group ID: ${groupId}`);
+      return null;
+    }
+
     try {
       const publicClient = await primaryWallet.getPublicClient();
       
@@ -523,7 +536,18 @@ export function useRosca() {
         args: [BigInt(groupId)],
       }) as RoscaGroup;
 
+      console.log(`🔍 getGroupInfo: Raw contract data for group ${groupId}:`, {
+        id: groupData.id,
+        isActive: groupData.isActive,
+        isActiveType: typeof groupData.isActive,
+        creator: groupData.creator,
+        memberCount: groupData.memberCount,
+        maxMembers: groupData.maxMembers,
+        currentRound: groupData.currentRound
+      });
+
       if (!groupData || groupData.id === 0) {
+        console.warn(`🔍 getGroupInfo: Group ${groupId} does not exist on contract`);
         return null; // Group doesn't exist
       }
 

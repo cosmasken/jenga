@@ -134,18 +134,20 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
       // Step 1: Send blockchain transaction FIRST
       console.log('🔄 Sending blockchain transaction...');
-      const hash = await createGroup({
+      const result = await createGroup({
         token: '0x0000000000000000000000000000000000000000',
         contribution: formData.contributionAmount,
         roundLength: parseInt(formData.roundLength) * 24 * 60 * 60, // Convert days to seconds
         maxMembers: parseInt(formData.maxMembers)
       });
 
-      if (!hash) {
+      if (!result || !result.hash) {
         throw new Error('Failed to get transaction hash');
       }
 
+      const { hash, groupId: chainGroupId } = result;
       console.log('✅ Transaction hash received:', hash);
+      console.log('✅ Chain group ID:', chainGroupId);
 
       // Step 2: Create group in Supabase ONLY after blockchain success
       console.log('🔄 Creating group in Supabase after blockchain confirmation...');
@@ -160,7 +162,8 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
         tags: formData.tags,
         is_private: formData.isPrivate,
         status: 'active', // Set as active since blockchain transaction succeeded
-        transaction_hash: hash // Include transaction hash immediately
+        transaction_hash: hash, // Include transaction hash immediately
+        chain_group_id: chainGroupId // Store the blockchain group ID
       });
 
       if (!supabaseGroup) {

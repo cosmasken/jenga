@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 import { useRosca } from "@/hooks/useRosca";
+import { useSupabase } from "@/hooks/useSupabase";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,8 +27,10 @@ export default function GroupDetail() {
     isLoading,
     error
   } = useRosca();
+  const { getGroups } = useSupabase();
 
   const [group, setGroup] = useState<any>(null);
+  const [supabaseGroup, setSupabaseGroup] = useState<any>(null);
   const [isContributing, setIsContributing] = useState(false);
   const [loadingGroup, setLoadingGroup] = useState(true);
 
@@ -45,25 +48,59 @@ export default function GroupDetail() {
 
       setLoadingGroup(true);
       try {
-        const groupData = await getGroupInfo(parseInt(id));
-        setGroup(groupData);
+        // First, get the group from Supabase using the UUID
+        console.log('🔄 Loading group from Supabase:', id);
+        const supabaseGroups = await getGroups({ limit: 1 });
+        const supabaseGroup = supabaseGroups.find(g => g.id === id);
+        
+        if (!supabaseGroup) {
+          throw new Error('Group not found in database');
+        }
+        
+        setSupabaseGroup(supabaseGroup);
+        console.log('✅ Supabase group loaded:', supabaseGroup);
+
+        // Then, get contract data if chain_group_id exists
+        if (supabaseGroup.chain_group_id) {
+          console.log('🔄 Loading contract data for chain group ID:', supabaseGroup.chain_group_id);
+          const contractData = await getGroupInfo(supabaseGroup.chain_group_id);
+          
+          if (contractData) {
+            // Merge Supabase and contract data
+            setGroup({
+              ...supabaseGroup,
+              ...contractData,
+              // Keep Supabase data for fields that might not be in contract
+              name: supabaseGroup.name,
+              description: supabaseGroup.description,
+              category: supabaseGroup.category,
+              tags: supabaseGroup.tags
+            });
+            console.log('✅ Contract data loaded and merged');
+          } else {
+            console.warn('⚠️ Contract data not found, using Supabase data only');
+            setGroup(supabaseGroup);
+          }
+        } else {
+          console.warn('⚠️ No chain_group_id found, using Supabase data only');
+          setGroup(supabaseGroup);
+        }
       } catch (error) {
         console.error("Error loading group:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load group details",
-          variant: "destructive",
-        });
+        setError(error as Error);
       } finally {
         setLoadingGroup(false);
       }
     };
 
     loadGroup();
-  }, [id, isConnected, getGroupInfo]);
+  }, [id, isConnected, getGroupInfo, getGroups]);
 
   const handleContribute = async () => {
-    if (!group || !id) return;
+    if (!group || !supabaseGroup?.chain_group_id) {
+      console.error('Cannot contribute: missing group data or chain_group_id');
+      return;
+    }
 
     setIsContributing(true);
     
@@ -71,7 +108,7 @@ export default function GroupDetail() {
     const pendingToast = transactionPending("contribution");
     
     try {
-      const hash = await contribute(parseInt(id));
+      const hash = await contribute(supabaseGroup.chain_group_id);
       if (hash) {
         // Dismiss pending toast and show success
         pendingToast.dismiss();
@@ -82,8 +119,19 @@ export default function GroupDetail() {
         );
 
         // Reload group data after contribution
-        const updatedGroup = await getGroupInfo(parseInt(id));
-        setGroup(updatedGroup);
+        if (supabaseGroup?.chain_group_id) {
+          const updatedGroup = await getGroupInfo(supabaseGroup.chain_group_id);
+          if (updatedGroup) {
+            setGroup({
+              ...supabaseGroup,
+              ...updatedGroup,
+              name: supabaseGroup.name,
+              description: supabaseGroup.description,
+              category: supabaseGroup.category,
+              tags: supabaseGroup.tags
+            });
+          }
+        }
       }
     } catch (error: any) {
       pendingToast.dismiss();
