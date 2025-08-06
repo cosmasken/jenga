@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { User, Check, Sparkles, MapPin, Globe, Bell } from "lucide-react";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { LANGUAGE_STORAGE_KEY, getDefaultLanguage } from "@/types/language";
 
 interface OnboardingModalProps {
   open: boolean;
@@ -44,6 +46,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
   
   // Form state
   const [currentStep, setCurrentStep] = useState(1);
+  const [selectedLanguage, setSelectedLanguage] = useState(getDefaultLanguage().code);
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [location, setLocation] = useState("");
@@ -60,7 +63,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
   });
   const [isCompleting, setIsCompleting] = useState(false);
 
-  const totalSteps = 3;
+  const totalSteps = 4; // Updated to include language selection
 
   // Get available user identifier (email, phone, or wallet address)
   const getUserIdentifier = () => {
@@ -128,7 +131,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
         bio: bio.trim() || undefined,
         location: location.trim() || undefined,
         timezone: timezone,
-        preferred_language: 'en',
+        preferred_language: selectedLanguage,
         notification_preferences: notificationPreferences,
         privacy_settings: privacySettings,
         // Store selected icon in metadata for now
@@ -140,6 +143,9 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
 
       if (createdUser) {
         console.log('✅ User profile created:', createdUser);
+
+        // Store language preference in localStorage for immediate use
+        localStorage.setItem(LANGUAGE_STORAGE_KEY, selectedLanguage);
 
         // Award onboarding achievement
         try {
@@ -221,14 +227,61 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     }
   };
 
-  const canProceedFromStep1 = username.trim().length >= 2;
-  const canComplete = currentStep === totalSteps && canProceedFromStep1;
+  const canProceedFromStep1 = true; // Language selection always allows proceeding
+  const canProceedFromStep2 = username.trim().length >= 2;
+  const canComplete = currentStep === totalSteps && canProceedFromStep2;
+
+  // Get welcome message in selected language
+  const getWelcomeMessage = (languageCode: string): string => {
+    const messages: Record<string, string> = {
+      'en': 'Welcome to Jenga ROSCA! 🎉',
+      'zh': '欢迎来到 Jenga ROSCA！🎉',
+      'hi': 'जेंगा रोस्का में आपका स्वागत है! 🎉',
+      'es': '¡Bienvenido a Jenga ROSCA! 🎉',
+      'fr': 'Bienvenue sur Jenga ROSCA ! 🎉',
+      'ar': 'مرحباً بك في جينجا روسكا! 🎉',
+      'bn': 'জেঙ্গা রসকায় স্বাগতম! 🎉',
+      'pt': 'Bem-vindo ao Jenga ROSCA! 🎉',
+      'ru': 'Добро пожаловать в Jenga ROSCA! 🎉',
+      'ja': 'Jenga ROSCAへようこそ！🎉',
+      'sw': 'Karibu Jenga ROSCA! 🎉',
+      'tr': 'Jenga ROSCA\'ya Hoş Geldiniz! 🎉'
+    };
+    return messages[languageCode] || messages['en'];
+  };
 
   if (!isLoggedIn || !open) {
     return null;
   }
 
   const renderStep1 = () => (
+    <div className="space-y-6">
+      <div className="text-center">
+        <h3 className="text-lg font-semibold mb-2">Language Preference</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Choose your preferred language for the app interface
+        </p>
+      </div>
+
+      {/* Language Selection */}
+      <LanguageSelector
+        selectedLanguage={selectedLanguage}
+        onLanguageChange={setSelectedLanguage}
+      />
+
+      {/* Welcome message in selected language */}
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 text-center">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+          Welcome message preview:
+        </p>
+        <p className="font-medium text-gray-900 dark:text-gray-100">
+          {getWelcomeMessage(selectedLanguage)}
+        </p>
+      </div>
+    </div>
+  );
+
+  const renderStep2 = () => (
     <div className="space-y-6">
       <div className="text-center">
         <h3 className="text-lg font-semibold mb-2">Basic Information</h3>
@@ -327,7 +380,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     </div>
   );
 
-  const renderStep2 = () => (
+  const renderStep3 = () => (
     <div className="space-y-6">
       <div className="text-center">
         <h3 className="text-lg font-semibold mb-2">Location & Preferences</h3>
@@ -377,7 +430,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     </div>
   );
 
-  const renderStep3 = () => (
+  const renderStep4 = () => (
     <div className="space-y-6">
       <div className="text-center">
         <h3 className="text-lg font-semibold mb-2">Notifications & Privacy</h3>
@@ -507,6 +560,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
           {currentStep === 1 && renderStep1()}
           {currentStep === 2 && renderStep2()}
           {currentStep === 3 && renderStep3()}
+          {currentStep === 4 && renderStep4()}
         </div>
 
         {/* Navigation Buttons */}
@@ -525,7 +579,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
           {currentStep < totalSteps ? (
             <Button
               onClick={handleNext}
-              disabled={!canProceedFromStep1}
+              disabled={currentStep === 2 && !canProceedFromStep2}
               variant="bitcoin"
               className={`${currentStep === 1 ? 'w-full' : 'flex-1'} shadow-bitcoin hover:shadow-bitcoin-strong`}
             >
