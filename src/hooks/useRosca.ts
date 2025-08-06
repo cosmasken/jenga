@@ -8,6 +8,7 @@ export const ROSCA_CONTRACT_ADDRESS = "0xD85b914037Fe36fa28Fc60C1E542Dc52A8e66B0
 
 // Define the ABI directly to avoid JSON import issues
 export const roscaAbi = parseAbi([
+  "struct GroupView { uint40 id; uint40 roundLength; uint40 nextDue; address token; uint96 contribution; uint8 currentRound; uint8 maxMembers; bool isActive; address creator; uint256 memberCount; uint256 totalPaidOut; uint256 groupDisputeCount; }",
   "event Contrib(uint256 indexed id, address indexed member, uint256 amount)",
   "function contribute(uint256 gid) external payable",
   "event Created(uint256 indexed id, address indexed creator, address indexed token, uint256 contribution, uint256 roundLength, uint8 maxMembers)",
@@ -31,7 +32,7 @@ export const roscaAbi = parseAbi([
   "function disputeCount() external view returns (uint256)",
   "function disputes(uint256) external view returns (uint256 groupId, address complainant, address defendant, string reason, uint8 status, uint256 createdAt, uint256 votesFor, uint256 votesAgainst)",
   "function getDispute(uint256 disputeId) external view returns (uint256 groupId, address complainant, address defendant, string reason, uint8 status, uint256 createdAt, uint256 votesFor, uint256 votesAgainst)",
-  "function getGroupDetails(uint256 gid) external view returns (tuple(uint40 id, uint40 roundLength, uint40 nextDue, address token, uint96 contribution, uint8 currentRound, uint8 maxMembers, bool isActive, address creator, uint256 memberCount, uint256 totalPaidOut, uint256 groupDisputeCount))",
+  "function getGroupDetails(uint256 gid) external view returns (GroupView)",
   "function getGroupMembers(uint256 gid) external view returns (address[])",
   "function groupCount() external view returns (uint256)",
   "function groups(uint256) external view returns (uint40 id, uint40 roundLength, uint40 nextDue, address token, uint96 contribution, uint8 currentRound, uint8 maxMembers, bool isActive, address creator, uint256 memberCount, uint256 totalPaidOut, uint256 groupDisputeCount, uint40 newRoundLength, uint40 changeActivates)",
@@ -48,9 +49,9 @@ export interface RoscaGroup {
   maxMembers: number;
   isActive: boolean;
   creator: Address;
-  memberCount: number;
+  memberCount: bigint;
   totalPaidOut: bigint;
-  groupDisputeCount: number;
+  groupDisputeCount: bigint;
   members?: Address[];
 }
 
