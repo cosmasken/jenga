@@ -3,13 +3,13 @@ import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { parseAbi, parseEther, formatEther } from "viem";
 import type { Abi, Address, Hash } from "viem";
 import React, { useState, useCallback, useEffect } from "react";
-import {roscaAbi} from "../../abi/rosca.json"
+import ROSCA from "../../abi/rosca.json"
 
 // Contract configuration
 export const ROSCA_CONTRACT_ADDRESS = "0xD85b914037Fe36fa28Fc60C1E542Dc52A8e66B0b" as Address;
 
 // Enhanced ABI with all new functions
-export const roscaAbi = roscaAbi as Abi;
+export const roscaAbi = ROSCA as Abi;
 // Enhanced TypeScript interfaces
 export interface RoscaGroup {
   id: number;
