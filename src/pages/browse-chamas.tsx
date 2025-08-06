@@ -178,9 +178,20 @@ export default function BrowseChamas() {
       console.log('🔍 Checking membership status for', groupsToCheck.length, 'groups');
       const statusPromises = groupsToCheck.map(async (group) => {
         try {
+          // Skip groups that don't have a chain_group_id (not yet synced to blockchain)
+          if (!group.chain_group_id) {
+            console.warn(`🔍 Group ${group.name} (${group.id}) has no chain_group_id, skipping contract checks`);
+            return {
+              groupId: group.id,
+              isMember: false,
+              isCreator: false,
+              contractInfo: null
+            };
+          }
+
           const [isMember, isCreator] = await Promise.all([
-            isGroupMember(parseInt(group.id)),
-            isGroupCreator(parseInt(group.id))
+            isGroupMember(group.chain_group_id),
+            isGroupCreator(group.chain_group_id)
           ]);
 
           return {
