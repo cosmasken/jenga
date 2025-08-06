@@ -200,16 +200,20 @@ export function useRosca() {
       const contributionWei = parseEther(params.contribution);
       console.log('🔍 createGroup: Contribution in wei:', contributionWei);
       
+      // For native token (address(0)), we need to send the contribution as msg.value
+      const isNativeToken = params.token === '0x0000000000000000000000000000000000000000';
+      
       const hash = await walletClient.writeContract({
         address: ROSCA_CONTRACT_ADDRESS,
         abi: roscaAbi,
         functionName: "createGroup",
         args: [
-          params.token,
-          contributionWei,
+          params.token as Address,
+          contributionWei, // This is now properly typed as bigint (uint96 compatible)
           BigInt(params.roundLength),
           params.maxMembers
         ],
+        value: isNativeToken ? contributionWei : undefined, // Send value for native token
       } as any);
 
       console.log('🔍 createGroup: Transaction hash:', hash);
