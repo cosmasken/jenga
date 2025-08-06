@@ -472,7 +472,7 @@ export function useRosca() {
         args: [BigInt(groupId)],
       }) as readonly Address[];
 
-      return {
+      const groupResult = {
         id: Number(groupData.id),
         roundLength: Number(groupData.roundLength),
         nextDue: Number(groupData.nextDue),
@@ -487,6 +487,17 @@ export function useRosca() {
         groupDisputeCount: groupData.groupDisputeCount as bigint,
         members: members as Address[],
       };
+
+      // Debug logging for group status
+      console.log(`🔍 Group ${groupId} status:`, {
+        isActive: groupResult.isActive,
+        creator: groupResult.creator,
+        memberCount: Number(groupResult.memberCount),
+        currentRound: groupResult.currentRound,
+        maxMembers: groupResult.maxMembers
+      });
+
+      return groupResult;
     } catch (err) {
       console.error("Error fetching group info:", err);
       return null;
