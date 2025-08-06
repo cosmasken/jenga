@@ -1,16 +1,5 @@
 [
     {
-        "inputs": [
-            {
-                "internalType": "address",
-                "name": "token",
-                "type": "address"
-            }
-        ],
-        "name": "SafeERC20FailedOperation",
-        "type": "error"
-    },
-    {
         "anonymous": false,
         "inputs": [
             {
@@ -34,6 +23,19 @@
         ],
         "name": "Contrib",
         "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "name": "contribute",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
     },
     {
         "anonymous": false,
@@ -77,6 +79,69 @@
         ],
         "name": "Created",
         "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "defendant",
+                "type": "address"
+            },
+            {
+                "internalType": "string",
+                "name": "reason",
+                "type": "string"
+            }
+        ],
+        "name": "createDispute",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "disputeId",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_token",
+                "type": "address"
+            },
+            {
+                "internalType": "uint96",
+                "name": "_contribution",
+                "type": "uint96"
+            },
+            {
+                "internalType": "uint40",
+                "name": "_roundLength",
+                "type": "uint40"
+            },
+            {
+                "internalType": "uint8",
+                "name": "_maxMembers",
+                "type": "uint8"
+            }
+        ],
+        "name": "createGroup",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "payable",
+        "type": "function"
     },
     {
         "anonymous": false,
@@ -198,6 +263,37 @@
         "type": "event"
     },
     {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "name": "joinGroup",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "member",
+                "type": "address"
+            }
+        ],
+        "name": "kickMember",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
         "anonymous": false,
         "inputs": [
             {
@@ -215,6 +311,19 @@
         ],
         "name": "Leave",
         "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "name": "leaveGroup",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
     },
     {
         "anonymous": false,
@@ -248,6 +357,19 @@
         "type": "event"
     },
     {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "name": "rageQuit",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
         "anonymous": false,
         "inputs": [
             {
@@ -278,73 +400,51 @@
                 "internalType": "uint256",
                 "name": "gid",
                 "type": "uint256"
+            },
+            {
+                "internalType": "uint40",
+                "name": "newLen",
+                "type": "uint40"
             }
         ],
-        "name": "contribute",
+        "name": "scheduleRoundLength",
         "outputs": [],
-        "stateMutability": "payable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "gid",
-                "type": "uint256"
-            },
-            {
-                "internalType": "address",
-                "name": "defendant",
-                "type": "address"
-            },
-            {
-                "internalType": "string",
-                "name": "reason",
-                "type": "string"
-            }
-        ],
-        "name": "createDispute",
-        "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "disputeId",
-                "type": "uint256"
-            }
-        ],
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
         "inputs": [
             {
-                "internalType": "address",
-                "name": "_token",
-                "type": "address"
-            },
-            {
-                "internalType": "uint96",
-                "name": "_contribution",
-                "type": "uint96"
-            },
-            {
-                "internalType": "uint40",
-                "name": "_roundLength",
-                "type": "uint40"
-            },
-            {
-                "internalType": "uint8",
-                "name": "_maxMembers",
-                "type": "uint8"
-            }
-        ],
-        "name": "createGroup",
-        "outputs": [
-            {
                 "internalType": "uint256",
                 "name": "gid",
                 "type": "uint256"
+            },
+            {
+                "internalType": "bool",
+                "name": "_isActive",
+                "type": "bool"
             }
         ],
+        "name": "setGroupStatus",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "disputeId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "bool",
+                "name": "support",
+                "type": "bool"
+            }
+        ],
+        "name": "voteOnDispute",
+        "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
     },
@@ -392,7 +492,7 @@
                 "type": "string"
             },
             {
-                "internalType": "enum MiniROSCA.DisputeStatus",
+                "internalType": "enum ROSCA.DisputeStatus",
                 "name": "status",
                 "type": "uint8"
             },
@@ -410,11 +510,6 @@
                 "internalType": "uint256",
                 "name": "votesAgainst",
                 "type": "uint256"
-            },
-            {
-                "internalType": "bool",
-                "name": "resolved",
-                "type": "bool"
             }
         ],
         "stateMutability": "view",
@@ -451,7 +546,7 @@
                 "type": "string"
             },
             {
-                "internalType": "enum MiniROSCA.DisputeStatus",
+                "internalType": "uint8",
                 "name": "status",
                 "type": "uint8"
             },
@@ -485,64 +580,71 @@
         "name": "getGroupDetails",
         "outputs": [
             {
-                "internalType": "uint40",
-                "name": "id",
-                "type": "uint40"
-            },
-            {
-                "internalType": "uint40",
-                "name": "roundLength",
-                "type": "uint40"
-            },
-            {
-                "internalType": "uint40",
-                "name": "nextDue",
-                "type": "uint40"
-            },
-            {
-                "internalType": "address",
-                "name": "token",
-                "type": "address"
-            },
-            {
-                "internalType": "uint96",
-                "name": "contribution",
-                "type": "uint96"
-            },
-            {
-                "internalType": "uint8",
-                "name": "currentRound",
-                "type": "uint8"
-            },
-            {
-                "internalType": "uint8",
-                "name": "maxMembers",
-                "type": "uint8"
-            },
-            {
-                "internalType": "bool",
-                "name": "isActive",
-                "type": "bool"
-            },
-            {
-                "internalType": "address",
-                "name": "creator",
-                "type": "address"
-            },
-            {
-                "internalType": "uint256",
-                "name": "memberCount",
-                "type": "uint256"
-            },
-            {
-                "internalType": "uint256",
-                "name": "totalPaidOut",
-                "type": "uint256"
-            },
-            {
-                "internalType": "uint256",
-                "name": "groupDisputeCount",
-                "type": "uint256"
+                "components": [
+                    {
+                        "internalType": "uint40",
+                        "name": "id",
+                        "type": "uint40"
+                    },
+                    {
+                        "internalType": "uint40",
+                        "name": "roundLength",
+                        "type": "uint40"
+                    },
+                    {
+                        "internalType": "uint40",
+                        "name": "nextDue",
+                        "type": "uint40"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "token",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint96",
+                        "name": "contribution",
+                        "type": "uint96"
+                    },
+                    {
+                        "internalType": "uint8",
+                        "name": "currentRound",
+                        "type": "uint8"
+                    },
+                    {
+                        "internalType": "uint8",
+                        "name": "maxMembers",
+                        "type": "uint8"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "isActive",
+                        "type": "bool"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "creator",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "memberCount",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "totalPaidOut",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "groupDisputeCount",
+                        "type": "uint256"
+                    }
+                ],
+                "internalType": "struct GroupView",
+                "name": "",
+                "type": "tuple"
             }
         ],
         "stateMutability": "view",
@@ -636,14 +738,9 @@
                 "type": "address"
             },
             {
-                "internalType": "uint40",
-                "name": "newRoundLength",
-                "type": "uint40"
-            },
-            {
-                "internalType": "uint40",
-                "name": "changeActivates",
-                "type": "uint40"
+                "internalType": "uint256",
+                "name": "memberCount",
+                "type": "uint256"
             },
             {
                 "internalType": "uint256",
@@ -652,8 +749,18 @@
             },
             {
                 "internalType": "uint256",
-                "name": "disputeCount",
+                "name": "groupDisputeCount",
                 "type": "uint256"
+            },
+            {
+                "internalType": "uint40",
+                "name": "newRoundLength",
+                "type": "uint40"
+            },
+            {
+                "internalType": "uint40",
+                "name": "changeActivates",
+                "type": "uint40"
             }
         ],
         "stateMutability": "view",
@@ -682,120 +789,5 @@
         ],
         "stateMutability": "view",
         "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "gid",
-                "type": "uint256"
-            }
-        ],
-        "name": "joinGroup",
-        "outputs": [],
-        "stateMutability": "payable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "gid",
-                "type": "uint256"
-            },
-            {
-                "internalType": "address",
-                "name": "member",
-                "type": "address"
-            }
-        ],
-        "name": "kickMember",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "gid",
-                "type": "uint256"
-            }
-        ],
-        "name": "leaveGroup",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "gid",
-                "type": "uint256"
-            }
-        ],
-        "name": "rageQuit",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "gid",
-                "type": "uint256"
-            },
-            {
-                "internalType": "uint40",
-                "name": "newLen",
-                "type": "uint40"
-            }
-        ],
-        "name": "scheduleRoundLength",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "gid",
-                "type": "uint256"
-            },
-            {
-                "internalType": "bool",
-                "name": "_isActive",
-                "type": "bool"
-            }
-        ],
-        "name": "setGroupStatus",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {
-                "internalType": "uint256",
-                "name": "disputeId",
-                "type": "uint256"
-            },
-            {
-                "internalType": "bool",
-                "name": "support",
-                "type": "bool"
-            }
-        ],
-        "name": "voteOnDispute",
-        "outputs": [],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "stateMutability": "payable",
-        "type": "receive"
     }
 ]

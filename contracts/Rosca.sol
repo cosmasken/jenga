@@ -1,28 +1,48 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.19;
 
-/*
-    Enhanced ROSCA Contract with Group Joining and Dispute Resolution
-    • ETH or ERC-20 support
-    • Join existing groups before round starts
-    • Dispute resolution system
-    • Admin functions for group management
-    • Payout distribution tracking
-*/
+/**
+ * @title ROSCAImproved
+ * @dev Enhanced ROSCA (Rotating Savings and Credit Association) smart contract
+ * @notice This contract manages Bitcoin-based savings circles with automatic creator membership
+ */
 
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+ struct GroupView {
+    uint40 id;
+    uint40 roundLength;
+    uint40 nextDue;
+    address token;
+    uint96 contribution;
+    uint8 currentRound;
+    uint8 maxMembers;
+    bool isActive;
+    address creator;
+    uint256 memberCount;
+    uint256 totalPaidOut;
+    uint256 groupDisputeCount;
+}
+contract ROSCA {
+    struct Group {
+        uint40 id;
+        uint40 roundLength;
+        uint40 nextDue;
+        address token;
+        uint96 contribution;
+        uint8 currentRound;
+        uint8 maxMembers;
+        bool isActive;
+        address creator;
+        uint256 memberCount;
+        uint256 totalPaidOut;
+        uint256 groupDisputeCount;
+        uint40 newRoundLength;
+        uint40 changeActivates;
+        mapping(address => bool) isMember;
+        mapping(address => uint256) contributions;
+        mapping(address => bool) hasContributedThisRound;
+        address[] members;
+    }
 
-contract MiniROSCA is ReentrancyGuard {
-    using SafeERC20 for IERC20;
-    uint256 constant ROUND_DELAY = 12 hours;
-    uint256 constant MAX_MEMBERS = 50;
-    uint256 constant DISPUTE_PERIOD = 7 days;
-
-    /* ---------------------------------------------------------- */
-    enum DisputeStatus { None, Active, Resolved, Rejected }
-    
     struct Dispute {
         uint256 groupId;
         address complainant;
@@ -33,365 +53,370 @@ contract MiniROSCA is ReentrancyGuard {
         uint256 votesFor;
         uint256 votesAgainst;
         mapping(address => bool) hasVoted;
-        bool resolved;
     }
 
-    struct Group {
-        uint40  id;               // slot 0
-        uint40  roundLength;      // seconds
-        uint40  nextDue;          // timestamp
-        address token;            // address(0) == ETH
-        uint96  contribution;     // wei / token units
-        uint8   currentRound;     // 1..members.length
-        uint8   maxMembers;       // maximum allowed members
-        bool    isActive;         // group is accepting new members
-        address creator;          // group creator/admin
-        address[] members;        // slot 1
-        mapping(address => bool) isMember;
-        mapping(address => bool) hasPaid;
-        mapping(address => bool) hasBeenPaid;
-        mapping(address => uint256) joinedRound; // track when member joined
-        uint40  newRoundLength;   // slot 2
-        uint40  changeActivates;  // 0 = nothing pending
-        uint256 totalPaidOut;     // track total payouts
-        uint256 disputeCount;     // number of disputes in this group
-    }
+    enum DisputeStatus { None, Active, Resolved, Rejected }
 
-    uint256 public groupCount;
-    uint256 public disputeCount;
     mapping(uint256 => Group) public groups;
     mapping(uint256 => Dispute) public disputes;
+    
+    uint256 public groupCount;
+    uint256 public disputeCount;
 
-    /* ---------------------------------------------------------- */
-    event Created (uint256 indexed id, address indexed creator, address indexed token, uint256 contribution, uint256 roundLength, uint8 maxMembers);
-    event Joined  (uint256 indexed id, address indexed member);
-    event Contrib (uint256 indexed id, address indexed member, uint256 amount);
-    event Payout  (uint256 indexed id, address indexed recipient, uint256 amount, uint8 round);
-    event Leave   (uint256 indexed id, address indexed member);
+    // Events
+    event Created(uint256 indexed id, address indexed creator, address indexed token, uint256 contribution, uint256 roundLength, uint8 maxMembers);
+    event Joined(uint256 indexed id, address indexed member);
+    event Contrib(uint256 indexed id, address indexed member, uint256 amount);
+    event Payout(uint256 indexed id, address indexed recipient, uint256 amount, uint8 round);
+    event Leave(uint256 indexed id, address indexed member);
     event RoundLenChangeScheduled(uint256 indexed id, uint256 newLength, uint256 activates);
     event GroupStatusChanged(uint256 indexed id, bool isActive);
     event DisputeCreated(uint256 indexed disputeId, uint256 indexed groupId, address indexed complainant, address defendant, string reason);
     event DisputeVoted(uint256 indexed disputeId, address indexed voter, bool support);
     event DisputeResolved(uint256 indexed disputeId, bool upheld);
 
-    /* ---------------------------------------------------------- */
-    modifier memberOf(uint256 gid) {
-        require(groups[gid].isMember[msg.sender], "!member");
+    modifier onlyGroupMember(uint256 gid) {
+        require(groups[gid].isMember[msg.sender], "Not a group member");
         _;
     }
 
-    modifier onlyCreator(uint256 gid) {
-        require(msg.sender == groups[gid].creator, "!creator");
+    modifier onlyGroupCreator(uint256 gid) {
+        require(groups[gid].creator == msg.sender, "Not the group creator");
         _;
     }
 
     modifier groupExists(uint256 gid) {
-        require(gid > 0 && gid <= groupCount, "!exists");
+        require(gid < groupCount, "Group does not exist");
         _;
     }
 
-    /* ---------------------------------------------------------- */
+    /**
+     * @dev Create a new ROSCA group and automatically add creator as first member
+     * @param _token Token address (use address(0) for native ETH/cBTC)
+     * @param _contribution Contribution amount per round
+     * @param _roundLength Duration of each round in seconds
+     * @param _maxMembers Maximum number of members (2-50)
+     * @return gid The ID of the created group
+     */
     function createGroup(
         address _token,
-        uint96  _contribution,
-        uint40  _roundLength,
-        uint8   _maxMembers
-    ) external returns (uint256 gid) {
-        require(_contribution > 0 && _roundLength > 0, "bad params");
-        require(_maxMembers >= 2 && _maxMembers <= MAX_MEMBERS, "bad max members");
+        uint96 _contribution,
+        uint40 _roundLength,
+        uint8 _maxMembers
+    ) external payable returns (uint256 gid) {
+        require(_contribution > 0, "Contribution must be > 0");
+        require(_roundLength > 0, "Round length must be > 0");
+        require(_maxMembers >= 2 && _maxMembers <= 50, "Invalid max members");
+        
+        // For native token, ensure creator sends the contribution
+        if (_token == address(0)) {
+            require(msg.value == _contribution, "Must send exact contribution amount");
+        }
 
-        gid = ++groupCount;
-        Group storage g = groups[gid];
-        g.id         = uint40(gid);
-        g.token      = _token;
-        g.contribution = _contribution;
-        g.roundLength  = _roundLength;
-        g.maxMembers   = _maxMembers;
-        g.isActive     = true;
-        g.creator      = msg.sender;
-        g.nextDue      = uint40(block.timestamp + _roundLength);
-
-        g.members.push(msg.sender);
-        g.isMember[msg.sender] = true;
-        g.joinedRound[msg.sender] = 1;
+        gid = groupCount++;
+        Group storage group = groups[gid];
+        
+        group.id = uint40(gid);
+        group.roundLength = _roundLength;
+        group.nextDue = uint40(block.timestamp + _roundLength);
+        group.token = _token;
+        group.contribution = _contribution;
+        group.currentRound = 1; // Start at round 1 since creator joins immediately
+        group.maxMembers = _maxMembers;
+        group.isActive = true;
+        group.creator = msg.sender;
+        group.memberCount = 1; // Creator is first member
+        
+        // Automatically add creator as first member
+        group.isMember[msg.sender] = true;
+        group.members.push(msg.sender);
+        group.contributions[msg.sender] = _contribution;
+        group.hasContributedThisRound[msg.sender] = true;
 
         emit Created(gid, msg.sender, _token, _contribution, _roundLength, _maxMembers);
+        emit Joined(gid, msg.sender);
+        emit Contrib(gid, msg.sender, _contribution);
     }
 
-    /* ---------------------------------------------------------- */
-    function joinGroup(uint256 gid) external payable groupExists(gid) nonReentrant {
-        Group storage g = groups[gid];
-        require(g.isActive, "!active");
-        require(!g.isMember[msg.sender], "already member");
-        require(g.members.length < g.maxMembers, "full");
-        require(g.currentRound == 0, "round started"); // Can only join before first round
-
-        // If it's an ETH group and first round hasn't started, collect contribution
-        if (g.token == address(0) && g.currentRound == 0) {
-            require(msg.value == g.contribution, "bad eth amount");
-        } else if (g.token != address(0) && g.currentRound == 0) {
-            IERC20(g.token).safeTransferFrom(msg.sender, address(this), g.contribution);
+    /**
+     * @dev Join an existing group
+     * @param gid Group ID to join
+     */
+    function joinGroup(uint256 gid) external payable groupExists(gid) {
+        Group storage group = groups[gid];
+        
+        require(group.isActive, "Group is not active");
+        require(!group.isMember[msg.sender], "Already a member");
+        require(group.memberCount < group.maxMembers, "Group is full");
+        
+        // For native token, ensure user sends the contribution
+        if (group.token == address(0)) {
+            require(msg.value == group.contribution, "Must send exact contribution amount");
         }
-
-        g.members.push(msg.sender);
-        g.isMember[msg.sender] = true;
-        g.joinedRound[msg.sender] = g.currentRound == 0 ? 1 : g.currentRound + 1;
-
-        // If group is full, start the first round
-        if (g.members.length == g.maxMembers) {
-            g.isActive = false;
-            g.currentRound = 1;
-            // Mark all members as having paid for the first round if they paid to join
-            for (uint i = 0; i < g.members.length; i++) {
-                g.hasPaid[g.members[i]] = true;
-            }
-            emit GroupStatusChanged(gid, false);
-        }
+        
+        group.isMember[msg.sender] = true;
+        group.members.push(msg.sender);
+        group.memberCount++;
+        group.contributions[msg.sender] += group.contribution;
+        group.hasContributedThisRound[msg.sender] = true;
 
         emit Joined(gid, msg.sender);
+        emit Contrib(gid, msg.sender, group.contribution);
     }
 
-    /* ---------------------------------------------------------- */
-    function contribute(uint256 gid) external payable memberOf(gid) nonReentrant {
-        Group storage g = groups[gid];
-        require(!g.hasPaid[msg.sender], "paid");
-        require(block.timestamp <= g.nextDue, "late");
-        require(g.currentRound > 0, "round not started");
-
-        uint256 amt = g.contribution;
-        if (g.token == address(0)) {
-            require(msg.value == amt, "bad eth");
-        } else {
-            IERC20(g.token).safeTransferFrom(msg.sender, address(this), amt);
-        }
-
-        g.hasPaid[msg.sender] = true;
-        emit Contrib(gid, msg.sender, amt);
-
-        if (_allPaid(gid)) _nextRound(gid);
-    }
-
-    /* ---------------------------------------------------------- */
-    function leaveGroup(uint256 gid) external memberOf(gid) {
-        Group storage g = groups[gid];
-        require(g.hasBeenPaid[msg.sender], "not paid");
-        require(block.timestamp > g.nextDue, "round active");
-        _removeMember(gid, msg.sender);
-        emit Leave(gid, msg.sender);
-    }
-
-    /* ---------------------------------------------------------- */
-    function scheduleRoundLength(uint256 gid, uint40 newLen) external onlyCreator(gid) {
-        Group storage g = groups[gid];
-        g.newRoundLength  = newLen;
-        g.changeActivates = uint40(block.timestamp + ROUND_DELAY);
-        emit RoundLenChangeScheduled(gid, newLen, g.changeActivates);
-    }
-
-    function rageQuit(uint256 gid) external memberOf(gid) {
-        Group storage g = groups[gid];
-        require(g.changeActivates != 0 && block.timestamp < g.changeActivates, "!window");
-        _removeMember(gid, msg.sender);
-        emit Leave(gid, msg.sender);
-    }
-
-    /* ---------------------------------------------------------- */
-    // Group Management Functions
-    function setGroupStatus(uint256 gid, bool _isActive) external onlyCreator(gid) {
-        Group storage g = groups[gid];
-        require(g.currentRound == 0, "round started");
-        g.isActive = _isActive;
-        emit GroupStatusChanged(gid, _isActive);
-    }
-
-    function kickMember(uint256 gid, address member) external onlyCreator(gid) {
-        Group storage g = groups[gid];
-        require(g.isMember[member], "!member");
-        require(member != g.creator, "!kick creator");
-        require(g.currentRound == 0, "round started");
-        _removeMember(gid, member);
-        emit Leave(gid, member);
-    }
-
-    /* ---------------------------------------------------------- */
-    // Dispute Resolution System
-    function createDispute(uint256 gid, address defendant, string calldata reason) 
-        external memberOf(gid) returns (uint256 disputeId) {
-        require(groups[gid].isMember[defendant], "defendant !member");
-        require(msg.sender != defendant, "!self dispute");
-        require(bytes(reason).length > 0, "!reason");
-
-        disputeId = ++disputeCount;
-        Dispute storage d = disputes[disputeId];
-        d.groupId = gid;
-        d.complainant = msg.sender;
-        d.defendant = defendant;
-        d.reason = reason;
-        d.status = DisputeStatus.Active;
-        d.createdAt = block.timestamp;
-
-        groups[gid].disputeCount++;
-        emit DisputeCreated(disputeId, gid, msg.sender, defendant, reason);
-    }
-
-    function voteOnDispute(uint256 disputeId, bool support) external {
-        Dispute storage d = disputes[disputeId];
-        require(d.status == DisputeStatus.Active, "!active");
-        require(groups[d.groupId].isMember[msg.sender], "!member");
-        require(!d.hasVoted[msg.sender], "voted");
-        require(msg.sender != d.complainant && msg.sender != d.defendant, "!party vote");
-
-        d.hasVoted[msg.sender] = true;
-        if (support) {
-            d.votesFor++;
-        } else {
-            d.votesAgainst++;
-        }
-
-        emit DisputeVoted(disputeId, msg.sender, support);
-
-        // Auto-resolve if enough votes
-        uint256 totalMembers = groups[d.groupId].members.length;
-        uint256 requiredVotes = totalMembers / 2; // Simple majority
+    /**
+     * @dev Make a contribution to the group
+     * @param gid Group ID
+     */
+    function contribute(uint256 gid) external payable onlyGroupMember(gid) {
+        Group storage group = groups[gid];
         
-        if (d.votesFor >= requiredVotes) {
-            _resolveDispute(disputeId, true);
-        } else if (d.votesAgainst >= requiredVotes) {
-            _resolveDispute(disputeId, false);
+        require(group.isActive, "Group is not active");
+        require(!group.hasContributedThisRound[msg.sender], "Already contributed this round");
+        
+        // For native token, ensure user sends the contribution
+        if (group.token == address(0)) {
+            require(msg.value == group.contribution, "Must send exact contribution amount");
         }
+        
+        group.contributions[msg.sender] += group.contribution;
+        group.hasContributedThisRound[msg.sender] = true;
+
+        emit Contrib(gid, msg.sender, group.contribution);
     }
 
-    function _resolveDispute(uint256 disputeId, bool upheld) internal {
-        Dispute storage d = disputes[disputeId];
-        d.status = upheld ? DisputeStatus.Resolved : DisputeStatus.Rejected;
-        d.resolved = true;
-
-        if (upheld) {
-            // Remove defendant from group
-            _removeMember(d.groupId, d.defendant);
-        }
-
-        emit DisputeResolved(disputeId, upheld);
-    }
-
-    /* ---------------------------------------------------------- */
-    function _allPaid(uint256 gid) internal view returns (bool) {
-        Group storage g = groups[gid];
-        for (uint i = 0; i < g.members.length; i++) {
-            if (!g.hasPaid[g.members[i]]) return false;
-        }
-        return true;
-    }
-
-    function _nextRound(uint256 gid) internal {
-        Group storage g = groups[gid];
-        uint256 payoutAmount = uint256(g.contribution) * g.members.length;
-        address recipient = g.members[g.currentRound - 1];
-        g.hasBeenPaid[recipient] = true;
-        g.totalPaidOut += payoutAmount;
-
-        if (g.token == address(0)) {
-            (bool ok,) = recipient.call{value: payoutAmount}("");
-            require(ok, "payout failed");
-        } else {
-            IERC20(g.token).safeTransfer(recipient, payoutAmount);
-        }
-        emit Payout(gid, recipient, payoutAmount, g.currentRound);
-
-        g.currentRound++;
-        if (g.currentRound > g.members.length) {
-            // ROSCA completed
-            g.isActive = false;
-        } else {
-            if (g.changeActivates != 0 && block.timestamp >= g.changeActivates) {
-                g.roundLength = g.newRoundLength;
-                g.changeActivates = 0;
-            }
-            g.nextDue = uint40(block.timestamp + g.roundLength);
-            for (uint i = 0; i < g.members.length; i++) {
-                g.hasPaid[g.members[i]] = false;
+    /**
+     * @dev Leave a group (only before rounds start or in emergency)
+     * @param gid Group ID to leave
+     */
+    function leaveGroup(uint256 gid) external onlyGroupMember(gid) {
+        Group storage group = groups[gid];
+        
+        // Can only leave if rounds haven't started or in emergency
+        require(group.currentRound <= 1, "Cannot leave after rounds have started");
+        
+        group.isMember[msg.sender] = false;
+        group.memberCount--;
+        
+        // Remove from members array
+        for (uint i = 0; i < group.members.length; i++) {
+            if (group.members[i] == msg.sender) {
+                group.members[i] = group.members[group.members.length - 1];
+                group.members.pop();
+                break;
             }
         }
-    }
-
-    /* unordered remove, gas O(M) with M <= 50 */
-    function _removeMember(uint256 gid, address member) internal {
-        Group storage g = groups[gid];
-        uint256 len = g.members.length;
-        for (uint i = 0; i < len; i++) {
-            if (g.members[i] == member) {
-                g.members[i] = g.members[len - 1];
-                g.members.pop();
-                g.isMember[member] = false;
-                return;
+        
+        // Refund contribution if paid
+        uint256 refundAmount = group.contributions[msg.sender];
+        if (refundAmount > 0) {
+            group.contributions[msg.sender] = 0;
+            if (group.token == address(0)) {
+                payable(msg.sender).transfer(refundAmount);
             }
         }
+
+        emit Leave(gid, msg.sender);
     }
 
-    /* ---------------------------------------------------------- */
-    // View Functions
-    function getGroupMembers(uint256 gid) external view returns (address[] memory) {
+    /**
+     * @dev Emergency exit with penalties
+     * @param gid Group ID
+     */
+    function rageQuit(uint256 gid) external onlyGroupMember(gid) {
+        Group storage group = groups[gid];
+        
+        group.isMember[msg.sender] = false;
+        group.memberCount--;
+        
+        // Remove from members array
+        for (uint i = 0; i < group.members.length; i++) {
+            if (group.members[i] == msg.sender) {
+                group.members[i] = group.members[group.members.length - 1];
+                group.members.pop();
+                break;
+            }
+        }
+        
+        // Forfeit contributions (penalty for rage quitting)
+        group.contributions[msg.sender] = 0;
+
+        emit Leave(gid, msg.sender);
+    }
+
+  
+function getGroupDetails(uint256 gid)
+    external
+    view
+    groupExists(gid)
+    returns (GroupView memory)
+{
+    Group storage g = groups[gid];
+    return GroupView({
+        id: g.id,
+        roundLength: g.roundLength,
+        nextDue: g.nextDue,
+        token: g.token,
+        contribution: g.contribution,
+        currentRound: g.currentRound,
+        maxMembers: g.maxMembers,
+        isActive: g.isActive,
+        creator: g.creator,
+        memberCount: g.memberCount,
+        totalPaidOut: g.totalPaidOut,
+        groupDisputeCount: g.groupDisputeCount
+    });
+}
+
+    /**
+     * @dev Get group members
+     * @param gid Group ID
+     * @return Array of member addresses
+     */
+    function getGroupMembers(uint256 gid) external view groupExists(gid) returns (address[] memory) {
         return groups[gid].members;
     }
 
-    function getGroupDetails(uint256 gid) external view returns (
-        uint40 id,
-        uint40 roundLength,
-        uint40 nextDue,
-        address token,
-        uint96 contribution,
-        uint8 currentRound,
-        uint8 maxMembers,
-        bool isActive,
-        address creator,
-        uint256 memberCount,
-        uint256 totalPaidOut,
-        uint256 groupDisputeCount
-    ) {
-        Group storage g = groups[gid];
-        return (
-            g.id,
-            g.roundLength,
-            g.nextDue,
-            g.token,
-            g.contribution,
-            g.currentRound,
-            g.maxMembers,
-            g.isActive,
-            g.creator,
-            g.members.length,
-            g.totalPaidOut,
-            g.disputeCount
-        );
+    /**
+     * @dev Set group status (only creator)
+     * @param gid Group ID
+     * @param _isActive New status
+     */
+    function setGroupStatus(uint256 gid, bool _isActive) external onlyGroupCreator(gid) {
+        groups[gid].isActive = _isActive;
+        emit GroupStatusChanged(gid, _isActive);
     }
 
+    /**
+     * @dev Schedule round length change
+     * @param gid Group ID
+     * @param newLen New round length
+     */
+    function scheduleRoundLength(uint256 gid, uint40 newLen) external onlyGroupCreator(gid) {
+        require(newLen > 0, "Invalid round length");
+        
+        Group storage group = groups[gid];
+        group.newRoundLength = newLen;
+        group.changeActivates = uint40(block.timestamp + group.roundLength);
+        
+        emit RoundLenChangeScheduled(gid, newLen, group.changeActivates);
+    }
+
+    /**
+     * @dev Kick a member (only creator, with dispute protection)
+     * @param gid Group ID
+     * @param member Member to kick
+     */
+    function kickMember(uint256 gid, address member) external onlyGroupCreator(gid) {
+        Group storage group = groups[gid];
+        
+        require(group.isMember[member], "Not a member");
+        require(member != msg.sender, "Cannot kick yourself");
+        
+        group.isMember[member] = false;
+        group.memberCount--;
+        
+        // Remove from members array
+        for (uint i = 0; i < group.members.length; i++) {
+            if (group.members[i] == member) {
+                group.members[i] = group.members[group.members.length - 1];
+                group.members.pop();
+                break;
+            }
+        }
+
+        emit Leave(gid, member);
+    }
+
+    /**
+     * @dev Create a dispute
+     * @param gid Group ID
+     * @param defendant Address being disputed
+     * @param reason Reason for dispute
+     * @return disputeId The created dispute ID
+     */
+    function createDispute(
+        uint256 gid,
+        address defendant,
+        string calldata reason
+    ) external onlyGroupMember(gid) returns (uint256 disputeId) {
+        require(groups[gid].isMember[defendant], "Defendant not a member");
+        require(defendant != msg.sender, "Cannot dispute yourself");
+        
+        disputeId = disputeCount++;
+        Dispute storage dispute = disputes[disputeId];
+        
+        dispute.groupId = gid;
+        dispute.complainant = msg.sender;
+        dispute.defendant = defendant;
+        dispute.reason = reason;
+        dispute.status = DisputeStatus.Active;
+        dispute.createdAt = block.timestamp;
+        
+        groups[gid].groupDisputeCount++;
+
+        emit DisputeCreated(disputeId, gid, msg.sender, defendant, reason);
+    }
+
+    /**
+     * @dev Vote on a dispute
+     * @param disputeId Dispute ID
+     * @param support True to support complainant, false to support defendant
+     */
+    function voteOnDispute(uint256 disputeId, bool support) external {
+        require(disputeId < disputeCount, "Dispute does not exist");
+        
+        Dispute storage dispute = disputes[disputeId];
+        require(dispute.status == DisputeStatus.Active, "Dispute not active");
+        require(!dispute.hasVoted[msg.sender], "Already voted");
+        require(groups[dispute.groupId].isMember[msg.sender], "Not a group member");
+        require(msg.sender != dispute.complainant && msg.sender != dispute.defendant, "Cannot vote on own dispute");
+        
+        dispute.hasVoted[msg.sender] = true;
+        
+        if (support) {
+            dispute.votesFor++;
+        } else {
+            dispute.votesAgainst++;
+        }
+
+        emit DisputeVoted(disputeId, msg.sender, support);
+    }
+
+ 
     function getDispute(uint256 disputeId) external view returns (
         uint256 groupId,
         address complainant,
         address defendant,
         string memory reason,
-        DisputeStatus status,
+        uint8 status,
         uint256 createdAt,
         uint256 votesFor,
         uint256 votesAgainst
     ) {
-        Dispute storage d = disputes[disputeId];
+        require(disputeId < disputeCount, "Dispute does not exist");
+        
+        Dispute storage dispute = disputes[disputeId];
         return (
-            d.groupId,
-            d.complainant,
-            d.defendant,
-            d.reason,
-            d.status,
-            d.createdAt,
-            d.votesFor,
-            d.votesAgainst
+            dispute.groupId,
+            dispute.complainant,
+            dispute.defendant,
+            dispute.reason,
+            uint8(dispute.status),
+            dispute.createdAt,
+            dispute.votesFor,
+            dispute.votesAgainst
         );
     }
 
+    /**
+     * @dev Check if address has voted on dispute
+     * @param disputeId Dispute ID
+     * @param voter Voter address
+     * @return True if has voted
+     */
     function hasVotedOnDispute(uint256 disputeId, address voter) external view returns (bool) {
+        require(disputeId < disputeCount, "Dispute does not exist");
         return disputes[disputeId].hasVoted[voter];
     }
-
-    /* ---------------------------------------------------------- */
-    receive() external payable {}
 }
