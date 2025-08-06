@@ -841,9 +841,65 @@ export function useRosca() {
    * @param contribution - Contribution amount in wei
    * @returns Formatted string in ETH
    */
-  const formatContribution = useCallback((contribution: bigint): string => {
-    return formatEther(contribution);
+  const formatContribution = useCallback((contribution: bigint | undefined | null): string => {
+    if (!contribution || contribution === undefined || contribution === null) {
+      return "0.00";
+    }
+    try {
+      return formatEther(contribution);
+    } catch (error) {
+      console.warn('Error formatting contribution:', error, 'value:', contribution);
+      return "0.00";
+    }
   }, []);
+
+  /**
+   * Check if current user is a member of a specific group
+   * @param groupId - The group ID to check membership for
+   * @returns True if user is a member, false otherwise
+   */
+  const isGroupMember = useCallback(async (groupId: number): Promise<boolean> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      return false;
+    }
+
+    try {
+      const groupInfo = await getGroupInfo(groupId);
+      if (!groupInfo || !groupInfo.members) {
+        return false;
+      }
+
+      const userAddress = primaryWallet.address.toLowerCase();
+      return groupInfo.members.some(member => member.toLowerCase() === userAddress);
+    } catch (error) {
+      console.error('Error checking group membership:', error);
+      return false;
+    }
+  }, [primaryWallet, getGroupInfo]);
+
+  /**
+   * Check if current user is the creator of a specific group
+   * @param groupId - The group ID to check creator status for
+   * @returns True if user is the creator, false otherwise
+   */
+  const isGroupCreator = useCallback(async (groupId: number): Promise<boolean> => {
+    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+      return false;
+    }
+
+    try {
+      const groupInfo = await getGroupInfo(groupId);
+      if (!groupInfo) {
+        return false;
+      }
+
+      const userAddress = primaryWallet.address.toLowerCase();
+      return groupInfo.creator.toLowerCase() === userAddress;
+    } catch (error) {
+      console.error('Error checking group creator status:', error);
+      return false;
+    }
+  }, [primaryWallet, getGroupInfo]);
 
   /**
    * Check if user is connected and has an Ethereum wallet
@@ -880,6 +936,10 @@ export function useRosca() {
     getDisputeInfo,
     getDisputeCount,
     hasVotedOnDispute,
+    
+    // Membership checking
+    isGroupMember,
+    isGroupCreator,
     
     // Utility functions
     sendTransaction,
