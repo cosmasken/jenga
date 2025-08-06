@@ -3,13 +3,40 @@ import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { parseAbi, parseEther, formatEther } from "viem";
 import type { Abi, Address, Hash } from "viem";
 import React, { useState, useCallback, useEffect } from "react";
-import ROSCA from "../../abi/rosca.json"
-
 // Contract configuration
 export const ROSCA_CONTRACT_ADDRESS = "0xD85b914037Fe36fa28Fc60C1E542Dc52A8e66B0b" as Address;
 
-// Enhanced ABI with all new functions
-export const roscaAbi = ROSCA as Abi;
+// Define the ABI directly to avoid JSON import issues
+export const roscaAbi = parseAbi([
+  "event Contrib(uint256 indexed id, address indexed member, uint256 amount)",
+  "function contribute(uint256 gid) external payable",
+  "event Created(uint256 indexed id, address indexed creator, address indexed token, uint256 contribution, uint256 roundLength, uint8 maxMembers)",
+  "function createDispute(uint256 gid, address defendant, string reason) external returns (uint256 disputeId)",
+  "function createGroup(address _token, uint96 _contribution, uint40 _roundLength, uint8 _maxMembers) external payable returns (uint256 gid)",
+  "event DisputeCreated(uint256 indexed disputeId, uint256 indexed groupId, address indexed complainant, address defendant, string reason)",
+  "event DisputeResolved(uint256 indexed disputeId, bool upheld)",
+  "event DisputeVoted(uint256 indexed disputeId, address indexed voter, bool support)",
+  "event GroupStatusChanged(uint256 indexed id, bool isActive)",
+  "event Joined(uint256 indexed id, address indexed member)",
+  "function joinGroup(uint256 gid) external payable",
+  "function kickMember(uint256 gid, address member) external",
+  "event Leave(uint256 indexed id, address indexed member)",
+  "function leaveGroup(uint256 gid) external",
+  "event Payout(uint256 indexed id, address indexed recipient, uint256 amount, uint8 round)",
+  "function rageQuit(uint256 gid) external",
+  "event RoundLenChangeScheduled(uint256 indexed id, uint256 newLength, uint256 activates)",
+  "function scheduleRoundLength(uint256 gid, uint40 newLen) external",
+  "function setGroupStatus(uint256 gid, bool _isActive) external",
+  "function voteOnDispute(uint256 disputeId, bool support) external",
+  "function disputeCount() external view returns (uint256)",
+  "function disputes(uint256) external view returns (uint256 groupId, address complainant, address defendant, string reason, uint8 status, uint256 createdAt, uint256 votesFor, uint256 votesAgainst)",
+  "function getDispute(uint256 disputeId) external view returns (uint256 groupId, address complainant, address defendant, string reason, uint8 status, uint256 createdAt, uint256 votesFor, uint256 votesAgainst)",
+  "function getGroupDetails(uint256 gid) external view returns (tuple(uint40 id, uint40 roundLength, uint40 nextDue, address token, uint96 contribution, uint8 currentRound, uint8 maxMembers, bool isActive, address creator, uint256 memberCount, uint256 totalPaidOut, uint256 groupDisputeCount))",
+  "function getGroupMembers(uint256 gid) external view returns (address[])",
+  "function groupCount() external view returns (uint256)",
+  "function groups(uint256) external view returns (uint40 id, uint40 roundLength, uint40 nextDue, address token, uint96 contribution, uint8 currentRound, uint8 maxMembers, bool isActive, address creator, uint256 memberCount, uint256 totalPaidOut, uint256 groupDisputeCount, uint40 newRoundLength, uint40 changeActivates)",
+  "function hasVotedOnDispute(uint256 disputeId, address voter) external view returns (bool)"
+]);
 // Enhanced TypeScript interfaces
 export interface RoscaGroup {
   id: number;
