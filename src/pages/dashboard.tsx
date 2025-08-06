@@ -95,10 +95,16 @@ export default function Dashboard() {
             setUserGroups(allUserGroups);
             console.log('✅ User groups loaded:', allUserGroups.length);
 
-            // Load user achievements
-            const achievements = await getUserAchievements(primaryWallet.address);
-            setUserAchievements(achievements);
-            console.log('✅ User achievements loaded:', achievements.length);
+            // Load user achievements (only for onboarded users)
+            const currentUser = await getUser(primaryWallet.address);
+            if (currentUser?.onboarding_completed) {
+                const achievements = await getUserAchievements(primaryWallet.address);
+                setUserAchievements(achievements);
+                console.log('✅ User achievements loaded:', achievements.length);
+            } else {
+                console.log('🔍 User not onboarded yet, skipping achievements query');
+                setUserAchievements([]);
+            }
 
             // Load recent notifications
             const notifications = await getNotifications(primaryWallet.address, { 

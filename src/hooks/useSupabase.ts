@@ -29,6 +29,8 @@ export interface User {
   successful_rounds: number;
   notification_preferences: Record<string, boolean>;
   privacy_settings: Record<string, boolean>;
+  onboarding_completed?: boolean;
+  onboarding_completed_at?: string;
   created_at: string;
   updated_at: string;
   last_active_at: string;
@@ -249,12 +251,20 @@ export function useSupabase() {
     setError(null);
 
     try {
+      // Check if this is an onboarding completion (has display_name)
+      const isOnboardingComplete = userData.display_name && userData.display_name.trim().length > 0;
+      
       const userPayload = {
         wallet_address: primaryWallet.address,
         dynamic_user_id: user?.userId,
         email: user?.email,
         display_name: userData.display_name || user?.email || `${primaryWallet.address.slice(0, 6)}...${primaryWallet.address.slice(-4)}`,
         last_active_at: new Date().toISOString(),
+        // Set onboarding completion if display_name is provided
+        ...(isOnboardingComplete && {
+          onboarding_completed: true,
+          onboarding_completed_at: new Date().toISOString()
+        }),
         ...userData
       };
 
@@ -607,20 +617,33 @@ export function useSupabase() {
   // =====================================================
 
   /**
-   * Get user achievements
+   * Get user achievements - only for onboarded users
    */
   const getUserAchievements = useCallback(async (walletAddress?: string): Promise<UserAchievement[]> => {
     const address = walletAddress || primaryWallet?.address;
     if (!address) return [];
 
     try {
+      // First check if user is onboarded
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('onboarding_completed')
+        .eq('wallet_address', address)
+        .single();
+
+      if (userError || !userData?.onboarding_completed) {
+        console.log('🔍 User not onboarded yet, skipping achievements query');
+        return [];
+      }
+
+      // Query achievements using wallet address (TEXT field, not UUID)
       const { data, error } = await supabase
         .from('user_achievements')
         .select(`
           *,
           achievement:achievements(*)
         `)
-        .eq('user_id', address)
+        .eq('user_id', address) // user_id should be TEXT field containing wallet address
         .order('earned_at', { ascending: false });
 
       if (error) throw error;
