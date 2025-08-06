@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Check, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { SUPPORTED_LANGUAGES, Language, getLanguageByCode } from '@/types/language';
+import { SUPPORTED_LANGUAGES, getLanguageByCode } from '../types/language';
 
 interface LanguageSelectorProps {
   selectedLanguage: string;
@@ -14,13 +14,13 @@ interface LanguageSelectorProps {
  * Language selector component for onboarding and settings
  * Displays top 10 languages with native names and flags
  */
-export function LanguageSelector({ 
-  selectedLanguage, 
-  onLanguageChange, 
-  className = '' 
+export function LanguageSelector({
+  selectedLanguage,
+  onLanguageChange,
+  className = ''
 }: LanguageSelectorProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  
+
   const selectedLang = getLanguageByCode(selectedLanguage) || SUPPORTED_LANGUAGES[0];
 
   const handleLanguageSelect = (languageCode: string) => {
@@ -34,7 +34,7 @@ export function LanguageSelector({
         <Globe className="h-4 w-4" />
         Preferred Language
       </Label>
-      
+
       {/* Selected Language Display */}
       <Button
         type="button"
@@ -68,8 +68,8 @@ export function LanguageSelector({
                 w-full p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 
                 transition-colors flex items-center gap-3 border-b border-gray-100 
                 dark:border-gray-700 last:border-b-0
-                ${selectedLanguage === language.code 
-                  ? 'bg-bitcoin/10 border-bitcoin/20' 
+                ${selectedLanguage === language.code
+                  ? 'bg-bitcoin/10 border-bitcoin/20'
                   : ''
                 }
               `}

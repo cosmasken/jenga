@@ -219,7 +219,7 @@ export function useEventListener(options: UseEventListenerOptions = {}): UseEven
     return () => {
       stopMonitoring();
     };
-  }, [enabled, primaryWallet?.address, startMonitoring, stopMonitoring]);
+  }, [enabled, primaryWallet?.address]); // Removed startMonitoring, stopMonitoring from deps to prevent infinite loop
 
   /**
    * Get monitoring status
