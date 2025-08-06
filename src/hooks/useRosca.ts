@@ -9,42 +9,797 @@ export const ROSCA_CONTRACT_ADDRESS = "0xD85b914037Fe36fa28Fc60C1E542Dc52A8e66B0
 
 // Enhanced ABI with all new functions
 export const roscaAbi = parseAbi([
-  // Core functions
-  "function createGroup(address _token, uint96 _contribution, uint40 _roundLength, uint8 _maxMembers) external returns (uint256 gid)",
-  "function joinGroup(uint256 gid) external payable",
-  "function contribute(uint256 gid) external payable",
-  "function leaveGroup(uint256 gid) external",
-  "function rageQuit(uint256 gid) external",
-  "function scheduleRoundLength(uint256 gid, uint40 newLen) external",
-  
-  // Group management
-  "function setGroupStatus(uint256 gid, bool _isActive) external",
-  "function kickMember(uint256 gid, address member) external",
-  
-  // Dispute resolution
-  "function createDispute(uint256 gid, address defendant, string calldata reason) external returns (uint256 disputeId)",
-  "function voteOnDispute(uint256 disputeId, bool support) external",
-  
-  // View functions
-  "function groupCount() external view returns (uint256)",
-  "function disputeCount() external view returns (uint256)",
-  "function groups(uint256) external view returns (uint40 id, uint40 roundLength, uint40 nextDue, address token, uint96 contribution, uint8 currentRound, uint40 newRoundLength, uint40 changeActivates)",
-  "function getGroupMembers(uint256 gid) external view returns (address[] memory)",
-  "function getGroupDetails(uint256 gid) external view returns (uint40 id, uint40 roundLength, uint40 nextDue, address token, uint96 contribution, uint8 currentRound, uint8 maxMembers, bool isActive, address creator, uint256 memberCount, uint256 totalPaidOut, uint256 groupDisputeCount)",
-  "function getDispute(uint256 disputeId) external view returns (uint256 groupId, address complainant, address defendant, string memory reason, uint8 status, uint256 createdAt, uint256 votesFor, uint256 votesAgainst)",
-  "function hasVotedOnDispute(uint256 disputeId, address voter) external view returns (bool)",
-  
-  // Events
-  "event Created(uint256 indexed id, address indexed creator, address indexed token, uint256 contribution, uint256 roundLength, uint8 maxMembers)",
-  "event Joined(uint256 indexed id, address indexed member)",
-  "event Contrib(uint256 indexed id, address indexed member, uint256 amount)",
-  "event Payout(uint256 indexed id, address indexed recipient, uint256 amount, uint8 round)",
-  "event Leave(uint256 indexed id, address indexed member)",
-  "event RoundLenChangeScheduled(uint256 indexed id, uint256 newLength, uint256 activates)",
-  "event GroupStatusChanged(uint256 indexed id, bool isActive)",
-  "event DisputeCreated(uint256 indexed disputeId, uint256 indexed groupId, address indexed complainant, address defendant, string reason)",
-  "event DisputeVoted(uint256 indexed disputeId, address indexed voter, bool support)",
-  "event DisputeResolved(uint256 indexed disputeId, bool upheld)"
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "member",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "Contrib",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "name": "contribute",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "creator",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "token",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "contribution",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "roundLength",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint8",
+                "name": "maxMembers",
+                "type": "uint8"
+            }
+        ],
+        "name": "Created",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "defendant",
+                "type": "address"
+            },
+            {
+                "internalType": "string",
+                "name": "reason",
+                "type": "string"
+            }
+        ],
+        "name": "createDispute",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "disputeId",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_token",
+                "type": "address"
+            },
+            {
+                "internalType": "uint96",
+                "name": "_contribution",
+                "type": "uint96"
+            },
+            {
+                "internalType": "uint40",
+                "name": "_roundLength",
+                "type": "uint40"
+            },
+            {
+                "internalType": "uint8",
+                "name": "_maxMembers",
+                "type": "uint8"
+            }
+        ],
+        "name": "createGroup",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "disputeId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "groupId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "complainant",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "address",
+                "name": "defendant",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "string",
+                "name": "reason",
+                "type": "string"
+            }
+        ],
+        "name": "DisputeCreated",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "disputeId",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "bool",
+                "name": "upheld",
+                "type": "bool"
+            }
+        ],
+        "name": "DisputeResolved",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "disputeId",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "voter",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "bool",
+                "name": "support",
+                "type": "bool"
+            }
+        ],
+        "name": "DisputeVoted",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "bool",
+                "name": "isActive",
+                "type": "bool"
+            }
+        ],
+        "name": "GroupStatusChanged",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "member",
+                "type": "address"
+            }
+        ],
+        "name": "Joined",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "name": "joinGroup",
+        "outputs": [],
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "member",
+                "type": "address"
+            }
+        ],
+        "name": "kickMember",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "member",
+                "type": "address"
+            }
+        ],
+        "name": "Leave",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "name": "leaveGroup",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "recipient",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint8",
+                "name": "round",
+                "type": "uint8"
+            }
+        ],
+        "name": "Payout",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "name": "rageQuit",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint256",
+                "name": "id",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "newLength",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "activates",
+                "type": "uint256"
+            }
+        ],
+        "name": "RoundLenChangeScheduled",
+        "type": "event"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint40",
+                "name": "newLen",
+                "type": "uint40"
+            }
+        ],
+        "name": "scheduleRoundLength",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            },
+            {
+                "internalType": "bool",
+                "name": "_isActive",
+                "type": "bool"
+            }
+        ],
+        "name": "setGroupStatus",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "disputeId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "bool",
+                "name": "support",
+                "type": "bool"
+            }
+        ],
+        "name": "voteOnDispute",
+        "outputs": [],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "disputeCount",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "disputes",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "groupId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "complainant",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "defendant",
+                "type": "address"
+            },
+            {
+                "internalType": "string",
+                "name": "reason",
+                "type": "string"
+            },
+            {
+                "internalType": "enum ROSCA.DisputeStatus",
+                "name": "status",
+                "type": "uint8"
+            },
+            {
+                "internalType": "uint256",
+                "name": "createdAt",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "votesFor",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "votesAgainst",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "disputeId",
+                "type": "uint256"
+            }
+        ],
+        "name": "getDispute",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "groupId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "complainant",
+                "type": "address"
+            },
+            {
+                "internalType": "address",
+                "name": "defendant",
+                "type": "address"
+            },
+            {
+                "internalType": "string",
+                "name": "reason",
+                "type": "string"
+            },
+            {
+                "internalType": "uint8",
+                "name": "status",
+                "type": "uint8"
+            },
+            {
+                "internalType": "uint256",
+                "name": "createdAt",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "votesFor",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "votesAgainst",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "name": "getGroupDetails",
+        "outputs": [
+            {
+                "components": [
+                    {
+                        "internalType": "uint40",
+                        "name": "id",
+                        "type": "uint40"
+                    },
+                    {
+                        "internalType": "uint40",
+                        "name": "roundLength",
+                        "type": "uint40"
+                    },
+                    {
+                        "internalType": "uint40",
+                        "name": "nextDue",
+                        "type": "uint40"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "token",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint96",
+                        "name": "contribution",
+                        "type": "uint96"
+                    },
+                    {
+                        "internalType": "uint8",
+                        "name": "currentRound",
+                        "type": "uint8"
+                    },
+                    {
+                        "internalType": "uint8",
+                        "name": "maxMembers",
+                        "type": "uint8"
+                    },
+                    {
+                        "internalType": "bool",
+                        "name": "isActive",
+                        "type": "bool"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "creator",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "memberCount",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "totalPaidOut",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "groupDisputeCount",
+                        "type": "uint256"
+                    }
+                ],
+                "internalType": "struct GroupView",
+                "name": "",
+                "type": "tuple"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "gid",
+                "type": "uint256"
+            }
+        ],
+        "name": "getGroupMembers",
+        "outputs": [
+            {
+                "internalType": "address[]",
+                "name": "",
+                "type": "address[]"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [],
+        "name": "groupCount",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "name": "groups",
+        "outputs": [
+            {
+                "internalType": "uint40",
+                "name": "id",
+                "type": "uint40"
+            },
+            {
+                "internalType": "uint40",
+                "name": "roundLength",
+                "type": "uint40"
+            },
+            {
+                "internalType": "uint40",
+                "name": "nextDue",
+                "type": "uint40"
+            },
+            {
+                "internalType": "address",
+                "name": "token",
+                "type": "address"
+            },
+            {
+                "internalType": "uint96",
+                "name": "contribution",
+                "type": "uint96"
+            },
+            {
+                "internalType": "uint8",
+                "name": "currentRound",
+                "type": "uint8"
+            },
+            {
+                "internalType": "uint8",
+                "name": "maxMembers",
+                "type": "uint8"
+            },
+            {
+                "internalType": "bool",
+                "name": "isActive",
+                "type": "bool"
+            },
+            {
+                "internalType": "address",
+                "name": "creator",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "memberCount",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "totalPaidOut",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "groupDisputeCount",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint40",
+                "name": "newRoundLength",
+                "type": "uint40"
+            },
+            {
+                "internalType": "uint40",
+                "name": "changeActivates",
+                "type": "uint40"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint256",
+                "name": "disputeId",
+                "type": "uint256"
+            },
+            {
+                "internalType": "address",
+                "name": "voter",
+                "type": "address"
+            }
+        ],
+        "name": "hasVotedOnDispute",
+        "outputs": [
+            {
+                "internalType": "bool",
+                "name": "",
+                "type": "bool"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    }
 ]);
 
 // Enhanced TypeScript interfaces
@@ -60,9 +815,7 @@ export interface RoscaGroup {
   creator: Address;
   memberCount: number;
   totalPaidOut: bigint;
-  disputeCount: number;
-  newRoundLength: number;
-  changeActivates: number;
+  groupDisputeCount: number;
   members?: Address[];
 }
 
@@ -338,12 +1091,12 @@ export function useRosca() {
       const groupInfo = await publicClient.readContract({
         address: ROSCA_CONTRACT_ADDRESS,
         abi: roscaAbi,
-        functionName: "groups",
+        functionName: "getGroupDetails",
         args: [BigInt(groupId)],
-      }) as readonly [number, number, number, Address, bigint, number, number, number];
+      }) as RoscaGroup;
 
-      const contribution = groupInfo[4]; // contribution is at index 4
-      const token = groupInfo[3]; // token is at index 3
+      const contribution = groupInfo.contribution;
+      const token = groupInfo.token;
 
       console.log('🔍 contribute: Group contribution amount:', contribution);
 
@@ -446,9 +1199,9 @@ export function useRosca() {
         abi: roscaAbi,
         functionName: "getGroupDetails",
         args: [BigInt(groupId)],
-      }) as readonly [number, number, number, Address, bigint, number, number, boolean, Address, number, bigint, number];
+      }) as RoscaGroup;
 
-      if (!groupData || groupData[0] === 0) {
+      if (!groupData || groupData.id === 0) {
         return null; // Group doesn't exist
       }
 
@@ -461,20 +1214,18 @@ export function useRosca() {
       }) as readonly Address[];
 
       return {
-        id: Number(groupData[0]),
-        roundLength: Number(groupData[1]),
-        nextDue: Number(groupData[2]),
-        token: groupData[3] as Address,
-        contribution: groupData[4] as bigint,
-        currentRound: Number(groupData[5]),
-        maxMembers: Number(groupData[6]),
-        isActive: groupData[7] as boolean,
-        creator: groupData[8] as Address,
-        memberCount: Number(groupData[9]),
-        totalPaidOut: groupData[10] as bigint,
-        disputeCount: Number(groupData[11]),
-        newRoundLength: 0, // Will be fetched separately if needed
-        changeActivates: 0, // Will be fetched separately if needed
+        id: Number(groupData.id),
+        roundLength: Number(groupData.roundLength),
+        nextDue: Number(groupData.nextDue),
+        token: groupData.token as Address,
+        contribution: groupData.contribution as bigint,
+        currentRound: Number(groupData.currentRound),
+        maxMembers: Number(groupData.maxMembers),
+        isActive: groupData.isActive as boolean,
+        creator: groupData.creator as Address,
+        memberCount: Number(groupData.memberCount),
+        totalPaidOut: groupData.totalPaidOut as bigint,
+        groupDisputeCount: Number(groupData.groupDisputeCount),
         members: members as Address[],
       };
     } catch (err) {

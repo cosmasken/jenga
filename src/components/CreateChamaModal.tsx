@@ -24,24 +24,24 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   const [showAdvancedDetails, setShowAdvancedDetails] = useState(false);
   const [maxSpendable, setMaxSpendable] = useState<string>('0');
   const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
-  
+
   const { primaryWallet, user } = useDynamicContext();
-  const { 
-    createGroup, 
-    isLoading, 
-    error, 
-    isConnected, 
-    balance, 
-    isLoadingBalance, 
+  const {
+    createGroup,
+    isLoading,
+    error,
+    isConnected,
+    balance,
+    isLoadingBalance,
     refreshBalance,
-    getMaxSpendableAmount 
+    getMaxSpendableAmount
   } = useRosca();
-  const { 
+  const {
     createGroup: createSupabaseGroup,
     logActivity,
     createNotification,
     awardAchievement,
-    isLoading: isSupabaseLoading 
+    isLoading: isSupabaseLoading
   } = useSupabase();
   const { groupCreated, error: showError, transactionPending } = useRoscaToast();
 
@@ -62,7 +62,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       const contribution = parseFloat(formData.contributionAmount);
       const maxSpendableNum = parseFloat(maxSpendable);
       const balanceNum = parseFloat(balance);
-      
+
       // Validate minimum contribution (0.0001 cBTC)
       if (contribution < 0.0001) {
         return {
@@ -89,9 +89,9 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
           warning: 'Using most of your balance. Ensure you have enough for future transactions.'
         };
       }
-      
-      return { 
-        isValid: true, 
+
+      return {
+        isValid: true,
         error: null
       };
     } catch {
@@ -110,28 +110,28 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   // Handle form submission (go to preview step)
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!isConnected) {
       return;
     }
-    
+
     if (!formValidation.isValid) {
       return;
     }
-    
+
     setCurrentStep('preview');
   };
 
   // Handle actual transaction submission
   const handleTransactionSubmit = async () => {
     if (!isConnected || !primaryWallet?.address) return;
-    
+
     try {
       setCurrentStep('transaction');
-      
+
       // Show pending transaction toast
       const pendingToast = transactionPending("group creation");
-      
+
       // Step 1: Send blockchain transaction FIRST
       console.log('🔄 Sending blockchain transaction...');
       const hash = await createGroup({
@@ -223,11 +223,11 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       // Dismiss pending toast and show success
       pendingToast.dismiss();
       groupCreated(formData.name, parseInt(formData.maxMembers), hash);
-      
+
       setTimeout(() => resetModal(), 2000);
     } catch (err) {
       console.error('❌ Error creating chama:', err);
-      
+
       // Since we do blockchain first, if it fails, no cleanup needed in Supabase
       showError("Group Creation Failed", "Please try again or check your wallet connection");
       setCurrentStep('preview'); // Go back to preview step
@@ -239,11 +239,11 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={resetModal}
       />
-      
+
       {/* Modal */}
       <div className="relative w-full max-w-md mx-4 bg-white dark:bg-card rounded-xl border border-gray-200 dark:border-border shadow-2xl">
         {/* Header */}
@@ -267,35 +267,30 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
         {/* Step Indicator */}
         <div className="flex items-center justify-center gap-2 p-4 bg-gray-50 dark:bg-gray-800/50">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
-            currentStep === 'form' 
-              ? 'bg-bitcoin-orange text-white shadow-bitcoin' 
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${currentStep === 'form'
+              ? 'bg-bitcoin-orange text-white shadow-bitcoin'
               : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-          }`}>
+            }`}>
             1
           </div>
-          <div className={`w-8 h-1 rounded transition-all ${
-            ['preview', 'transaction'].includes(currentStep) 
-              ? 'bg-bitcoin-orange' 
+          <div className={`w-8 h-1 rounded transition-all ${['preview', 'transaction'].includes(currentStep)
+              ? 'bg-bitcoin-orange'
               : 'bg-gray-200 dark:bg-gray-700'
-          }`}></div>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
-            currentStep === 'preview' 
-              ? 'bg-bitcoin-orange text-white shadow-bitcoin' 
+            }`}></div>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${currentStep === 'preview'
+              ? 'bg-bitcoin-orange text-white shadow-bitcoin'
               : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-          }`}>
+            }`}>
             2
           </div>
-          <div className={`w-8 h-1 rounded transition-all ${
-            currentStep === 'transaction' 
-              ? 'bg-bitcoin-orange' 
+          <div className={`w-8 h-1 rounded transition-all ${currentStep === 'transaction'
+              ? 'bg-bitcoin-orange'
               : 'bg-gray-200 dark:bg-gray-700'
-          }`}></div>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
-            currentStep === 'transaction' 
-              ? 'bg-bitcoin-orange text-white shadow-bitcoin' 
+            }`}></div>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${currentStep === 'transaction'
+              ? 'bg-bitcoin-orange text-white shadow-bitcoin'
               : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-          }`}>
+            }`}>
             3
           </div>
         </div>
@@ -335,9 +330,8 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                     value={formData.contributionAmount}
                     onChange={(e) => setFormData(prev => ({ ...prev, contributionAmount: e.target.value }))}
                     placeholder="0.0001"
-                    className={`w-full px-3 py-2 pr-16 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-2 focus:ring-bitcoin-orange focus:border-transparent ${
-                      !formValidation.isValid ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                    }`}
+                    className={`w-full px-3 py-2 pr-16 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-2 focus:ring-bitcoin-orange focus:border-transparent ${!formValidation.isValid ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                      }`}
                     required
                   />
                   <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 dark:text-gray-400 font-mono">
@@ -424,9 +418,9 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                     <span className="w-4 h-4">⚠️</span>
                     <span>
                       Low balance detected. Consider getting more cBTC from the{' '}
-                      <a 
-                        href="https://faucet.testnet.citrea.xyz" 
-                        target="_blank" 
+                      <a
+                        href="https://citrea.xyz/faucet"
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="underline hover:text-orange-700 dark:hover:text-orange-300"
                       >
@@ -436,7 +430,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                     </span>
                   </div>
                 )}
-                
+
                 {/* Validation Error */}
                 {!formValidation.isValid && (
                   <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
@@ -533,13 +527,13 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                 <button
                   type="submit"
                   className="flex-1 px-4 py-2 bg-gradient-to-r from-bitcoin-orange to-bitcoin-orange-dark text-white rounded-lg hover:shadow-bitcoin disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                  disabled={isLoading || 
-                           !formData.name || 
-                           !formData.contributionAmount || 
-                           !formData.roundLength || 
-                           !formData.maxMembers || 
-                           !isConnected || 
-                           !formValidation.isValid}
+                  disabled={isLoading ||
+                    !formData.name ||
+                    !formData.contributionAmount ||
+                    !formData.roundLength ||
+                    !formData.maxMembers ||
+                    !isConnected ||
+                    !formValidation.isValid}
                 >
                   {!formValidation.isValid ? (
                     <>⚠️ {formValidation.shortError || 'Invalid Input'}</>
@@ -659,7 +653,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                     {isLoading ? 'Processing transaction...' : 'Waiting for confirmation...'}
                   </span>
                 </div>
-                
+
                 <div className="text-center text-sm text-bitcoin-orange/80">
                   This may take a few moments. Please don't close this window.
                 </div>
