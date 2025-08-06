@@ -54,6 +54,8 @@ import { useErrorHandler } from '@/hooks/use-error-handler';
 import { WalletDropdown } from '@/components/WalletDropdown';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { JoinGroupModal } from '@/components/JoinGroupModal';
+import { useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
+
 
 // Mock data for demonstration - in real app, this would come from the contract
 interface ChamaGroup {
@@ -81,12 +83,12 @@ interface ChamaGroup {
 type SortOption = 'newest' | 'oldest' | 'contribution-high' | 'contribution-low' | 'members' | 'trust-score';
 
 export default function BrowseChamas() {
+  const isConnected = useIsLoggedIn();
   const [, setLocation] = useLocation();
-  const { primaryWallet, isConnected } = useDynamicContext();
-  const { balance, getBalance } = useRosca();
+  const { primaryWallet } = useDynamicContext();
+  const { balance, getBalance, joinGroup, isGroupMember, isGroupCreator } = useRosca();
   const {
     getGroups,
-    joinGroup,
     subscribeToGroup,
     logActivity,
     isLoading: isSupabaseLoading
@@ -108,11 +110,19 @@ export default function BrowseChamas() {
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
   const [contributionRange, setContributionRange] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(false);
+  const [membershipStatus, setMembershipStatus] = useState<Record<string, { isMember: boolean; isCreator: boolean }>>({});
 
   // Load groups from Supabase
   useEffect(() => {
     loadGroups();
   }, [selectedStatus, selectedCategory, selectedTags, sortBy]);
+
+  // Check membership status when wallet connects/disconnects
+  useEffect(() => {
+    if (groups.length > 0) {
+      checkMembershipStatus(groups);
+    }
+  }, [isConnected, primaryWallet?.address]);
 
   const loadGroups = async () => {
     try {
@@ -143,6 +153,11 @@ export default function BrowseChamas() {
 
       console.log('✅ Loaded groups:', fetchedGroups.length);
       setGroups(fetchedGroups);
+
+      // Check membership status for all groups if user is connected
+      if (isConnected && primaryWallet?.address) {
+        await checkMembershipStatus(fetchedGroups);
+      }
     } catch (error) {
       console.error('❌ Failed to load groups:', error);
       handleError(error, { context: 'loading groups' });
@@ -152,9 +167,57 @@ export default function BrowseChamas() {
     }
   };
 
+  // Check membership status for all groups
+  const checkMembershipStatus = async (groupsToCheck: any[]) => {
+    if (!isConnected || !primaryWallet?.address) {
+      setMembershipStatus({});
+      return;
+    }
+
+    try {
+      console.log('🔍 Checking membership status for', groupsToCheck.length, 'groups');
+      const statusPromises = groupsToCheck.map(async (group) => {
+        try {
+          const [isMember, isCreator] = await Promise.all([
+            isGroupMember(parseInt(group.id)),
+            isGroupCreator(parseInt(group.id))
+          ]);
+
+          return {
+            groupId: group.id,
+            isMember,
+            isCreator
+          };
+        } catch (error) {
+          console.error(`Failed to check membership for group ${group.id}:`, error);
+          return {
+            groupId: group.id,
+            isMember: false,
+            isCreator: false
+          };
+        }
+      });
+
+      const results = await Promise.all(statusPromises);
+
+      const statusMap: Record<string, { isMember: boolean; isCreator: boolean }> = {};
+      results.forEach(result => {
+        statusMap[result.groupId] = {
+          isMember: result.isMember,
+          isCreator: result.isCreator
+        };
+      });
+
+      console.log('✅ Membership status checked:', statusMap);
+      setMembershipStatus(statusMap);
+    } catch (error) {
+      console.error('❌ Failed to check membership status:', error);
+    }
+  };
+
   // Handle joining a group - open modal instead of direct join
   const handleJoinGroup = async (groupId: string, groupName: string) => {
-    if (!isConnected || !primaryWallet?.address) {
+    if (!primaryWallet?.address) {
       toast.error('Wallet Required', 'Please connect your wallet to join a group.');
       return;
     }
@@ -234,87 +297,13 @@ export default function BrowseChamas() {
     return Array.from(tags).sort();
   }, [groups]);
 
-  // // Filter and sort groups
-  // const filteredAndSortedGroups = useMemo(() => {
-  //   let filtered = groups;
-
-  //   // Apply search filter
-  //   if (searchQuery.trim()) {
-  //     const query = searchQuery.toLowerCase();
-  //     filtered = filtered.filter(group =>
-  //       group.name.toLowerCase().includes(query) ||
-  //       group.description?.toLowerCase().includes(query) ||
-  //       group.tags?.some((tag: string) => tag.toLowerCase().includes(query))
-  //     );
-  //   }
-
-  //   // Apply status filter
-  //   if (selectedStatus !== 'all') {
-  //     filtered = filtered.filter(group => group.status === selectedStatus);
-  //   }
-
-  //   // Apply contribution range filter
-  //   if (contributionRange !== 'all') {
-  //     filtered = filtered.filter(group => {
-  //       const amount = group.contribution_amount;
-  //       switch (contributionRange) {
-  //         case 'low':
-  //           return amount < 0.01;
-  //         case 'medium':
-  //           return amount >= 0.01 && amount < 0.05;
-  //         case 'high':
-  //           return amount >= 0.05;
-  //         default:
-  //           return true;
-  //       }
-  //     });
-  //   }
-
-  //   // Apply tags filter
-  //   if (selectedTags.length > 0) {
-  //     filtered = filtered.filter(group =>
-  //       selectedTags.some(tag => group.tags?.includes(tag))
-  //     );
-  //   }
-
-  //   // Sort groups
-  //   filtered.sort((a, b) => {
-  //     switch (sortBy) {
-  //       case 'newest':
-  //         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  //       case 'oldest':
-  //         return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-  //       case 'contribution-high':
-  //         return b.contribution_amount - a.contribution_amount;
-  //       case 'contribution-low':
-  //         return a.contribution_amount - b.contribution_amount;
-  //       case 'members':
-  //         // Assuming current_members and max_members exist on group object
-  //         return (b.max_members - b.current_members) - (a.max_members - a.current_members);
-  //       case 'trust-score':
-  //         // Assuming trust_score exists on group object
-  //         return b.trust_score - a.trust_score;
-  //       default:
-  //         return 0;
-  //     }
-  //   });
-
-  //   return filtered;
-  // }, [groups, searchQuery, selectedStatus, selectedTags, contributionRange, sortBy]);
-
-
-
-  const handleJoinChama = async (chamaId: string) => {
-    try {
-      // In real implementation, call contract join function
-      toast.success('Joined Chama!', `You've successfully joined the chama.`);
-    } catch (error) {
-      handleError(error, { context: 'joining chama' });
-    }
-  };
-
   const handleViewDetails = (chamaId: string) => {
     setLocation(`/chama/${chamaId}`);
+  };
+
+  const handleManageGroup = (chamaId: string) => {
+    // Navigate to group management page or open management modal
+    setLocation(`/group/${chamaId}`);
   };
 
   const getStatusColor = (status: ChamaGroup['status']) => {
@@ -333,9 +322,46 @@ export default function BrowseChamas() {
   };
 
   const canJoinChama = (chama: ChamaGroup) => {
+    if (!isConnected) return false;
+
+    const status = membershipStatus[chama.id];
+
+    // Can't join if already a member
+    if (status?.isMember) return false;
+
     return chama.status === 'open' &&
       chama.currentMembers < chama.maxMembers &&
       parseFloat(balance) >= chama.contributionAmount;
+  };
+
+  const getButtonConfig = (chama: ChamaGroup) => {
+    if (!isConnected) {
+      return { text: 'Connect Wallet', action: 'connect', disabled: false };
+    }
+
+    const status = membershipStatus[chama.id];
+
+    if (status?.isCreator) {
+      return { text: 'Manage', action: 'manage', disabled: false };
+    }
+
+    if (status?.isMember) {
+      return { text: 'View Details', action: 'view', disabled: false };
+    }
+
+    if (chama.status === 'full') {
+      return { text: 'Full', action: 'none', disabled: true };
+    }
+
+    if (parseFloat(balance) < chama.contributionAmount) {
+      return { text: 'Insufficient Balance', action: 'none', disabled: true };
+    }
+
+    if (chama.status !== 'open') {
+      return { text: 'Closed', action: 'none', disabled: true };
+    }
+
+    return { text: 'Join', action: 'join', disabled: false };
   };
 
   return (
@@ -524,9 +550,10 @@ export default function BrowseChamas() {
                 >
                   <ChamaCard
                     chama={chama}
-                    onJoin={() => handleJoinChama(chama.id)}
+                    onJoin={() => handleJoinGroup(chama.id, chama.name)}
                     onViewDetails={() => handleViewDetails(chama.id)}
-                    canJoin={canJoinChama(chama)}
+                    onManage={() => handleManageGroup(chama.id)}
+                    buttonConfig={getButtonConfig(chama)}
                     getStatusColor={getStatusColor}
                   />
                 </motion.div>
@@ -554,11 +581,31 @@ interface ChamaCardProps {
   chama: ChamaGroup;
   onJoin: () => void;
   onViewDetails: () => void;
-  canJoin: boolean;
+  onManage: () => void;
+  buttonConfig: { text: string; action: string; disabled: boolean };
   getStatusColor: (status: ChamaGroup['status']) => string;
 }
 
-function ChamaCard({ chama, onJoin, onViewDetails, canJoin, getStatusColor }: ChamaCardProps) {
+function ChamaCard({ chama, onJoin, onViewDetails, onManage, buttonConfig, getStatusColor }: ChamaCardProps) {
+  const handlePrimaryAction = () => {
+    switch (buttonConfig.action) {
+      case 'join':
+        onJoin();
+        break;
+      case 'manage':
+        onManage();
+        break;
+      case 'view':
+        onViewDetails();
+        break;
+      case 'connect':
+        // This could trigger wallet connection modal
+        break;
+      default:
+        // No action for disabled states
+        break;
+    }
+  };
   return (
     <Card className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-bitcoin">
       <CardHeader className="pb-3">
@@ -651,14 +698,15 @@ function ChamaCard({ chama, onJoin, onViewDetails, canJoin, getStatusColor }: Ch
             View
           </Button>
           <Button
-            variant="bitcoin"
+            variant={buttonConfig.action === 'manage' ? 'default' : 'bitcoin'}
             size="sm"
-            onClick={onJoin}
-            disabled={!canJoin}
+            onClick={handlePrimaryAction}
+            disabled={buttonConfig.disabled}
             className="flex-1"
           >
-            <UserPlus className="h-3 w-3 mr-1" />
-            {chama.status === 'full' ? 'Full' : 'Join'}
+            {buttonConfig.action === 'join' && <UserPlus className="h-3 w-3 mr-1" />}
+            {buttonConfig.action === 'manage' && <Users className="h-3 w-3 mr-1" />}
+            {buttonConfig.text}
           </Button>
         </div>
       </CardContent>

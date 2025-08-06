@@ -163,13 +163,15 @@ export default function ChamaDetail() {
   const [, setLocation] = useLocation();
   const [match] = useRoute('/chama/:id');
   const { primaryWallet, isConnected } = useDynamicContext();
-  const { balance } = useRosca();
+  const { balance, getGroupInfo, joinGroup, isGroupMember, isGroupCreator } = useRosca();
   const toast = useRoscaToast();
   const { handleError } = useErrorHandler();
 
   const [chama, setChama] = useState<ChamaDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isJoining, setIsJoining] = useState(false);
+  const [isMember, setIsMember] = useState(false);
+  const [isCreator, setIsCreator] = useState(false);
 
   const chamaId = match?.id;
 
@@ -180,44 +182,120 @@ export default function ChamaDetail() {
       
       setIsLoading(true);
       try {
-        // In real implementation, fetch from contract
-        // const chamaData = await getChamaDetail(chamaId);
-        // setChama(chamaData);
-        
-        // Simulate loading
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setChama(mockChamaDetail);
+        // Try to get real contract data first
+        const groupId = parseInt(chamaId);
+        if (!isNaN(groupId)) {
+          const contractData = await getGroupInfo(groupId);
+          
+          if (contractData) {
+            // Convert contract data to ChamaDetail format
+            const chamaData: ChamaDetail = {
+              id: chamaId,
+              name: `ROSCA Group #${contractData.id}`,
+              description: `A Bitcoin savings circle with ${contractData.maxMembers} members contributing ${contractData.contribution} cBTC every ${contractData.roundLength} seconds.`,
+              contributionAmount: parseFloat(contractData.contribution.toString()) / 1e18, // Convert from wei
+              roundLength: Math.floor(contractData.roundLength / 86400), // Convert seconds to days
+              maxMembers: contractData.maxMembers,
+              currentMembers: Number(contractData.memberCount),
+              creator: contractData.creator,
+              createdAt: new Date(), // We don't have creation date from contract
+              nextRoundDate: new Date(contractData.nextDue * 1000),
+              status: contractData.isActive ? 
+                (Number(contractData.memberCount) >= contractData.maxMembers ? 'full' : 'open') : 
+                'completed',
+              totalSaved: parseFloat(contractData.totalPaidOut.toString()) / 1e18,
+              currentRound: contractData.currentRound,
+              tags: ['bitcoin', 'savings'],
+              isVerified: true,
+              trustScore: 4.5,
+              members: contractData.members?.map((address, index) => ({
+                address,
+                joinedAt: new Date(),
+                contributionsMade: contractData.currentRound - 1,
+                isActive: true,
+                nickname: address === contractData.creator ? 'Creator' : undefined
+              })) || [],
+              rounds: [],
+              rules: [
+                `Monthly contributions of ${parseFloat(contractData.contribution.toString()) / 1e18} cBTC are required`,
+                'Missed contributions result in penalties',
+                'Members must complete all rounds to receive full benefits',
+                'Respectful communication is mandatory',
+                'No early withdrawal without group consensus'
+              ]
+            };
+            
+            setChama(chamaData);
+            
+            // Check membership status if user is connected
+            if (isConnected && primaryWallet?.address) {
+              const [memberStatus, creatorStatus] = await Promise.all([
+                isGroupMember(groupId),
+                isGroupCreator(groupId)
+              ]);
+              
+              setIsMember(memberStatus);
+              setIsCreator(creatorStatus);
+              
+              console.log('🔍 Membership status:', { 
+                isMember: memberStatus, 
+                isCreator: creatorStatus,
+                userAddress: primaryWallet.address,
+                groupCreator: contractData.creator
+              });
+            }
+          } else {
+            // Fallback to mock data if contract data not available
+            setChama(mockChamaDetail);
+          }
+        } else {
+          // Invalid group ID, use mock data
+          setChama(mockChamaDetail);
+        }
       } catch (error) {
+        console.error('❌ Error loading chama details:', error);
         handleError(error, { context: 'loading chama details' });
+        // Fallback to mock data on error
+        setChama(mockChamaDetail);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadChamaDetail();
-  }, [chamaId, handleError]);
+  }, [chamaId, handleError, getGroupInfo, isConnected, primaryWallet?.address, isGroupMember, isGroupCreator]);
 
   const handleJoinChama = async () => {
-    if (!chama) return;
+    if (!chama || !chamaId) return;
     
     setIsJoining(true);
     try {
-      // In real implementation, call contract join function
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success('Joined Chama!', `You've successfully joined ${chama.name}.`);
+      const groupId = parseInt(chamaId);
+      if (isNaN(groupId)) {
+        throw new Error('Invalid group ID');
+      }
+
+      // Call the real contract join function
+      const txHash = await joinGroup(groupId);
       
-      // Update local state
-      setChama(prev => prev ? {
-        ...prev,
-        currentMembers: prev.currentMembers + 1,
-        members: [...prev.members, {
-          address: primaryWallet?.address || '',
-          joinedAt: new Date(),
-          contributionsMade: 0,
-          isActive: true
-        }]
-      } : null);
+      if (txHash) {
+        toast.success('Joined Chama!', `You've successfully joined ${chama.name}.`);
+        
+        // Update local state
+        setIsMember(true);
+        setChama(prev => prev ? {
+          ...prev,
+          currentMembers: prev.currentMembers + 1,
+          members: [...prev.members, {
+            address: primaryWallet?.address || '',
+            joinedAt: new Date(),
+            contributionsMade: 0,
+            isActive: true
+          }]
+        } : null);
+      }
     } catch (error) {
+      console.error('❌ Error joining chama:', error);
       handleError(error, { context: 'joining chama' });
     } finally {
       setIsJoining(false);
@@ -237,10 +315,45 @@ export default function ChamaDetail() {
 
   const canJoinChama = () => {
     if (!chama || !isConnected) return false;
+    
+    // Can't join if already a member
+    if (isMember) return false;
+    
     return chama.status === 'open' && 
            chama.currentMembers < chama.maxMembers &&
-           parseFloat(balance) >= chama.contributionAmount &&
-           !chama.members.some(member => member.address === primaryWallet?.address);
+           parseFloat(balance) >= chama.contributionAmount;
+  };
+
+  const getJoinButtonConfig = () => {
+    if (!isConnected) {
+      return { text: 'Connect Wallet', disabled: true, variant: 'outline' as const };
+    }
+    
+    if (isCreator) {
+      return { text: 'Manage Group', disabled: false, variant: 'default' as const };
+    }
+    
+    if (isMember) {
+      return { text: 'Already Joined', disabled: true, variant: 'outline' as const };
+    }
+    
+    if (!chama) {
+      return { text: 'Loading...', disabled: true, variant: 'outline' as const };
+    }
+    
+    if (chama.status === 'full') {
+      return { text: 'Group Full', disabled: true, variant: 'outline' as const };
+    }
+    
+    if (parseFloat(balance) < chama.contributionAmount) {
+      return { text: 'Insufficient Balance', disabled: true, variant: 'outline' as const };
+    }
+    
+    if (chama.status !== 'open') {
+      return { text: 'Group Closed', disabled: true, variant: 'outline' as const };
+    }
+    
+    return { text: 'Join Chama', disabled: false, variant: 'bitcoin' as const };
   };
 
   const getStatusColor = (status: ChamaDetail['status']) => {
@@ -473,7 +586,9 @@ export default function ChamaDetail() {
             {/* Join Card */}
             <Card className="border-bitcoin/20">
               <CardHeader>
-                <CardTitle className="text-bitcoin">Join This Chama</CardTitle>
+                <CardTitle className="text-bitcoin">
+                  {isCreator ? 'Manage Group' : isMember ? 'Group Member' : 'Join This Chama'}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {!isConnected ? (
@@ -481,6 +596,28 @@ export default function ChamaDetail() {
                     <AlertTriangle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                       Connect your wallet to join this chama
+                    </p>
+                  </div>
+                ) : isCreator ? (
+                  <div className="text-center py-4">
+                    <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      You are the creator of this chama
+                    </p>
+                    <Button
+                      onClick={() => setLocation(`/group/${chamaId}`)}
+                      className="w-full"
+                      variant="default"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Manage Group
+                    </Button>
+                  </div>
+                ) : isMember ? (
+                  <div className="text-center py-4">
+                    <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      You are already a member of this chama
                     </p>
                   </div>
                 ) : canJoinChama() ? (
