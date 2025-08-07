@@ -116,6 +116,33 @@ export function useSimpleSupabase() {
   
   const supabase = getSupabaseInstance();
 
+  // Test database connection
+  const testDatabaseConnection = useCallback(async (): Promise<boolean> => {
+    try {
+      console.log('🔄 Testing database connection...');
+      const { data, error } = await supabase
+        .from('users')
+        .select('id')
+        .limit(1);
+      
+      if (error) {
+        console.error('❌ Database connection test failed:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        return false;
+      }
+      
+      console.log('✅ Database connection successful');
+      return true;
+    } catch (err: any) {
+      console.error('❌ Database connection test exception:', err);
+      return false;
+    }
+  }, [supabase]);
+
   // ==================================================
   // USER MANAGEMENT
   // ==================================================
@@ -170,6 +197,8 @@ export function useSimpleSupabase() {
         ...userData
       };
 
+      console.log('🔄 About to upsert user with payload:', userPayload);
+      
       const { data, error } = await supabase
         .from('users')
         .upsert(userPayload, { 
@@ -180,17 +209,26 @@ export function useSimpleSupabase() {
         .single();
 
       if (error) {
-        console.error('❌ Error saving user:', error);
-        toast.error('Failed to save profile');
+        console.error('❌ Detailed Supabase error:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        toast.error(`Failed to save profile: ${error.message}`);
         return null;
       }
 
       setUser(data);
       toast.success('Profile saved successfully!');
       return data;
-    } catch (err) {
-      console.error('❌ Failed to save user:', err);
-      toast.error('Failed to save profile');
+    } catch (err: any) {
+      console.error('❌ Failed to save user - caught exception:', {
+        message: err?.message || 'Unknown error',
+        stack: err?.stack,
+        error: err
+      });
+      toast.error(`Failed to save profile: ${err?.message || 'Unknown error'}`);
       return null;
     } finally {
       setLoading(false);
@@ -532,6 +570,9 @@ export function useSimpleSupabase() {
     loadUserAchievements,
 
     // Activity
-    logActivity
+    logActivity,
+    
+    // Utils
+    testDatabaseConnection
   };
 }

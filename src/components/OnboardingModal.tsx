@@ -42,7 +42,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
   const { user, primaryWallet } = useDynamicContext();
   const isLoggedIn = useIsLoggedIn();
   const { welcome, error: showError } = useRoscaToast();
-  const { saveUser, completeOnboarding, awardAchievement, createNotification, loading: isSupabaseLoading } = useSimpleSupabase();
+  const { saveUser, completeOnboarding, awardAchievement, createNotification, loading: isSupabaseLoading, testDatabaseConnection } = useSimpleSupabase();
   
   // Form state
   const [currentStep, setCurrentStep] = useState(1);
@@ -121,6 +121,13 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
     setIsCompleting(true);
     
     try {
+      // Test database connection first
+      console.log('🔄 Testing database connection before onboarding...');
+      const dbConnected = await testDatabaseConnection?.();
+      if (!dbConnected) {
+        throw new Error('Database connection failed. Please check your Supabase configuration.');
+      }
+
       // Create user profile in Supabase
       const userData = {
         display_name: username.trim(),
