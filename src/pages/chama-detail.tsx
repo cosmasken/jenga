@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useLocation, useRoute } from 'wouter';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useDynamicContext, useIsLoggedIn } from '@dynamic-labs/sdk-react-core';
 import { 
   ArrowLeft, 
   Users, 
@@ -36,6 +36,7 @@ import { useErrorHandler } from '@/hooks/use-error-handler';
 import { WalletDropdown } from '@/components/WalletDropdown';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { JoinGroupModal } from '@/components/JoinGroupModal';
+import { DynamicConnectButton } from '@/components/ui/dynamic-connect-button';
 import { formatDistanceToNow } from 'date-fns';
 import { formatAmount, formatDuration } from '@/lib/unitConverter';
 import { useUnitDisplay } from '@/contexts/UnitDisplayContext';
@@ -165,7 +166,8 @@ const mockChamaDetail: ChamaDetail = {
 export default function ChamaDetail() {
   const [, setLocation] = useLocation();
   const [, params] = useRoute('/chama/:id');
-  const { primaryWallet, isConnected } = useDynamicContext();
+  const { primaryWallet } = useDynamicContext();
+  const isLoggedIn = useIsLoggedIn();
   const { balance, getGroupInfo, joinGroup, isGroupMember, isGroupCreator } = useRosca();
   const { displayUnit } = useUnitDisplay();
   const toast = useRoscaToast();
@@ -241,7 +243,7 @@ export default function ChamaDetail() {
             setChama(chamaData);
             
             // Check membership status if user is connected
-            if (isConnected && primaryWallet?.address) {
+            if (isLoggedIn && primaryWallet?.address) {
               const [memberStatus, creatorStatus] = await Promise.all([
                 isGroupMember(groupId),
                 isGroupCreator(groupId)
@@ -276,7 +278,7 @@ export default function ChamaDetail() {
     };
 
     loadChamaDetail();
-  }, [chamaId, handleError, getGroupInfo, isConnected, primaryWallet?.address, isGroupMember, isGroupCreator]);
+  }, [chamaId, handleError, getGroupInfo, isLoggedIn, primaryWallet?.address, isGroupMember, isGroupCreator]);
 
   // Open the join modal
   const handleJoinChama = () => {
@@ -330,7 +332,7 @@ export default function ChamaDetail() {
   };
 
   const canJoinChama = () => {
-    if (!chama || !isConnected) return false;
+    if (!chama || !isLoggedIn) return false;
     
     // Can't join if already a member
     if (isMember) return false;
@@ -341,7 +343,7 @@ export default function ChamaDetail() {
   };
 
   const getJoinButtonConfig = () => {
-    if (!isConnected) {
+    if (!isLoggedIn) {
       return { text: 'Connect Wallet', disabled: true, variant: 'outline' as const };
     }
     
@@ -607,12 +609,17 @@ export default function ChamaDetail() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!isConnected ? (
+                {!isLoggedIn ? (
                   <div className="text-center py-4">
                     <AlertTriangle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                       Connect your wallet to join this chama
                     </p>
+                    <DynamicConnectButton 
+                      connectText="Connect Wallet to Join"
+                      className="w-full bg-bitcoin hover:bg-bitcoin/90 text-white border-bitcoin"
+                      variant="default"
+                    />
                   </div>
                 ) : isCreator ? (
                   <div className="text-center py-4">
