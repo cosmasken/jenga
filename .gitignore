@@ -30,6 +30,10 @@ LOGS.MD
 MIG.md
 docs/
 
+# SQL files and database-related
+*.sql
+supabase/migrations/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
