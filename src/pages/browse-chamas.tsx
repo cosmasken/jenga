@@ -105,7 +105,8 @@ export default function BrowseChamas() {
   const [showFilters, setShowFilters] = useState(false);
   const [isJoining, setIsJoining] = useState<string | null>(null);
   const [showJoinModal, setShowJoinModal] = useState(false);
-  const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
+  const [currentJoiningGroupId, setCurrentJoiningGroupId] = useState<string>('');
+  const [selectedGroupData, setSelectedGroupData] = useState<any>(null);
   const [contributionRange, setContributionRange] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(false);
   const [membershipStatus, setMembershipStatus] = useState<Record<string, { isMember: boolean; isCreator: boolean }>>({});
@@ -265,8 +266,13 @@ const handleJoinGroup = async (groupId: string, groupName: string) => {
     return;
   }
 
+  // Find the group data
+  const group = groups.find(g => g.id === groupId);
+  
   // Open join modal with the selected group
-  setSelectedGroupId(parseInt(groupId));
+  
+  setCurrentJoiningGroupId(groupId); // Set the string ID directly
+  setSelectedGroupData(group?.blockchainData || null);
   setShowJoinModal(true);
 };
 
@@ -598,10 +604,12 @@ return (
       onOpenChange={(open) => {
         setShowJoinModal(open);
         if (!open) {
-          setSelectedGroupId(null);
+          setCurrentJoiningGroupId(''); // Reset when modal closes
+          setSelectedGroupData(null);
         }
       }}
-      groupId={selectedGroupId ? selectedGroupId.toString() : ''}
+      groupId={currentJoiningGroupId}
+      initialGroupData={selectedGroupData}
       onGroupJoined={handleJoinSuccess}
     />
   </div>

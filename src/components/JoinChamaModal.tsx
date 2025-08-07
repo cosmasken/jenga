@@ -8,27 +8,29 @@ interface JoinChamaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   groupId: string;
+  initialGroupData?: any; // Pre-fetched group data from parent (optional)
   onGroupJoined?: () => void; // Callback for when group is successfully joined
 }
 
 interface GroupDetails {
   id: string;
-  name?: string;
+  name: string;
   contribution: string;
-  roundLength: bigint;
-  maxMembers: bigint;
-  memberCount: bigint;
-  currentRound: bigint;
-  nextRecipient: string;
+  roundLength: number;
+  maxMembers: number;
+  memberCount: number;
+  currentRound: number;
+  nextRecipient: string | null;
   isActive: boolean;
   isClosed: boolean;
 }
 
-export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({ 
-  open, 
-  onOpenChange, 
+export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
+  open,
+  onOpenChange,
   groupId,
-  onGroupJoined 
+  initialGroupData,
+  onGroupJoined
 }) => {
   const [currentStep, setCurrentStep] = useState<'details' | 'preview' | 'transaction'>('details');
   const [groupInfo, setGroupInfo] = useState<GroupDetails | null>(null);
@@ -57,49 +59,143 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
   // Load group information when modal opens
   useEffect(() => {
     const loadGroupInfo = async () => {
-      if (open && groupId && isConnected) {
-        setIsLoadingGroup(true);
-        try {
-          // Convert string ID to number for blockchain call
-          const numericId = parseInt(groupId);
-          if (isNaN(numericId)) {
-            throw new Error('Invalid group ID');
-          }
+      console.log('🚀 JoinChamaModal useEffect triggered with:', {
+        open,
+        groupId,
+        hasInitialData: !!initialGroupData,
+        isConnected,
+        primaryWallet: !!primaryWallet
+      });
+      
+      if (open && groupId) {
+        console.log('✅ Modal conditions met, proceeding to load group info');
+        
+        // Reset any previous error state
+        setGroupInfo(null);
+        
+        // If we have initial data, use it directly
+        if (initialGroupData) {
+          console.log('📦 Using pre-fetched initial group data');
+          console.log('📦 Raw initialGroupData:', JSON.stringify(initialGroupData, (key, value) =>
+            typeof value === 'bigint'
+              ? value.toString()
+              : value
+          , 2));
           
-          console.log('Loading group info for ID:', numericId);
-          const info = await getGroupInfo(numericId);
-          console.log('Group info received:', info);
-          
-          if (info) {
-            // Convert contribution from Wei to cBTC (assuming 18 decimals)
-            const contributionInCBTC = (parseFloat(info.contribution.toString()) / 1e18).toFixed(6);
+          setIsLoadingGroup(true);
+          try {
+            // Check if initialGroupData has the required fields
+            const requiredFields = ['contribution', 'roundLength', 'maxMembers', 'memberCount', 'currentRound', 'isActive'];
+            const missingFields = requiredFields.filter(field => initialGroupData[field] === undefined);
             
-            setGroupInfo({
+            if (missingFields.length > 0) {
+              throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+            }
+            
+            console.log('🔄 Processing initial group data...');
+            
+            // Convert contribution from Wei to cBTC (assuming 18 decimals)
+            const contributionWei = initialGroupData.contribution;
+            console.log('💰 Contribution Wei value:', contributionWei, typeof contributionWei);
+            
+            const contributionInCBTC = (parseFloat(contributionWei.toString()) / 1e18).toFixed(6);
+            console.log('💰 Contribution in cBTC:', contributionInCBTC);
+
+            const processedGroupInfo = {
               id: groupId,
               name: `Group ${groupId}`,
               contribution: contributionInCBTC,
-              roundLength: info.roundLength,
-              maxMembers: info.maxMembers,
-              memberCount: info.memberCount,
-              currentRound: info.currentRound,
-              nextRecipient: info.nextRecipient,
-              isActive: info.isActive,
-              isClosed: info.isClosed
+              roundLength: Number(initialGroupData.roundLength),
+              maxMembers: Number(initialGroupData.maxMembers),
+              memberCount: Number(initialGroupData.memberCount),
+              currentRound: Number(initialGroupData.currentRound),
+              nextRecipient: initialGroupData.members?.[Number(initialGroupData.currentRound) % Number(initialGroupData.maxMembers)] || null,
+              isActive: Boolean(initialGroupData.isActive),
+              isClosed: !Boolean(initialGroupData.isActive)
+            };
+            
+            console.log('✅ Successfully processed group info:', processedGroupInfo);
+            setGroupInfo(processedGroupInfo);
+            
+          } catch (error) {
+            console.error('❌ ERROR processing initial group data:', error);
+            console.error('❌ Error details:', {
+              message: error.message,
+              stack: error.stack,
+              initialGroupData
             });
-          } else {
-            throw new Error('No group info returned');
+            showError('Failed to load group', 'Could not process group information. Please try again.');
+          } finally {
+            console.log('🏁 Finished processing initial data, setting loading to false');
+            setIsLoadingGroup(false);
           }
-        } catch (error) {
-          console.error('Error loading group info:', error);
-          showError('Failed to load group', 'Could not load group information. Please try again.');
-        } finally {
+          
+        } else if (isConnected && primaryWallet) {
+          console.log('🌐 No initial data, fetching from blockchain...');
+          setIsLoadingGroup(true);
+          
+          try {
+            const numericId = parseInt(groupId);
+            if (isNaN(numericId)) {
+              throw new Error(`Invalid group ID: ${groupId}`);
+            }
+            
+            if (!info) {
+              console.error('❌ getGroupInfo returned null/undefined for ID:', numericId);
+            }
+
+            if (info) {
+              const contributionInCBTC = (parseFloat(info.contribution.toString()) / 1e18).toFixed(6);
+              
+              const processedGroupInfo = {
+                id: groupId,
+                name: `Group ${groupId}`,
+                contribution: contributionInCBTC,
+                roundLength: Number(info.roundLength),
+                maxMembers: Number(info.maxMembers),
+                memberCount: Number(info.memberCount),
+                currentRound: Number(info.currentRound),
+                nextRecipient: info.members?.[Number(info.currentRound) % Number(info.maxMembers)] || null,
+                isActive: Boolean(info.isActive),
+                isClosed: !Boolean(info.isActive)
+              };
+              
+              console.log('✅ Successfully fetched and processed blockchain data:', processedGroupInfo);
+              setGroupInfo(processedGroupInfo);
+            } else {
+              console.error('❌ getGroupInfo returned null/undefined');
+              throw new Error('No group info returned from blockchain');
+            }
+            
+          } catch (error) {
+            console.error('❌ ERROR fetching group info from blockchain:', error);
+            console.error('❌ Error details:', {
+              message: error.message,
+              stack: error.stack,
+              groupId,
+              numericId: parseInt(groupId)
+            });
+            showError('Failed to load group', 'Could not load group information. Please try again.');
+          } finally {
+            console.log('🏁 Finished blockchain fetch, setting loading to false');
+            setIsLoadingGroup(false);
+          }
+          
+        } else {
+          console.log('⚠️ Cannot load group info:', {
+            hasInitialData: !!initialGroupData,
+            isConnected,
+            hasPrimaryWallet: !!primaryWallet
+          });
           setIsLoadingGroup(false);
         }
+      } else {
+        console.log('❌ Modal conditions not met:', { open, groupId });
       }
     };
 
     loadGroupInfo();
-  }, [open, groupId, isConnected, getGroupInfo, showError]);
+  }, [open, groupId, initialGroupData, isConnected, getGroupInfo, showError, primaryWallet]);
 
   // Get max spendable amount when modal opens or balance changes
   useEffect(() => {
@@ -111,12 +207,12 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
   // Check if user has enough balance
   const hasEnoughBalance = React.useMemo(() => {
     if (!groupInfo || !balance) return false;
-    
+
     try {
       const contributionNum = parseFloat(groupInfo.contribution);
       const balanceNum = parseFloat(balance);
       const maxSpendableNum = parseFloat(maxSpendable);
-      
+
       return contributionNum <= maxSpendableNum;
     } catch {
       return false;
@@ -126,11 +222,11 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
   // Check if group is joinable
   const isJoinable = React.useMemo(() => {
     if (!groupInfo) return false;
-    
+
     // Check if group is closed or full
     if (groupInfo.isClosed) return false;
     if (groupInfo.memberCount >= groupInfo.maxMembers) return false;
-    
+
     return true;
   }, [groupInfo]);
 
@@ -175,13 +271,12 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
 
       // Send blockchain transaction
       console.log('🔄 Joining group on blockchain with ID:', numericId);
-      const result = await joinGroup(numericId);
+      const hash = await joinGroup(numericId);
 
-      if (!result || !result.hash) {
+      if (!hash) {
         throw new Error('Failed to get transaction hash');
       }
 
-      const { hash } = result;
       console.log('✅ Transaction hash received:', hash);
 
       // Dismiss pending toast
@@ -245,7 +340,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
       if (onGroupJoined) {
         onGroupJoined();
       }
-      
+
       setTimeout(() => resetModal(), 2000);
     } catch (err) {
       console.error('❌ Error joining group:', err);
@@ -288,28 +383,28 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
         {/* Step Indicator */}
         <div className="flex items-center justify-center gap-2 p-4 bg-gray-50 dark:bg-gray-800/50">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${currentStep === 'details'
-              ? 'bg-bitcoin-orange text-white shadow-bitcoin'
-              : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+            ? 'bg-bitcoin-orange text-white shadow-bitcoin'
+            : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
             }`}>
             1
           </div>
           <div className={`w-8 h-1 rounded transition-all ${['preview', 'transaction'].includes(currentStep)
-              ? 'bg-bitcoin-orange'
-              : 'bg-gray-200 dark:bg-gray-700'
+            ? 'bg-bitcoin-orange'
+            : 'bg-gray-200 dark:bg-gray-700'
             }`}></div>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${currentStep === 'preview'
-              ? 'bg-bitcoin-orange text-white shadow-bitcoin'
-              : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+            ? 'bg-bitcoin-orange text-white shadow-bitcoin'
+            : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
             }`}>
             2
           </div>
           <div className={`w-8 h-1 rounded transition-all ${currentStep === 'transaction'
-              ? 'bg-bitcoin-orange'
-              : 'bg-gray-200 dark:bg-gray-700'
+            ? 'bg-bitcoin-orange'
+            : 'bg-gray-200 dark:bg-gray-700'
             }`}></div>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${currentStep === 'transaction'
-              ? 'bg-bitcoin-orange text-white shadow-bitcoin'
-              : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+            ? 'bg-bitcoin-orange text-white shadow-bitcoin'
+            : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
             }`}>
             3
           </div>
