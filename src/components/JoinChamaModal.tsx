@@ -60,12 +60,24 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
       if (open && groupId && isConnected) {
         setIsLoadingGroup(true);
         try {
-          const info = await getGroupInfo(groupId);
+          // Convert string ID to number for blockchain call
+          const numericId = parseInt(groupId);
+          if (isNaN(numericId)) {
+            throw new Error('Invalid group ID');
+          }
+          
+          console.log('Loading group info for ID:', numericId);
+          const info = await getGroupInfo(numericId);
+          console.log('Group info received:', info);
+          
           if (info) {
+            // Convert contribution from Wei to cBTC (assuming 18 decimals)
+            const contributionInCBTC = (parseFloat(info.contribution.toString()) / 1e18).toFixed(6);
+            
             setGroupInfo({
               id: groupId,
               name: `Group ${groupId}`,
-              contribution: info.contribution,
+              contribution: contributionInCBTC,
               roundLength: info.roundLength,
               maxMembers: info.maxMembers,
               memberCount: info.memberCount,
@@ -74,6 +86,8 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
               isActive: info.isActive,
               isClosed: info.isClosed
             });
+          } else {
+            throw new Error('No group info returned');
           }
         } catch (error) {
           console.error('Error loading group info:', error);
@@ -142,8 +156,14 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
     try {
       setCurrentStep('transaction');
 
+      // Convert string ID to number for blockchain calls
+      const numericId = parseInt(groupId);
+      if (isNaN(numericId)) {
+        throw new Error('Invalid group ID');
+      }
+
       // Check if already a member
-      const isMember = await isGroupMember(groupId);
+      const isMember = await isGroupMember(numericId);
       if (isMember) {
         showError('Already a member', 'You are already a member of this group');
         resetModal();
@@ -154,8 +174,8 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
       const pendingToast = transactionPending("group join");
 
       // Send blockchain transaction
-      console.log('🔄 Joining group on blockchain...');
-      const result = await joinGroup(groupId);
+      console.log('🔄 Joining group on blockchain with ID:', numericId);
+      const result = await joinGroup(numericId);
 
       if (!result || !result.hash) {
         throw new Error('Failed to get transaction hash');
