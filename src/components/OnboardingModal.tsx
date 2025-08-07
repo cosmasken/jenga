@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 import { useRoscaToast } from "@/hooks/use-rosca-toast";
-import { useSupabase } from "@/hooks/useSupabase";
+import { useSimpleSupabase } from "@/hooks/useSimpleSupabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +42,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
   const { user, primaryWallet } = useDynamicContext();
   const isLoggedIn = useIsLoggedIn();
   const { welcome, error: showError } = useRoscaToast();
-  const { upsertUser, awardAchievement, createNotification, isLoading: isSupabaseLoading } = useSupabase();
+  const { saveUser, completeOnboarding, awardAchievement, createNotification, loading: isSupabaseLoading } = useSimpleSupabase();
   
   // Form state
   const [currentStep, setCurrentStep] = useState(1);
@@ -68,7 +68,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
   // Get available user identifier (email, phone, or wallet address)
   const getUserIdentifier = () => {
     if (user?.email) return user.email;
-    if (user?.phone) return user.phone;
+    // Note: user.phone doesn't exist in Dynamic types, but keeping for compatibility
     if (primaryWallet?.address) return primaryWallet.address;
     return null;
   };
@@ -76,7 +76,6 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
   // Get display name for the identifier
   const getIdentifierDisplay = () => {
     if (user?.email) return { type: 'email', value: user.email };
-    if (user?.phone) return { type: 'phone', value: user.phone };
     if (primaryWallet?.address) return { 
       type: 'wallet', 
       value: `${primaryWallet.address.slice(0, 6)}...${primaryWallet.address.slice(-4)}` 
@@ -92,9 +91,6 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
         if (user?.email) {
           // Use email prefix for social login users
           setUsername(user.email.split('@')[0]);
-        } else if (user?.phone) {
-          // Use phone for phone login users
-          setUsername(`user_${user.phone.slice(-4)}`);
         } else if (primaryWallet?.address) {
           // Use address suffix for wallet users
           setUsername(`user_${primaryWallet.address.slice(-6)}`);
@@ -139,7 +135,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
       };
 
       console.log('🔄 Creating user profile in Supabase:', userData);
-      const createdUser = await upsertUser(userData);
+      const createdUser = await saveUser(userData);
 
       if (createdUser) {
         console.log('✅ User profile created:', createdUser);
@@ -149,9 +145,9 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
 
         // Award onboarding achievement
         try {
-          // First, we need to get the achievement ID for "Bitcoin Pioneer" or create a "Profile Complete" achievement
-          await awardAchievement('profile-complete', createdUser.id, {
-            progress: { onboarding_completed: true }
+          await awardAchievement('Welcome to Jenga!', {
+            profile_complete: true,
+            onboarding_completed: true
           });
           console.log('✅ Onboarding achievement awarded');
         } catch (achievementError) {
@@ -161,17 +157,17 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
 
         // Create welcome notification
         try {
-          await createNotification({
-            user_wallet_address: primaryWallet?.address || '',
-            title: 'Welcome to Jenga ROSCA! 🎉',
-            message: `Welcome ${username.trim()}! Your profile has been created. Start exploring ROSCA groups and begin your Bitcoin savings journey.`,
-            type: 'success',
-            category: 'onboarding',
-            data: {
+          await createNotification(
+            primaryWallet?.address || '',
+            'Welcome to Jenga ROSCA! 🎉',
+            `Welcome ${username.trim()}! Your profile has been created. Start exploring ROSCA groups and begin your Bitcoin savings journey.`,
+            'success',
+            'onboarding',
+            {
               onboarding_completed: true,
               user_id: createdUser.id
             }
-          });
+          );
           console.log('✅ Welcome notification created');
         } catch (notificationError) {
           console.warn('⚠️ Could not create welcome notification:', notificationError);
@@ -184,13 +180,9 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
         localStorage.setItem('jenga_user_profile_icon', selectedIcon.id);
         localStorage.setItem('jenga_user_supabase_id', createdUser.id);
         
-        // Update user with onboarding completion in database
-        const updatedUser = await upsertUser({
-          ...userData,
-          onboarding_completed: true,
-          onboarding_completed_at: new Date().toISOString()
-        });
-        console.log('✅ Onboarding completion updated in database:', updatedUser);
+        // Complete onboarding in database
+        const onboardingCompleted = await completeOnboarding();
+        console.log('✅ Onboarding completion updated in database:', onboardingCompleted);
         
         // Store the identifier type and value for future reference
         const identifierDisplay = getIdentifierDisplay();
