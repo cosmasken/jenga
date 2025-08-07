@@ -13,11 +13,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Users, 
-  Bitcoin, 
-  Clock, 
-  Shield, 
+import {
+  Users,
+  Bitcoin,
+  Clock,
+  Shield,
   AlertTriangle,
   CheckCircle,
   X,
@@ -25,6 +25,8 @@ import {
   Info
 } from 'lucide-react';
 import { formatEther } from 'viem';
+import { useUnitDisplay } from '@/contexts/UnitDisplayContext';
+import { formatAmount, formatDuration, parseCbtcToWei } from '@/lib/unitConverter';
 
 interface JoinGroupModalProps {
   isOpen: boolean;
@@ -35,17 +37,17 @@ interface JoinGroupModalProps {
 
 export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: JoinGroupModalProps) {
   const { primaryWallet } = useDynamicContext();
-  const { 
-    joinGroup, 
-    getGroupInfo, 
-    isLoading, 
-    balance, 
+  const {
+    joinGroup,
+    getGroupInfo,
+    isLoading,
+    balance,
     formatContribution,
-    getMaxSpendableAmount 
+    getMaxSpendableAmount
   } = useRosca();
-  const { 
+  const {
     logActivity,
-    createNotification 
+    createNotification
   } = useSupabase();
   const { success, error: showError, transactionPending } = useRoscaToast();
 
@@ -54,6 +56,7 @@ export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: Join
   const [currentStep, setCurrentStep] = useState<'loading' | 'review' | 'joining' | 'success'>('loading');
   const [maxSpendable, setMaxSpendable] = useState<string>('0');
   const [canAfford, setCanAfford] = useState(false);
+  const { displayUnit } = useUnitDisplay();
 
   // Load group information when modal opens
   useEffect(() => {
@@ -75,15 +78,15 @@ export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: Join
       }
 
       setGroupInfo(info);
-      
+
       // Check if user can afford to join
       const maxSpend = await getMaxSpendableAmount();
       setMaxSpendable(maxSpend);
-      
-      const contributionAmount = parseFloat(formatContribution(info.contribution));
-      const canAffordJoin = parseFloat(maxSpend) >= contributionAmount;
+
+      const contributionAmount = info.contribution; // This is a BigInt
+      const canAffordJoin = parseCbtcToWei(maxSpend) >= contributionAmount;
       setCanAfford(canAffordJoin);
-      
+
       setCurrentStep('review');
     } catch (error) {
       console.error('❌ Failed to load group info:', error);
@@ -99,13 +102,13 @@ export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: Join
 
     try {
       setCurrentStep('joining');
-      
+
       const pendingToast = transactionPending("joining group");
-      
+
       // Join group on blockchain
       console.log('🔄 Joining group on blockchain...');
       const hash = await joinGroup(groupInfo.id);
-      
+
       if (!hash) {
         throw new Error('Failed to get transaction hash');
       }
@@ -128,7 +131,7 @@ export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: Join
           'chama',
           groupInfo.id.toString(),
           `Joined ROSCA group "${groupInfo.name}"`,
-          { 
+          {
             group_name: groupInfo.name,
             transaction_hash: hash,
             contribution_amount: formatContribution(groupInfo.contribution)
@@ -156,14 +159,14 @@ export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: Join
       }
 
       setCurrentStep('success');
-      
+
       // Call success callback to refresh parent component
       if (onJoinSuccess) {
         onJoinSuccess();
       }
-      
+
       setTimeout(() => onClose(), 2000);
-      
+
     } catch (error) {
       console.error('❌ Failed to join group:', error);
       showError('Join Failed', 'Could not join the group. Please try again.');
@@ -212,7 +215,7 @@ export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: Join
               Join ROSCA Group
             </h2>
           </div>
-          
+
           <Button
             variant="ghost"
             size="sm"
@@ -258,7 +261,7 @@ export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: Join
                       <span className="text-sm text-gray-600 dark:text-gray-400">Group ID:</span>
                       <Badge variant="secondary">#{groupInfo.id}</Badge>
                     </div>
-                    
+
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-gray-600 dark:text-gray-400">Members:</span>
                       <div className="flex items-center gap-2">
@@ -274,7 +277,7 @@ export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: Join
                       <div className="flex items-center gap-2">
                         <Bitcoin className="h-4 w-4 text-bitcoin" />
                         <span className="text-sm font-medium">
-                          {formatContribution(groupInfo.contribution)} cBTC
+                          {formatAmount(groupInfo.contribution, displayUnit)}
                         </span>
                       </div>
                     </div>
@@ -284,7 +287,7 @@ export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: Join
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-gray-500" />
                         <span className="text-sm font-medium">
-                          {Math.floor(groupInfo.roundLength / (24 * 60 * 60))} days
+                          {formatDuration(groupInfo.roundLength)}
                         </span>
                       </div>
                     </div>
@@ -296,8 +299,8 @@ export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: Join
                           {groupInfo.isActive ? "Accepting Members" : "Closed"}
                         </Badge>
                         {!groupInfo.isActive && (
-                          <Info 
-                            className="h-4 w-4 text-orange-500 cursor-help" 
+                          <Info
+                            className="h-4 w-4 text-orange-500 cursor-help"
                             title="This group has been closed by the creator. Contact the group creator to request access."
                           />
                         )}
@@ -317,8 +320,8 @@ export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: Join
                         <span>Members Joined</span>
                         <span>{groupInfo.memberCount} / {groupInfo.maxMembers}</span>
                       </div>
-                      <Progress 
-                        value={(groupInfo.memberCount / groupInfo.maxMembers) * 100} 
+                      <Progress
+                        value={(groupInfo.memberCount / groupInfo.maxMembers) * 100}
                         className="h-2"
                       />
                       <p className="text-xs text-gray-500">
@@ -342,9 +345,9 @@ export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: Join
                           {canAfford ? 'Sufficient Balance' : 'Insufficient Balance'}
                         </p>
                         <p className="text-xs text-gray-500 mt-1">
-                          Your balance: {balance} cBTC
+                          Your balance: {formatAmount(parseCbtcToWei(balance), displayUnit)}
                           <br />
-                          Required: {formatContribution(groupInfo.contribution)} cBTC
+                          Required: {formatAmount(groupInfo.contribution, displayUnit)}
                         </p>
                       </div>
                     </div>
@@ -423,7 +426,7 @@ export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: Join
             >
               Cancel
             </Button>
-            
+
             <Button
               onClick={handleJoinGroup}
               disabled={!canAfford || !groupInfo?.isActive || isLoading}

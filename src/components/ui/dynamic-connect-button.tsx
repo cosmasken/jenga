@@ -1,4 +1,4 @@
-
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Wallet, Loader2 } from 'lucide-react';
 import { useDynamicContext, useIsLoggedIn } from '@dynamic-labs/sdk-react-core';
@@ -59,10 +59,10 @@ export function DynamicConnectButton({
   showConnectedState = true
 }: DynamicConnectButtonProps) {
   const isLoggedIn = useIsLoggedIn();
-  const { 
-    setShowAuthFlow, 
-    primaryWallet, 
-    isVerificationInProgress 
+  const {
+    setShowAuthFlow,
+    primaryWallet,
+    isVerificationInProgress
   } = useDynamicContext();
 
   // Handle connection state changes
@@ -90,11 +90,11 @@ export function DynamicConnectButton({
 
   const getButtonIcon = () => {
     if (!showIcon) return null;
-    
+
     if (isVerificationInProgress) {
       return <Loader2 size={16} className="animate-spin" />;
     }
-    
+
     return <Wallet size={16} />;
   };
 

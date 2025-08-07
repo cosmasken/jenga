@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { EthereumWalletConnectors } from "@dynamic-labs/ethereum";
 import { DynamicContextProvider } from "@dynamic-labs/sdk-react-core";
+import { UnitDisplayProvider } from "./contexts/UnitDisplayContext";
 
 import App from "./App";
 import "./index.css";
@@ -41,7 +42,9 @@ createRoot(document.getElementById("root")!).render(
         ),
       }}
     >
-      <App />
+      <UnitDisplayProvider>
+        <App />
+      </UnitDisplayProvider>
     </DynamicContextProvider>
   </StrictMode>
 );

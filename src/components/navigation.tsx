@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { useTheme } from "@/components/theme-provider";
 import { useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { Button } from "@/components/ui/button";
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -13,7 +13,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useUnitDisplay } from "@/contexts/UnitDisplayContext";
-import { DisplayUnit } from "@/lib/unitConverter";
+import type { DisplayUnit } from "@/lib/unitConverter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Home, LayoutDashboard, Users, Gavel, User, Moon, Sun, Copy, LogOut, Wallet } from "lucide-react";
 
@@ -30,7 +30,7 @@ export function Navigation() {
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   const { displayUnit, setDisplayUnit } = useUnitDisplay();
-  
+
   // Check onboarding completion from localStorage
   const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
 
@@ -86,20 +86,19 @@ export function Navigation() {
           <div className="flex items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = location === item.path || 
+              const isActive = location === item.path ||
                 (item.path === "/dashboard" && location.startsWith("/group"));
-              
+
               return (
                 <Button
                   key={item.path}
                   variant={isActive ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setLocation(item.path)}
-                  className={`flex items-center gap-2 ${
-                    isActive 
-                      ? "bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)] text-white" 
+                  className={`flex items-center gap-2 ${isActive
+                      ? "bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)] text-white"
                       : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                  }`}
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                   {item.label}
@@ -186,25 +185,24 @@ export function Navigation() {
         <div className="grid grid-cols-4 gap-1 p-2">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location === item.path || 
+            const isActive = location === item.path ||
               (item.path === "/dashboard" && location.startsWith("/group"));
-            
+
             return (
               <button
                 key={item.path}
                 onClick={() => setLocation(item.path)}
-                className={`flex flex-col items-center justify-center py-3 px-2 text-xs rounded-lg transition-colors ${
-                  isActive
+                className={`flex flex-col items-center justify-center py-3 px-2 text-xs rounded-lg transition-colors ${isActive
                     ? "bg-[hsl(27,87%,54%)] text-white"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
-                }`}
+                  }`}
               >
                 <Icon className="w-5 h-5 mb-1" />
                 <span className="truncate">{item.label}</span>
               </button>
             );
           })}
-          
+
           {/* Mobile User Menu */}
           {primaryWallet && (
             <DropdownMenu>
