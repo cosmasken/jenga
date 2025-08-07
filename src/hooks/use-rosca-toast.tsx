@@ -2,6 +2,8 @@ import React from "react";
 import { useToast } from "./use-toast";
 import { Button } from "@/components/ui/button";
 import { ExternalLink } from "lucide-react";
+import { useUnitDisplay } from '../contexts/UnitDisplayContext';
+import { formatAmount, parseCbtcToWei } from '../lib/unitConverter';
 
 // Citrea testnet explorer URL
 const CITREA_EXPLORER_URL = "https://explorer.testnet.citrea.xyz";
@@ -34,15 +36,16 @@ const createTxLinkAction = (txHash: string) => {
  */
 export function useRoscaToast() {
   const { toast } = useToast();
+  const { displayUnit } = useUnitDisplay();
 
   /**
    * Show success toast for contribution made
    */
-  const contributionSuccess = (amount: string, groupName?: string, txHash?: string) => {
+  const contributionSuccess = (amount: bigint, groupName?: string, txHash?: string) => {
     return toast({
       variant: "contribution",
       title: "Contribution Successful! 🎉",
-      description: `You contributed ${amount} cBTC${groupName ? ` to ${groupName}` : ''}`,
+      description: `You contributed ${formatAmount(amount, displayUnit)}${groupName ? ` to ${groupName}` : ''}`,
       action: txHash ? createTxLinkAction(txHash) : undefined,
     });
   };
@@ -50,11 +53,11 @@ export function useRoscaToast() {
   /**
    * Show success toast for payout received
    */
-  const payoutReceived = (amount: string, groupName?: string, txHash?: string) => {
+  const payoutReceived = (amount: bigint, groupName?: string, txHash?: string) => {
     return toast({
       variant: "payout",
       title: "Payout Received! 💰",
-      description: `You received ${amount} cBTC${groupName ? ` from ${groupName}` : ''}`,
+      description: `You received ${formatAmount(amount, displayUnit)}${groupName ? ` from ${groupName}` : ''}`,
       action: txHash ? createTxLinkAction(txHash) : undefined,
     });
   };
@@ -181,11 +184,11 @@ export function useRoscaToast() {
   /**
    * Show reminder toast for upcoming contributions
    */
-  const contributionReminder = (daysLeft: number, amount: string) => {
+  const contributionReminder = (daysLeft: number, amount: bigint) => {
     return toast({
       variant: "warning",
       title: "Contribution Due Soon! ⏰",
-      description: `${amount} cBTC contribution due in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`,
+      description: `${formatAmount(amount, displayUnit)} contribution due in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}`,
     });
   };
 
@@ -234,11 +237,11 @@ export function useRoscaToast() {
   /**
    * Show wallet balance update toast
    */
-  const balanceUpdate = (newBalance: string, change?: string) => {
+  const balanceUpdate = (newBalance: bigint, change?: bigint) => {
     return toast({
       variant: "contribution",
       title: "Balance Updated! 💰",
-      description: `Your wallet balance: ${newBalance} cBTC${change ? ` (${change})` : ''}`,
+      description: `Your wallet balance: ${formatAmount(newBalance, displayUnit)}${change ? ` (${formatAmount(change, displayUnit)})` : ''}`,
     });
   };
 

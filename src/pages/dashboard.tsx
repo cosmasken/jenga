@@ -26,13 +26,14 @@ export default function Dashboard() {
         isConnected, 
         groupCount, 
         getGroupCount, 
+        getGroupInfo,
+        isGroupCreator,
         isLoading, 
         error,
         formatContribution 
     } = useRosca();
     const {
         getUser,
-        getGroups,
         getUserAchievements,
         getNotifications,
         subscribeToNotifications,
@@ -41,7 +42,6 @@ export default function Dashboard() {
     } = useSupabase();
 
     const [userProfile, setUserProfile] = useState<any>(null);
-    const [userGroups, setUserGroups] = useState<any[]>([]);
     const [userAchievements, setUserAchievements] = useState<any[]>([]);
     const [recentNotifications, setRecentNotifications] = useState<any[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -54,6 +54,9 @@ export default function Dashboard() {
         completedCycles: 0,
         trustScore: 4.0
     });
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [userGroups, setUserGroups] = useState<any[]>([]);
+    const [isLoadingGroups, setIsLoadingGroups] = useState(false);
     
     const { contributionReminder, memberJoined, success } = useRoscaToast();
 
@@ -64,13 +67,14 @@ export default function Dashboard() {
     });
     const notifications = useNotifications();
 
-    // Load user data from Supabase
+    // Load user data from Supabase and refresh when needed
     useEffect(() => {
         if (isConnected && primaryWallet?.address) {
             loadUserData();
+            loadUserGroups();
             setupRealtimeSubscriptions();
         }
-    }, [isConnected, primaryWallet?.address]);
+    }, [isConnected, primaryWallet?.address, refreshTrigger]);
 
     const loadUserData = async () => {
         if (!primaryWallet?.address) return;
@@ -78,22 +82,10 @@ export default function Dashboard() {
         try {
             console.log('🔄 Loading user dashboard data...');
 
-            // Load user profile
+            // Load user profile (onboarding data only)
             const profile = await getUser(primaryWallet.address);
             setUserProfile(profile);
             console.log('✅ User profile loaded:', profile);
-
-            // Load user's groups (both created and joined)
-            const [createdGroups, joinedGroups] = await Promise.all([
-                getGroups({ creator: primaryWallet.address, limit: 10 }),
-                getGroups({ limit: 50 }) // We'll filter joined groups client-side for now
-            ]);
-
-            // Combine and deduplicate groups
-            const allUserGroups = [...createdGroups];
-            // TODO: Add proper joined groups filtering when group_members relationship is available
-            setUserGroups(allUserGroups);
-            console.log('✅ User groups loaded:', allUserGroups.length);
 
             // Load user achievements (only for onboarded users)
             const currentUser = await getUser(primaryWallet.address);
@@ -118,7 +110,7 @@ export default function Dashboard() {
             const stats = {
                 totalContributions: profile?.total_contributions || 0,
                 totalSaved: profile?.total_contributions || 0, // Simplified for now
-                activeGroups: allUserGroups.filter(g => g.status === 'active').length,
+                activeGroups: 0, // TODO: Get from blockchain
                 completedCycles: profile?.successful_rounds || 0,
                 trustScore: profile?.trust_score || 4.0
             };
@@ -161,6 +153,61 @@ export default function Dashboard() {
         return () => {
             unsubscribeNotifications();
         };
+    };
+
+    // Load user's created groups
+    const loadUserGroups = async () => {
+        if (!primaryWallet?.address || !isConnected) return;
+
+        try {
+            setIsLoadingGroups(true);
+            console.log('🔄 Loading user groups...');
+
+            // Get total group count first
+            const totalGroups = await getGroupCount();
+            console.log('📊 Total groups on blockchain:', totalGroups);
+
+            if (totalGroups === 0) {
+                setUserGroups([]);
+                return;
+            }
+
+            // Check all groups to find which ones the user created
+            const createdGroups = [];
+            const maxGroupsToCheck = Math.min(totalGroups, 50); // Limit for performance
+
+            for (let i = 0; i < maxGroupsToCheck; i++) {
+                try {
+                    // Check if user is creator of this group
+                    const isCreator = await isGroupCreator(i);
+                    if (isCreator) {
+                        // Get full group info
+                        const groupInfo = await getGroupInfo(i);
+                        if (groupInfo) {
+                            createdGroups.push({
+                                ...groupInfo,
+                                id: i,
+                                name: groupInfo.name || `Group ${i}`,
+                                description: `ROSCA Group #${i}`,
+                                contributionAmount: parseFloat(groupInfo.contribution?.toString() || '0') / 1e18,
+                                roundLengthDays: Math.floor(groupInfo.roundLength / 86400),
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ Could not check group ${i}:`, error);
+                }
+            }
+
+            console.log('✅ User created groups loaded:', createdGroups.length);
+            setUserGroups(createdGroups);
+
+        } catch (error) {
+            console.error('❌ Failed to load user groups:', error);
+            setUserGroups([]);
+        } finally {
+            setIsLoadingGroups(false);
+        }
     };
 
     // Get user display name from Supabase profile or fallback
@@ -207,8 +254,15 @@ export default function Dashboard() {
         setShowCreateModal(true);
     };
 
-    const handleGroupClick = (groupId: string) => {
+    const handleGroupClick = (groupId: number) => {
         setLocation(`/group/${groupId}`);
+    };
+
+    // Handle group creation success - refresh user groups
+    const handleGroupCreated = () => {
+        console.log('🎉 Group created successfully, refreshing data...');
+        setRefreshTrigger(prev => prev + 1);
+        getGroupCount(); // Also refresh the group count immediately
     };
 
     if (!isConnected || !primaryWallet) {
@@ -476,19 +530,26 @@ export default function Dashboard() {
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                                    Your Groups
-                                </h2>
-                                <Badge variant="secondary">{userGroups.length}</Badge>
+                                        Your Groups
+                                    </h2>
+                                    <Badge variant="secondary">{userGroups.length}</Badge>
                             </div>
                             
-                            {userGroups.length === 0 ? (
+                            {isLoadingGroups ? (
+                                <div className="text-center py-12">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-bitcoin mx-auto mb-4"></div>
+                                    <p className="text-gray-600 dark:text-gray-400">
+                                        Loading your groups...
+                                    </p>
+                                </div>
+                            ) : userGroups.length === 0 ? (
                                 <div className="text-center py-12">
                                     <Bitcoin className="h-16 w-16 mx-auto mb-4 text-gray-400" />
                                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                                        No groups yet
+                                        No groups created yet
                                     </h3>
                                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-                                        Create your first ROSCA group or join an existing one to get started.
+                                        Create your first ROSCA group to start saving with others.
                                     </p>
                                     <Button 
                                         onClick={handleCreateGroup}
@@ -499,31 +560,38 @@ export default function Dashboard() {
                                     </Button>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {userGroups.map((group, index) => (
-                                        <Card 
-                                            key={group.id} 
-                                            className="cursor-pointer hover:shadow-lg transition-shadow"
-                                            onClick={() => handleGroupClick(group.id)}
-                                        >
+                                <div className="space-y-4">
+                                    {userGroups.map((group) => (
+                                        <Card key={group.id} className="border-l-4 border-l-bitcoin hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleGroupClick(group.id)}>
                                             <CardContent className="p-4">
-                                                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                                                    {group.name}
-                                                </h3>
-                                                <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                                                    <div className="flex justify-between">
-                                                        <span>Contribution:</span>
-                                                        <span>₿ {formatContribution(group.contribution)}</span>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex-1">
+                                                        <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                                                            {group.name}
+                                                        </h3>
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                                            {group.description}
+                                                        </p>
+                                                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                                                            <div className="flex items-center gap-1">
+                                                                <Users className="h-3 w-3" />
+                                                                {Number(group.memberCount)}/{group.maxMembers} members
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <Bitcoin className="h-3 w-3" />
+                                                                {group.contributionAmount.toFixed(4)} cBTC/round
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <Target className="h-3 w-3" />
+                                                                Round {group.currentRound}
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex justify-between">
-                                                        <span>Round:</span>
-                                                        <span>{group.currentRound}/{group.totalRounds}</span>
-                                                    </div>
-                                                    <div className="flex justify-between">
-                                                        <span>Status:</span>
-                                                        <Badge variant={group.status === 'active' ? 'default' : 'secondary'}>
-                                                            {group.status}
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge variant={group.isActive ? "default" : "secondary"}>
+                                                            {group.isActive ? "Active" : "Inactive"}
                                                         </Badge>
+                                                        <Badge variant="outline">Creator</Badge>
                                                     </div>
                                                 </div>
                                             </CardContent>
@@ -556,7 +624,8 @@ export default function Dashboard() {
             {/* Create Chama Modal */}
             <CreateChamaModal 
                 open={showCreateModal} 
-                onOpenChange={setShowCreateModal} 
+                onOpenChange={setShowCreateModal}
+                onGroupCreated={handleGroupCreated}
             />
 
             {/* Notification Sidebar */}
@@ -573,254 +642,3 @@ export default function Dashboard() {
         </div>
     );
 }
-
-//     const handleGroupClick = (groupId: string) => {
-//         setLocation(`/group/${groupId}`);
-//     };
-
-//     if (!isConnected || !primaryWallet) {
-//         return (
-//             <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-//                 <Card className="w-full max-w-md">
-//                     <CardContent className="pt-6 text-center">
-//                         <Wallet className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-//                         <h2 className="text-xl font-bold mb-2">Wallet Not Connected</h2>
-//                         <p className="text-gray-600 dark:text-gray-400 mb-4">
-//                             Please connect your wallet to access the dashboard.
-//                         </p>
-//                         <Button onClick={() => setLocation("/")} className="w-full">
-//                             Go to Landing
-//                         </Button>
-//                     </CardContent>
-//                 </Card>
-//             </div>
-//         );
-//     }
-
-//     return (
-//         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
-//             <div className="max-w-7xl mx-auto">
-//                 {/* Header */}
-//                 <motion.div
-//                     className="mb-8"
-//                     initial={{ opacity: 0, y: -20 }}
-//                     animate={{ opacity: 1, y: 0 }}
-//                     transition={{ duration: 0.5 }}
-//                 >
-//                     <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-//                         Dashboard
-//                     </h1>
-//                     <p className="text-gray-600 dark:text-gray-400">
-//                         Welcome back, {user?.email || `${primaryWallet.address?.slice(0, 6)}...${primaryWallet.address?.slice(-4)}`}
-//                     </p>
-//                 </motion.div>
-
-//                 {/* Stats Grid */}
-//                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-//                     <motion.div
-//                         initial={{ opacity: 0, y: 20 }}
-//                         animate={{ opacity: 1, y: 0 }}
-//                         transition={{ duration: 0.5, delay: 0.1 }}
-//                     >
-//                         <Card>
-//                             <CardContent className="p-6">
-//                                 <div className="flex items-center justify-between">
-//                                     <div>
-//                                         <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-//                                             Total Groups
-//                                         </p>
-//                                         <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-//                                             {isLoading ? "..." : groupCount}
-//                                         </p>
-//                                     </div>
-//                                     <Users className="h-8 w-8 text-[hsl(27,87%,54%)]" />
-//                                 </div>
-//                             </CardContent>
-//                         </Card>
-//                     </motion.div>
-
-//                     <motion.div
-//                         initial={{ opacity: 0, y: 20 }}
-//                         animate={{ opacity: 1, y: 0 }}
-//                         transition={{ duration: 0.5, delay: 0.2 }}
-//                     >
-//                         <Card>
-//                             <CardContent className="p-6">
-//                                 <div className="flex items-center justify-between">
-//                                     <div>
-//                                         <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-//                                             Your Groups
-//                                         </p>
-//                                         <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-//                                             {userGroups.length}
-//                                         </p>
-//                                     </div>
-//                                     <Bitcoin className="h-8 w-8 text-[hsl(27,87%,54%)]" />
-//                                 </div>
-//                             </CardContent>
-//                         </Card>
-//                     </motion.div>
-
-//                     <motion.div
-//                         initial={{ opacity: 0, y: 20 }}
-//                         animate={{ opacity: 1, y: 0 }}
-//                         transition={{ duration: 0.5, delay: 0.3 }}
-//                     >
-//                         <Card>
-//                             <CardContent className="p-6">
-//                                 <div className="flex items-center justify-between">
-//                                     <div>
-//                                         <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-//                                             Total Saved
-//                                         </p>
-//                                         <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-//                                             ₿ 0.00
-//                                         </p>
-//                                     </div>
-//                                     <TrendingUp className="h-8 w-8 text-[hsl(27,87%,54%)]" />
-//                                 </div>
-//                             </CardContent>
-//                         </Card>
-//                     </motion.div>
-
-//                     <motion.div
-//                         initial={{ opacity: 0, y: 20 }}
-//                         animate={{ opacity: 1, y: 0 }}
-//                         transition={{ duration: 0.5, delay: 0.4 }}
-//                     >
-//                         <Card>
-//                             <CardContent className="p-6">
-//                                 <div className="flex items-center justify-between">
-//                                     <div>
-//                                         <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-//                                             Reputation
-//                                         </p>
-//                                         <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-//                                             5.0
-//                                         </p>
-//                                     </div>
-//                                     <Trophy className="h-8 w-8 text-[hsl(27,87%,54%)]" />
-//                                 </div>
-//                             </CardContent>
-//                         </Card>
-//                     </motion.div>
-//                 </div>
-
-//                 {/* Quick Actions */}
-//                 <motion.div
-//                     className="mb-8"
-//                     initial={{ opacity: 0, y: 20 }}
-//                     animate={{ opacity: 1, y: 0 }}
-//                     transition={{ duration: 0.5, delay: 0.5 }}
-//                 >
-//                     <Card>
-//                         <CardContent className="p-6">
-//                             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-//                                 Quick Actions
-//                             </h2>
-//                             <div className="flex flex-wrap gap-4">
-//                                 <Button 
-//                                     onClick={handleCreateGroup}
-//                                     className="bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)]"
-//                                 >
-//                                     <Plus className="h-4 w-4 mr-2" />
-//                                     Create Group
-//                                 </Button>
-//                                 <Button variant="outline">
-//                                     <Users className="h-4 w-4 mr-2" />
-//                                     Browse Groups
-//                                 </Button>
-//                             </div>
-//                         </CardContent>
-//                     </Card>
-//                 </motion.div>
-
-//                 {/* Your Groups */}
-//                 <motion.div
-//                     initial={{ opacity: 0, y: 20 }}
-//                     animate={{ opacity: 1, y: 0 }}
-//                     transition={{ duration: 0.5, delay: 0.6 }}
-//                 >
-//                     <Card>
-//                         <CardContent className="p-6">
-//                             <div className="flex items-center justify-between mb-4">
-//                                 <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-//                                     Your Groups
-//                                 </h2>
-//                                 <Badge variant="secondary">{userGroups.length}</Badge>
-//                             </div>
-                            
-//                             {userGroups.length === 0 ? (
-//                                 <div className="text-center py-12">
-//                                     <Bitcoin className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-//                                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-//                                         No groups yet
-//                                     </h3>
-//                                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-//                                         Create your first ROSCA group or join an existing one to get started.
-//                                     </p>
-//                                     <Button 
-//                                         onClick={handleCreateGroup}
-//                                         className="bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)]"
-//                                     >
-//                                         <Plus className="h-4 w-4 mr-2" />
-//                                         Create Your First Group
-//                                     </Button>
-//                                 </div>
-//                             ) : (
-//                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-//                                     {userGroups.map((group, index) => (
-//                                         <Card 
-//                                             key={group.id} 
-//                                             className="cursor-pointer hover:shadow-lg transition-shadow"
-//                                             onClick={() => handleGroupClick(group.id)}
-//                                         >
-//                                             <CardContent className="p-4">
-//                                                 <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
-//                                                     {group.name}
-//                                                 </h3>
-//                                                 <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-//                                                     <div className="flex justify-between">
-//                                                         <span>Contribution:</span>
-//                                                         <span>₿ {formatContribution(group.contribution)}</span>
-//                                                     </div>
-//                                                     <div className="flex justify-between">
-//                                                         <span>Round:</span>
-//                                                         <span>{group.currentRound}/{group.totalRounds}</span>
-//                                                     </div>
-//                                                     <div className="flex justify-between">
-//                                                         <span>Status:</span>
-//                                                         <Badge variant={group.status === 'active' ? 'default' : 'secondary'}>
-//                                                             {group.status}
-//                                                         </Badge>
-//                                                     </div>
-//                                                 </div>
-//                                             </CardContent>
-//                                         </Card>
-//                                     ))}
-//                                 </div>
-//                             )}
-//                         </CardContent>
-//                     </Card>
-//                 </motion.div>
-
-//                 {/* Error Display */}
-//                 {error && (
-//                     <motion.div
-//                         className="mt-4"
-//                         initial={{ opacity: 0 }}
-//                         animate={{ opacity: 1 }}
-//                     >
-//                         <Card className="border-red-200 bg-red-50 dark:bg-red-900/20">
-//                             <CardContent className="p-4">
-//                                 <p className="text-red-600 dark:text-red-400">
-//                                     Error: {error.message}
-//                                 </p>
-//                             </CardContent>
-//                         </Card>
-//                     </motion.div>
-//                 )}
-//             </div>
-//         </div>
-//     );
-// }

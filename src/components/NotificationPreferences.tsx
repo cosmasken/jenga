@@ -3,7 +3,7 @@
  * Allows users to configure notification settings
  */
 
-import React from 'react';
+
 import { motion } from 'framer-motion';
 import { Settings, Bell, BellOff, Volume2, VolumeX, Monitor } from 'lucide-react';
 import { Button } from '@/components/ui/button';

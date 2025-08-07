@@ -35,7 +35,10 @@ import { useRoscaToast } from '@/hooks/use-rosca-toast';
 import { useErrorHandler } from '@/hooks/use-error-handler';
 import { WalletDropdown } from '@/components/WalletDropdown';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { JoinGroupModal } from '@/components/JoinGroupModal';
 import { formatDistanceToNow } from 'date-fns';
+import { formatAmount, formatDuration } from '@/lib/unitConverter';
+import { useUnitDisplay } from '@/contexts/UnitDisplayContext';
 
 // Mock data - in real app, fetch from contract
 interface ChamaDetail {
@@ -161,66 +164,157 @@ const mockChamaDetail: ChamaDetail = {
 
 export default function ChamaDetail() {
   const [, setLocation] = useLocation();
-  const [match] = useRoute('/chama/:id');
+  const [, params] = useRoute('/chama/:id');
   const { primaryWallet, isConnected } = useDynamicContext();
-  const { balance } = useRosca();
+  const { balance, getGroupInfo, joinGroup, isGroupMember, isGroupCreator } = useRosca();
+  const { displayUnit } = useUnitDisplay();
   const toast = useRoscaToast();
   const { handleError } = useErrorHandler();
 
   const [chama, setChama] = useState<ChamaDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isJoining, setIsJoining] = useState(false);
+  const [isMember, setIsMember] = useState(false);
+  const [isCreator, setIsCreator] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
 
-  const chamaId = match?.id;
+  const chamaId = params.id;
 
   // Load chama details
   useEffect(() => {
     const loadChamaDetail = async () => {
-      if (!chamaId) return;
+      if (!chamaId) {
+        console.log('🔍 ChamaDetail: No chamaId found in URL.');
+        setIsLoading(false);
+        return;
+      }
       
       setIsLoading(true);
+      console.log('🔍 ChamaDetail: Loading details for chamaId:', chamaId);
+
       try {
-        // In real implementation, fetch from contract
-        // const chamaData = await getChamaDetail(chamaId);
-        // setChama(chamaData);
-        
-        // Simulate loading
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setChama(mockChamaDetail);
+        // Try to get real contract data first
+        const groupId = parseInt(chamaId);
+        console.log('🔍 ChamaDetail: Parsed groupId:', groupId);
+
+        if (!isNaN(groupId)) {
+          const contractData = await getGroupInfo(groupId);
+          console.log('🔍 ChamaDetail: Raw contract data from getGroupInfo:', contractData);
+          
+          if (contractData) {
+            // Convert contract data to ChamaDetail format
+            const chamaData: ChamaDetail = {
+              id: chamaId,
+              name: `ROSCA Group #${contractData.id}`,
+              description: `A Bitcoin savings circle with ${contractData.maxMembers} members contributing ${formatAmount(contractData.contribution, displayUnit)} every ${formatDuration(Number(contractData.roundLength))}.`,
+              contributionAmount: contractData.contribution, // Keep as BigInt for formatAmount
+              roundLength: Number(contractData.roundLength), // Keep as number for formatDuration
+              maxMembers: contractData.maxMembers,
+              currentMembers: Number(contractData.memberCount),
+              creator: contractData.creator,
+              createdAt: new Date(), // We don't have creation date from contract
+              nextRoundDate: new Date(contractData.nextDue * 1000),
+              status: contractData.isActive ? 
+                (Number(contractData.memberCount) >= contractData.maxMembers ? 'full' : 'open') : 
+                'completed',
+              totalSaved: contractData.totalPaidOut, // Keep as BigInt for formatAmount
+              currentRound: contractData.currentRound,
+              tags: ['bitcoin', 'savings'],
+              isVerified: true,
+              trustScore: 4.5,
+              members: contractData.members?.map((address, index) => ({
+                address,
+                joinedAt: new Date(),
+                contributionsMade: contractData.currentRound - 1,
+                isActive: true,
+                nickname: address === contractData.creator ? 'Creator' : undefined
+              })) || [],
+              rounds: [],
+              rules: [
+                `Monthly contributions of ${formatAmount(contractData.contribution, displayUnit)} are required`,
+                'Missed contributions result in penalties',
+                'Members must complete all rounds to receive full benefits',
+                'Respectful communication is mandatory',
+                'No early withdrawal without group consensus'
+              ]
+            };
+            
+            setChama(chamaData);
+            
+            // Check membership status if user is connected
+            if (isConnected && primaryWallet?.address) {
+              const [memberStatus, creatorStatus] = await Promise.all([
+                isGroupMember(groupId),
+                isGroupCreator(groupId)
+              ]);
+              
+              setIsMember(memberStatus);
+              setIsCreator(creatorStatus);
+              
+              console.log('🔍 Membership status:', { 
+                isMember: memberStatus, 
+                isCreator: creatorStatus,
+                userAddress: primaryWallet.address,
+                groupCreator: contractData.creator
+              });
+            }
+          } else {
+            // Fallback to mock data if contract data not available
+            setChama(mockChamaDetail);
+          }
+        } else {
+          // Invalid group ID, use mock data
+          setChama(mockChamaDetail);
+        }
       } catch (error) {
+        console.error('❌ Error loading chama details:', error);
         handleError(error, { context: 'loading chama details' });
+        // Fallback to mock data on error
+        setChama(mockChamaDetail);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadChamaDetail();
-  }, [chamaId, handleError]);
+  }, [chamaId, handleError, getGroupInfo, isConnected, primaryWallet?.address, isGroupMember, isGroupCreator]);
 
-  const handleJoinChama = async () => {
-    if (!chama) return;
+  // Open the join modal
+  const handleJoinChama = () => {
+    if (!chamaId || !primaryWallet?.address) {
+      toast.error('Wallet Required', 'Please connect your wallet to join a group.');
+      return;
+    }
     
-    setIsJoining(true);
-    try {
-      // In real implementation, call contract join function
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      toast.success('Joined Chama!', `You've successfully joined ${chama.name}.`);
-      
-      // Update local state
-      setChama(prev => prev ? {
-        ...prev,
-        currentMembers: prev.currentMembers + 1,
-        members: [...prev.members, {
-          address: primaryWallet?.address || '',
-          joinedAt: new Date(),
-          contributionsMade: 0,
-          isActive: true
-        }]
-      } : null);
-    } catch (error) {
-      handleError(error, { context: 'joining chama' });
-    } finally {
-      setIsJoining(false);
+    setShowJoinModal(true);
+  };
+
+  // Handle successful join from modal
+  const handleJoinSuccess = async () => {
+    // Refresh chama details to get updated member count and status
+    const groupId = parseInt(chamaId || '0');
+    if (!isNaN(groupId)) {
+      try {
+        const contractData = await getGroupInfo(groupId);
+        if (contractData) {
+          // Update local state with fresh contract data
+          setChama(prev => prev ? {
+            ...prev,
+            currentMembers: Number(contractData.memberCount),
+            members: contractData.members?.map((address, index) => ({
+              address,
+              joinedAt: new Date(),
+              contributionsMade: contractData.currentRound - 1,
+              isActive: true,
+              nickname: address === contractData.creator ? 'Creator' : undefined
+            })) || []
+          } : null);
+          
+          // Update membership status
+          setIsMember(true);
+        }
+      } catch (error) {
+        console.error('❌ Error refreshing group info:', error);
+      }
     }
   };
 
@@ -237,10 +331,45 @@ export default function ChamaDetail() {
 
   const canJoinChama = () => {
     if (!chama || !isConnected) return false;
+    
+    // Can't join if already a member
+    if (isMember) return false;
+    
     return chama.status === 'open' && 
            chama.currentMembers < chama.maxMembers &&
-           parseFloat(balance) >= chama.contributionAmount &&
-           !chama.members.some(member => member.address === primaryWallet?.address);
+           parseFloat(balance) >= chama.contributionAmount;
+  };
+
+  const getJoinButtonConfig = () => {
+    if (!isConnected) {
+      return { text: 'Connect Wallet', disabled: true, variant: 'outline' as const };
+    }
+    
+    if (isCreator) {
+      return { text: 'Manage Group', disabled: false, variant: 'default' as const };
+    }
+    
+    if (isMember) {
+      return { text: 'Already Joined', disabled: true, variant: 'outline' as const };
+    }
+    
+    if (!chama) {
+      return { text: 'Loading...', disabled: true, variant: 'outline' as const };
+    }
+    
+    if (chama.status === 'full') {
+      return { text: 'Group Full', disabled: true, variant: 'outline' as const };
+    }
+    
+    if (parseFloat(balance) < chama.contributionAmount) {
+      return { text: 'Insufficient Balance', disabled: true, variant: 'outline' as const };
+    }
+    
+    if (chama.status !== 'open') {
+      return { text: 'Group Closed', disabled: true, variant: 'outline' as const };
+    }
+    
+    return { text: 'Join Chama', disabled: false, variant: 'bitcoin' as const };
   };
 
   const getStatusColor = (status: ChamaDetail['status']) => {
@@ -368,7 +497,7 @@ export default function ChamaDetail() {
               <Card>
                 <CardContent className="p-4 text-center">
                   <Bitcoin className="h-8 w-8 text-bitcoin mx-auto mb-2" />
-                  <div className="text-2xl font-bold">{chama.contributionAmount}</div>
+                  <div className="text-2xl font-bold">{formatAmount(chama.contributionAmount, displayUnit)}</div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">cBTC per round</div>
                 </CardContent>
               </Card>
@@ -376,7 +505,7 @@ export default function ChamaDetail() {
               <Card>
                 <CardContent className="p-4 text-center">
                   <Clock className="h-8 w-8 text-gray-500 mx-auto mb-2" />
-                  <div className="text-2xl font-bold">{chama.roundLength}</div>
+                  <div className="text-2xl font-bold">{formatDuration(chama.roundLength)}</div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">days per round</div>
                 </CardContent>
               </Card>
@@ -392,7 +521,7 @@ export default function ChamaDetail() {
               <Card>
                 <CardContent className="p-4 text-center">
                   <TrendingUp className="h-8 w-8 text-gray-500 mx-auto mb-2" />
-                  <div className="text-2xl font-bold">{chama.totalSaved}</div>
+                  <div className="text-2xl font-bold">{formatAmount(chama.totalSaved, displayUnit)}</div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">cBTC saved</div>
                 </CardContent>
               </Card>
@@ -473,7 +602,9 @@ export default function ChamaDetail() {
             {/* Join Card */}
             <Card className="border-bitcoin/20">
               <CardHeader>
-                <CardTitle className="text-bitcoin">Join This Chama</CardTitle>
+                <CardTitle className="text-bitcoin">
+                  {isCreator ? 'Manage Group' : isMember ? 'Group Member' : 'Join This Chama'}
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {!isConnected ? (
@@ -483,11 +614,33 @@ export default function ChamaDetail() {
                       Connect your wallet to join this chama
                     </p>
                   </div>
+                ) : isCreator ? (
+                  <div className="text-center py-4">
+                    <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      You are the creator of this chama
+                    </p>
+                    <Button
+                      onClick={() => setLocation(`/group/${chamaId}`)}
+                      className="w-full"
+                      variant="default"
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Manage Group
+                    </Button>
+                  </div>
+                ) : isMember ? (
+                  <div className="text-center py-4">
+                    <CheckCircle className="h-8 w-8 text-green-500 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      You are already a member of this chama
+                    </p>
+                  </div>
                 ) : canJoinChama() ? (
                   <>
                     <div className="text-center py-2">
                       <div className="text-2xl font-bold text-bitcoin mb-1">
-                        {chama.contributionAmount} cBTC
+                        {formatAmount(chama.contributionAmount, displayUnit)}
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">
                         Required contribution
@@ -496,21 +649,11 @@ export default function ChamaDetail() {
                     
                     <Button
                       onClick={handleJoinChama}
-                      disabled={isJoining}
                       className="w-full"
                       variant="bitcoin"
                     >
-                      {isJoining ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Joining...
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="h-4 w-4 mr-2" />
-                          Join Chama
-                        </>
-                      )}
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Join Chama
                     </Button>
                   </>
                 ) : (
@@ -554,7 +697,7 @@ export default function ChamaDetail() {
                 
                 <div className="text-center">
                   <div className="text-lg font-bold text-bitcoin">
-                    {chama.totalSaved} cBTC
+                    {formatAmount(chama.totalSaved, displayUnit)}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">
                     Total saved so far
@@ -585,6 +728,14 @@ export default function ChamaDetail() {
           </div>
         </div>
       </div>
+
+      {/* Join Group Modal */}
+      <JoinGroupModal
+        isOpen={showJoinModal}
+        onClose={() => setShowJoinModal(false)}
+        groupId={chamaId ? parseInt(chamaId) : null}
+        onJoinSuccess={handleJoinSuccess}
+      />
     </div>
   );
 }

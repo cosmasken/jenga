@@ -3,33 +3,29 @@ import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRosca } from '../hooks/useRosca';
 import { useSupabase } from '../hooks/useSupabase';
 import { useRoscaToast } from '../hooks/use-rosca-toast';
+import { useUnitDisplay } from '../contexts/UnitDisplayContext';
+import { formatAmount, formatDuration, parseCbtcToWei } from '../lib/unitConverter';
 
 interface CreateChamaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onGroupCreated?: () => void; // Callback for when group is successfully created
 }
 
-export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpenChange }) => {
+export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpenChange, onGroupCreated }) => {
   const [currentStep, setCurrentStep] = useState<'form' | 'preview' | 'transaction'>('form');
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
     contributionAmount: '', // Amount in cBTC
     roundLength: '', // Round length in days
-    maxMembers: '5', // Default to 5 members
-    category: 'general',
-    tags: [] as string[],
-    isPrivate: false
+    maxMembers: '5' // Default to 5 members
   });
-  const [showAdvancedDetails, setShowAdvancedDetails] = useState(false);
   const [maxSpendable, setMaxSpendable] = useState<string>('0');
-  const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
 
-  const { primaryWallet, user } = useDynamicContext();
+  const { primaryWallet } = useDynamicContext();
   const {
     createGroup,
     isLoading,
-    error,
     isConnected,
     balance,
     isLoadingBalance,
@@ -37,13 +33,12 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     getMaxSpendableAmount
   } = useRosca();
   const {
-    createGroup: createSupabaseGroup,
     logActivity,
     createNotification,
-    awardAchievement,
-    isLoading: isSupabaseLoading
+    awardAchievement
   } = useSupabase();
   const { groupCreated, error: showError, transactionPending } = useRoscaToast();
+  const { displayUnit } = useUnitDisplay();
 
   // Get max spendable amount when modal opens or balance changes
   useEffect(() => {
@@ -67,7 +62,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       if (contribution < 0.0001) {
         return {
           isValid: false,
-          error: 'Minimum contribution is 0.0001 cBTC',
+          error: 'Minimum contribution is ' + formatAmount(parseCbtcToWei('0.0001'), displayUnit),
           shortError: 'Below minimum'
         };
       }
@@ -76,7 +71,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       if (contribution > maxSpendableNum) {
         return {
           isValid: false,
-          error: `Amount exceeds available balance. Maximum: ${maxSpendableNum} cBTC`,
+          error: `Amount exceeds available balance. Maximum: ${formatAmount(parseCbtcToWei(maxSpendable), displayUnit)}`,
           shortError: 'Exceeds balance'
         };
       }
@@ -97,13 +92,12 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     } catch {
       return { isValid: true, error: null };
     }
-  }, [formData.contributionAmount, maxSpendable, balance]);
+  }, [formData.contributionAmount, maxSpendable, balance, displayUnit]);
 
   // Reset modal state
   const resetModal = () => {
-    setFormData({ name: '', contributionAmount: '', roundLength: '', maxMembers: '' });
+    setFormData({ name: '', contributionAmount: '', roundLength: '', maxMembers: '5' });
     setCurrentStep('form');
-    setShowAdvancedDetails(false);
     onOpenChange(false);
   };
 
@@ -132,50 +126,40 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       // Show pending transaction toast
       const pendingToast = transactionPending("group creation");
 
-      // Step 1: Send blockchain transaction FIRST
+      // Send blockchain transaction
       console.log('🔄 Sending blockchain transaction...');
-      const hash = await createGroup({
+      const result = await createGroup({
         token: '0x0000000000000000000000000000000000000000',
         contribution: formData.contributionAmount,
         roundLength: parseInt(formData.roundLength) * 24 * 60 * 60, // Convert days to seconds
         maxMembers: parseInt(formData.maxMembers)
       });
 
-      if (!hash) {
+      if (!result || !result.hash) {
         throw new Error('Failed to get transaction hash');
       }
 
+      const { hash, groupId: chainGroupId } = result;
       console.log('✅ Transaction hash received:', hash);
+      console.log('✅ Chain group ID:', chainGroupId);
 
-      // Step 2: Create group in Supabase ONLY after blockchain success
-      console.log('🔄 Creating group in Supabase after blockchain confirmation...');
-      const supabaseGroup = await createSupabaseGroup({
-        name: formData.name,
-        description: formData.description || undefined,
-        contribution_amount: parseFloat(formData.contributionAmount),
-        token_address: '0x0000000000000000000000000000000000000000', // ETH address for native token
-        round_length_days: parseInt(formData.roundLength),
-        max_members: parseInt(formData.maxMembers),
-        category: formData.category,
-        tags: formData.tags,
-        is_private: formData.isPrivate,
-        status: 'active', // Set as active since blockchain transaction succeeded
-        transaction_hash: hash // Include transaction hash immediately
-      });
+      // Dismiss pending toast
+      pendingToast.dismiss();
 
-      if (!supabaseGroup) {
-        console.warn('⚠️ Blockchain transaction succeeded but failed to create group in database');
-        // Don't throw error here - blockchain transaction succeeded
-      } else {
-        console.log('✅ Group created in Supabase:', supabaseGroup.id);
-        setCreatedGroupId(supabaseGroup.id);
+      // Show success message
+      groupCreated(
+        formData.name,
+        formData.contributionAmount,
+        hash
+      );
 
-        // Step 3: Log activity (only if Supabase group was created)
-        try {
+      // Optional: Log activity for analytics (non-critical)
+      try {
+        if (chainGroupId !== undefined) {
           await logActivity(
             'group_created',
-            'group',
-            supabaseGroup.id,
+            'chama',
+            chainGroupId.toString(),
             `Created ROSCA group: ${formData.name}`,
             {
               group_name: formData.name,
@@ -184,51 +168,49 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
               transaction_hash: hash
             }
           );
-        } catch (activityError) {
-          console.warn('⚠️ Could not log activity:', activityError);
         }
-
-        // Step 4: Award achievement for group creation
-        try {
-          await awardAchievement('group-creator', primaryWallet.address, {
-            group_id: supabaseGroup.id,
-            transaction_hash: hash
-          });
-          console.log('✅ Group Creator achievement awarded');
-        } catch (achievementError) {
-          console.warn('⚠️ Could not award achievement:', achievementError);
-        }
-
-        // Step 5: Create notification for group creation
-        try {
-          await createNotification({
-            user_wallet_address: primaryWallet.address,
-            title: 'Group Created Successfully! 🎉',
-            message: `Your ROSCA group "${formData.name}" has been created and confirmed on the blockchain.`,
-            type: 'success',
-            category: 'group',
-            group_id: supabaseGroup.id,
-            data: {
-              group_name: formData.name,
-              transaction_hash: hash,
-              contribution_amount: formData.contributionAmount
-            }
-          });
-          console.log('✅ Group creation notification sent');
-        } catch (notificationError) {
-          console.warn('⚠️ Could not create notification:', notificationError);
-        }
+      } catch (activityError) {
+        console.warn('⚠️ Could not log activity:', activityError);
       }
 
-      // Dismiss pending toast and show success
-      pendingToast.dismiss();
-      groupCreated(formData.name, parseInt(formData.maxMembers), hash);
+      // Optional: Award achievement for group creation (non-critical)
+      try {
+        await awardAchievement('group-creator', {
+          transaction_hash: hash,
+          group_id: chainGroupId?.toString()
+        });
+        console.log('✅ Group Creator achievement awarded');
+      } catch (achievementError) {
+        console.warn('⚠️ Could not award achievement:', achievementError);
+      }
 
+      // Optional: Create notification for group creation (non-critical)
+      try {
+        await createNotification(
+          primaryWallet.address,
+          'Group Created Successfully! 🎉',
+          `Your ROSCA group "${formData.name}" has been created and confirmed on the blockchain.`,
+          'success',
+          {
+            group_name: formData.name,
+            transaction_hash: hash,
+            contribution_amount: formData.contributionAmount,
+            chain_group_id: chainGroupId
+          }
+        );
+        console.log('✅ Group creation notification sent');
+      } catch (notificationError) {
+        console.warn('⚠️ Could not create notification:', notificationError);
+      }
+
+      // Trigger callback for dashboard refresh
+      if (onGroupCreated) {
+        onGroupCreated();
+      }
+      
       setTimeout(() => resetModal(), 2000);
     } catch (err) {
       console.error('❌ Error creating chama:', err);
-
-      // Since we do blockchain first, if it fails, no cleanup needed in Supabase
       showError("Group Creation Failed", "Please try again or check your wallet connection");
       setCurrentStep('preview'); // Go back to preview step
     }
@@ -341,42 +323,42 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
                 {/* Balance Information */}
                 <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
-                  <div className="flex items-center gap-2">
-                    <span>Balance:</span>
-                    {isLoadingBalance ? (
-                      <span className="animate-pulse">Loading...</span>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <span className="font-mono">{parseFloat(balance).toFixed(6)} cBTC</span>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await refreshBalance();
-                            const maxAmount = await getMaxSpendableAmount();
-                            setMaxSpendable(maxAmount);
-                          }}
-                          className="text-bitcoin hover:text-bitcoin-dark transition-colors"
-                          disabled={isLoadingBalance}
-                          title="Refresh balance"
-                        >
-                          🔄
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span>Max (after gas):</span>
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, contributionAmount: maxSpendable }))}
-                      className="font-mono text-bitcoin hover:text-bitcoin-dark underline cursor-pointer transition-colors"
-                      disabled={isLoadingBalance || parseFloat(maxSpendable) <= 0}
-                      title="Use maximum amount"
-                    >
-                      {parseFloat(maxSpendable).toFixed(6)} cBTC
-                    </button>
-                  </div>
-                </div>
+          <div className="flex items-center gap-2">
+            <span>Balance:</span>
+            {isLoadingBalance ? (
+              <span className="animate-pulse">Loading...</span>
+            ) : (
+              <div className="flex items-center gap-1">
+                <span className="font-mono">{formatAmount(parseCbtcToWei(balance), displayUnit)}</span>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await refreshBalance();
+                    const maxAmount = await getMaxSpendableAmount();
+                    setMaxSpendable(maxAmount);
+                  }}
+                  className="text-bitcoin hover:text-bitcoin-dark transition-colors"
+                  disabled={isLoadingBalance}
+                  title="Refresh balance"
+                >
+                  🔄
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span>Max (after gas):</span>
+            <button
+              type="button"
+              onClick={() => setFormData(prev => ({ ...prev, contributionAmount: maxSpendable }))}
+              className="font-mono text-bitcoin hover:text-bitcoin-dark underline cursor-pointer transition-colors"
+              disabled={isLoadingBalance || parseFloat(maxSpendable) <= 0}
+              title="Use maximum amount"
+            >
+              {formatAmount(parseCbtcToWei(maxSpendable), displayUnit)}
+            </button>
+          </div>
+        </div>
 
                 {/* Quick Amount Buttons */}
                 <div className="flex items-center gap-2">
@@ -388,9 +370,9 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                         type="button"
                         onClick={() => setFormData(prev => ({ ...prev, contributionAmount: amount }))}
                         className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                        disabled={parseFloat(amount) > parseFloat(maxSpendable)}
+                        disabled={parseCbtcToWei(amount) > parseCbtcToWei(maxSpendable)}
                       >
-                        {amount}
+                        {formatAmount(parseCbtcToWei(amount), displayUnit)}
                       </button>
                     ))}
                     <button
@@ -447,7 +429,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                       <div className="text-sm text-bitcoin-orange">
                         <div className="font-medium mb-1">Security Deposit Required</div>
                         <div className="space-y-1 text-xs">
-                          <div>• You'll deposit <strong>{formData.contributionAmount} cBTC</strong> as collateral</div>
+                          <div>• You'll deposit <strong>{formatAmount(parseCbtcToWei(formData.contributionAmount), displayUnit)}</strong> as collateral</div>
                           <div>• Returned after completing all rounds</div>
                           <div>• Ensures commitment from all members</div>
                         </div>
@@ -570,13 +552,13 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Per Round:</span>
                     <span className="font-mono text-gray-900 dark:text-white">
-                      {formData.contributionAmount} cBTC
+                      {formatAmount(parseCbtcToWei(formData.contributionAmount), displayUnit)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Round Duration:</span>
                     <span className="text-gray-900 dark:text-white">
-                      {formData.roundLength} days
+                      {formatDuration(parseInt(formData.roundLength) * 24 * 60 * 60)}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -587,7 +569,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                     <div className="flex justify-between font-medium">
                       <span className="text-gray-600 dark:text-gray-400">Security Deposit:</span>
                       <span className="font-mono text-bitcoin-orange">
-                        {formData.contributionAmount} cBTC
+                        {formatAmount(parseCbtcToWei(formData.contributionAmount), displayUnit)}
                       </span>
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -672,7 +654,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Deposit:</span>
                     <span className="font-mono text-bitcoin-orange">
-                      {formData.contributionAmount} cBTC
+                      {formatAmount(parseCbtcToWei(formData.contributionAmount), displayUnit)}
                     </span>
                   </div>
                 </div>
