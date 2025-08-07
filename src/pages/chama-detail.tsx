@@ -162,7 +162,7 @@ const mockChamaDetail: ChamaDetail = {
 
 export default function ChamaDetail() {
   const [, setLocation] = useLocation();
-  const [match] = useRoute('/chama/:id');
+  const [, params] = useRoute('/chama/:id');
   const { primaryWallet, isConnected } = useDynamicContext();
   const { balance, getGroupInfo, joinGroup, isGroupMember, isGroupCreator } = useRosca();
   const toast = useRoscaToast();
@@ -174,19 +174,28 @@ export default function ChamaDetail() {
   const [isCreator, setIsCreator] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
 
-  const chamaId = match?.id;
+  const chamaId = params.id;
 
   // Load chama details
   useEffect(() => {
     const loadChamaDetail = async () => {
-      if (!chamaId) return;
+      if (!chamaId) {
+        console.log('🔍 ChamaDetail: No chamaId found in URL.');
+        setIsLoading(false);
+        return;
+      }
       
       setIsLoading(true);
+      console.log('🔍 ChamaDetail: Loading details for chamaId:', chamaId);
+
       try {
         // Try to get real contract data first
         const groupId = parseInt(chamaId);
+        console.log('🔍 ChamaDetail: Parsed groupId:', groupId);
+
         if (!isNaN(groupId)) {
           const contractData = await getGroupInfo(groupId);
+          console.log('🔍 ChamaDetail: Raw contract data from getGroupInfo:', contractData);
           
           if (contractData) {
             // Convert contract data to ChamaDetail format
