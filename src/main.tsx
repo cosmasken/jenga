@@ -35,6 +35,10 @@ createRoot(document.getElementById("root")!).render(
         environmentId: import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID,
         walletConnectors: [EthereumWalletConnectors],
         overrides: { evmNetworks: citreaNetworks },
+        // Enable social logins
+        socialProvidersFilter: (providers) => providers.filter((provider) => 
+          ['google', 'twitter', 'discord', 'github'].includes(provider.name)
+        ),
       }}
     >
       <App />

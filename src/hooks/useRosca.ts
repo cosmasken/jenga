@@ -1,4 +1,4 @@
-import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useDynamicContext, useDynamicWaas } from "@dynamic-labs/sdk-react-core";
 import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { parseAbi, parseEther, formatEther } from "viem";
 import type { Abi, Address, Hash } from "viem";
@@ -87,11 +87,24 @@ export interface ContractError extends Error {
  */
 export function useRosca() {
   const { primaryWallet } = useDynamicContext();
+  const { userHasEmbeddedWallet } = useDynamicWaas();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ContractError | null>(null);
   const [groupCount, setGroupCount] = useState<number>(0);
   const [balance, setBalance] = useState<string>('0');
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+
+  /**
+   * Helper function to check if wallet can handle blockchain transactions
+   * Supports both external wallets and embedded wallets (MPC)
+   */
+  const isTransactionCapableWallet = useCallback((wallet: any): boolean => {
+    if (!wallet) return false;
+    // Check for external Ethereum wallet
+    if (isEthereumWallet(wallet)) return true;
+    // Check for embedded wallet (MPC) - uses Dynamic's userHasEmbeddedWallet
+    return userHasEmbeddedWallet;
+  }, [userHasEmbeddedWallet]);
 
   // Clear error when wallet changes
   useEffect(() => {
@@ -102,8 +115,8 @@ export function useRosca() {
    * Get user's cBTC balance using Dynamic's getPublicClient
    */
   const getBalance = useCallback(async (): Promise<string> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
-      console.log('🔍 getBalance: No wallet or not Ethereum wallet');
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
+      console.log('🔍 getBalance: No wallet or not transaction capable');
       setBalance('0');
       return '0';
     }
@@ -133,7 +146,7 @@ export function useRosca() {
     } finally {
       setIsLoadingBalance(false);
     }
-  }, [primaryWallet]);
+  }, [primaryWallet, isTransactionCapableWallet]);
 
   /**
    * Manually refresh balance
@@ -145,14 +158,14 @@ export function useRosca() {
 
   // Auto-fetch balance when wallet connects
   useEffect(() => {
-    if (primaryWallet && isEthereumWallet(primaryWallet)) {
+    if (primaryWallet && isTransactionCapableWallet(primaryWallet)) {
       console.log('🔍 useEffect: Auto-fetching balance for wallet:', primaryWallet.address);
       getBalance();
     } else {
       console.log('🔍 useEffect: No wallet connected, setting balance to 0');
       setBalance('0');
     }
-  }, [primaryWallet, getBalance]);
+  }, [primaryWallet, getBalance, isTransactionCapableWallet]);
 
 
 
@@ -182,7 +195,7 @@ export function useRosca() {
    * @returns Object with transaction hash and group ID if successful
    */
   const createGroup = useCallback(async (params: CreateGroupParams): Promise<{ hash: Hash; groupId?: number } | undefined> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       throw new Error("Wallet not connected or not Ethereum compatible");
     }
 
@@ -310,7 +323,7 @@ export function useRosca() {
    * @returns Transaction hash if successful
    */
   const joinGroup = useCallback(async (groupId: number): Promise<Hash | undefined> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       throw new Error("Wallet not connected or not Ethereum compatible");
     }
 
@@ -403,7 +416,7 @@ export function useRosca() {
    * @returns Transaction hash if successful
    */
   const contribute = useCallback(async (groupId: number): Promise<Hash | undefined> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       throw new Error("Wallet not connected or not Ethereum compatible");
     }
 
@@ -470,7 +483,7 @@ export function useRosca() {
    * Following Dynamic documentation pattern
    */
   const sendTransaction = useCallback(async (to: Address, amount: string): Promise<Hash | undefined> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       throw new Error("Wallet not connected or not Ethereum compatible");
     }
 
@@ -520,12 +533,12 @@ export function useRosca() {
    * @returns Enhanced group information
    */
   const getGroupInfo = useCallback(async (groupId: number): Promise<RoscaGroup | null> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       return null;
     }
 
-    // Validate groupId
-    if (!groupId || isNaN(groupId) || groupId < 0) {
+    // Validate groupId (0 is valid since blockchain IDs start from 0)
+    if (groupId === undefined || groupId === null || isNaN(groupId) || groupId < 0) {
       console.warn(`🔍 getGroupInfo: Invalid group ID: ${groupId}`);
       return null;
     }
@@ -550,7 +563,8 @@ export function useRosca() {
         currentRound: groupData.currentRound
       });
 
-      if (!groupData || groupData.id === 0) {
+      // Check if group data is valid (don't reject ID 0 as it's valid for first group)
+      if (!groupData || (groupData.creator === '0x0000000000000000000000000000000000000000')) {
         console.warn(`🔍 getGroupInfo: Group ${groupId} does not exist on contract`);
         return null; // Group doesn't exist
       }
@@ -601,7 +615,7 @@ export function useRosca() {
    * @returns Dispute information
    */
   const getDisputeInfo = useCallback(async (disputeId: number): Promise<DisputeInfo | null> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       return null;
     }
 
@@ -645,7 +659,7 @@ export function useRosca() {
    * @returns True if user has voted
    */
   const hasVotedOnDispute = useCallback(async (disputeId: number, voter?: Address): Promise<boolean> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       return false;
     }
 
@@ -672,7 +686,7 @@ export function useRosca() {
    * @returns Total dispute count
    */
   const getDisputeCount = useCallback(async (): Promise<number> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       return 0;
     }
 
@@ -698,7 +712,7 @@ export function useRosca() {
    * @returns Total group count
    */
   const getGroupCount = useCallback(async (): Promise<number> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       return 0;
     }
 
@@ -729,7 +743,7 @@ export function useRosca() {
    * @returns Transaction hash if successful
    */
   const createDispute = useCallback(async (groupId: number, defendant: Address, reason: string): Promise<Hash | undefined> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       throw new Error("Wallet not connected or not Ethereum compatible");
     }
 
@@ -768,7 +782,7 @@ export function useRosca() {
    * @returns Transaction hash if successful
    */
   const voteOnDispute = useCallback(async (disputeId: number, support: boolean): Promise<Hash | undefined> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       throw new Error("Wallet not connected or not Ethereum compatible");
     }
 
@@ -807,7 +821,7 @@ export function useRosca() {
    * @returns Transaction hash if successful
    */
   const setGroupStatus = useCallback(async (groupId: number, isActive: boolean): Promise<Hash | undefined> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       throw new Error("Wallet not connected or not Ethereum compatible");
     }
 
@@ -846,7 +860,7 @@ export function useRosca() {
    * @returns Transaction hash if successful
    */
   const kickMember = useCallback(async (groupId: number, member: Address): Promise<Hash | undefined> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       throw new Error("Wallet not connected or not Ethereum compatible");
     }
 
@@ -878,7 +892,7 @@ export function useRosca() {
     }
   }, [primaryWallet]);
   const leaveGroup = useCallback(async (groupId: number): Promise<Hash | undefined> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       throw new Error("Wallet not connected or not Ethereum compatible");
     }
 
@@ -911,7 +925,7 @@ export function useRosca() {
    * @returns Transaction hash if successful
    */
   const rageQuit = useCallback(async (groupId: number): Promise<Hash | undefined> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       throw new Error("Wallet not connected or not Ethereum compatible");
     }
 
@@ -961,7 +975,7 @@ export function useRosca() {
    * @returns True if user is a member, false otherwise
    */
   const isGroupMember = useCallback(async (groupId: number): Promise<boolean> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       return false;
     }
 
@@ -985,7 +999,7 @@ export function useRosca() {
    * @returns True if user is the creator, false otherwise
    */
   const isGroupCreator = useCallback(async (groupId: number): Promise<boolean> => {
-    if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
+    if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       return false;
     }
 
@@ -1004,9 +1018,9 @@ export function useRosca() {
   }, [primaryWallet, getGroupInfo]);
 
   /**
-   * Check if user is connected and has an Ethereum wallet
+   * Check if user is connected and has a transaction-capable wallet (Ethereum or embedded)
    */
-  const isConnected = Boolean(primaryWallet && isEthereumWallet(primaryWallet));
+  const isConnected = Boolean(primaryWallet && isTransactionCapableWallet(primaryWallet));
 
   return {
     // State
