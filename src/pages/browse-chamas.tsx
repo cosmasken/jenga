@@ -125,13 +125,7 @@ export default function BrowseChamas() {
   const loadGroups = async () => {
     try {
       setIsLoadingGroups(true);
-
-      const filters: any = {
-        status: selectedStatus,
-        category: selectedCategory,
-        tags: selectedTags,
-        sortBy: sortBy,
-      };
+      setIsLoading(true);
 
       // Get total group count from blockchain
       const totalGroups = await getGroupCount();
@@ -150,15 +144,41 @@ export default function BrowseChamas() {
         try {
           const groupInfo = await getGroupInfo(i);
           if (groupInfo) {
+            // Convert blockchain data to UI format
+            const contributionInCBTC = parseFloat(groupInfo.contribution?.toString() || '0') / 1e18;
+            const roundLengthInDays = Math.floor((groupInfo.roundLength || 86400) / 86400);
+            
+            // Determine status based on group state
+            let status: 'open' | 'active' | 'full' | 'completed' = 'completed';
+            if (groupInfo.isActive) {
+              if (groupInfo.memberCount >= groupInfo.maxMembers) {
+                status = 'full';
+              } else if (groupInfo.memberCount > 1) {
+                status = 'active';
+              } else {
+                status = 'open';
+              }
+            }
+
             fetchedGroups.push({
-              ...groupInfo,
-              id: i, // Ensure ID is set
-              // Add default values for UI
+              id: i.toString(), // Convert to string for consistency
               name: groupInfo.name || `Group ${i}`,
-              description: `ROSCA Group #${i}`,
-              category: 'savings',
+              description: `ROSCA Group #${i} - ${groupInfo.maxMembers} members contributing ${contributionInCBTC.toFixed(4)} cBTC every ${roundLengthInDays} days`,
+              contributionAmount: contributionInCBTC,
+              roundLength: roundLengthInDays,
+              maxMembers: groupInfo.maxMembers || 0,
+              currentMembers: groupInfo.memberCount || 0,
+              creator: groupInfo.creator || '',
+              createdAt: new Date(),
+              nextRoundDate: new Date((groupInfo.nextDue || 0) * 1000),
+              status,
+              totalSaved: parseFloat(groupInfo.totalPaidOut?.toString() || '0') / 1e18,
+              currentRound: groupInfo.currentRound || 0,
               tags: ['rosca', 'savings'],
-              status: groupInfo.isActive ? 'active' : 'completed'
+              isVerified: true,
+              trustScore: 4.5,
+              // Include original blockchain data
+              blockchainData: groupInfo
             });
           }
         } catch (error) {
@@ -179,6 +199,7 @@ export default function BrowseChamas() {
       toast.error('Failed to Load Groups', 'Please try refreshing the page.');
     } finally {
       setIsLoadingGroups(false);
+      setIsLoading(false);
     }
   };
 
@@ -193,8 +214,11 @@ export default function BrowseChamas() {
       console.log('🔍 Checking membership status for', groupsToCheck.length, 'groups');
       const statusPromises = groupsToCheck.map(async (group) => {
         try {
-          // Use the group ID directly (blockchain ID)
-          const groupId = group.id;
+          // Convert string ID back to number for blockchain calls
+          const groupId = parseInt(group.id);
+          if (isNaN(groupId)) {
+            throw new Error(`Invalid group ID: ${group.id}`);
+          }
 
           const [isMember, isCreator] = await Promise.all([
             isGroupMember(groupId),
@@ -202,7 +226,7 @@ export default function BrowseChamas() {
           ]);
 
           return {
-            groupId: group.id,
+            groupId: group.id, // Keep as string for consistency with state
             isMember,
             isCreator,
             contractInfo: group
@@ -273,15 +297,17 @@ const filteredAndSortedGroups = useMemo(() => {
   filtered.sort((a, b) => {
     switch (sortBy) {
       case 'newest':
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       case 'oldest':
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       case 'contribution-high':
-        return b.contribution_amount - a.contribution_amount;
+        return b.contributionAmount - a.contributionAmount;
       case 'contribution-low':
-        return a.contribution_amount - b.contribution_amount;
+        return a.contributionAmount - b.contributionAmount;
       case 'members':
-        return b.current_members - a.current_members;
+        return b.currentMembers - a.currentMembers;
+      case 'trust-score':
+        return b.trustScore - a.trustScore;
       default:
         return 0;
     }
@@ -528,7 +554,9 @@ return (
               No chamas found
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Try adjusting your search or filters
+              {groups.length === 0 
+                ? "No groups exist on the blockchain yet. Be the first to create one!"
+                : "Try adjusting your search or filters"}
             </p>
             <Button onClick={() => {
               setSearchQuery('');
@@ -572,6 +600,7 @@ return (
         setSelectedGroupId(null);
       }}
       groupId={selectedGroupId}
+      onJoinSuccess={handleJoinSuccess}
     />
   </div>
 );

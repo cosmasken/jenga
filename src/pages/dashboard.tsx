@@ -26,6 +26,8 @@ export default function Dashboard() {
         isConnected, 
         groupCount, 
         getGroupCount, 
+        getGroupInfo,
+        isGroupCreator,
         isLoading, 
         error,
         formatContribution 
@@ -53,6 +55,8 @@ export default function Dashboard() {
         trustScore: 4.0
     });
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [userGroups, setUserGroups] = useState<any[]>([]);
+    const [isLoadingGroups, setIsLoadingGroups] = useState(false);
     
     const { contributionReminder, memberJoined, success } = useRoscaToast();
 
@@ -67,6 +71,7 @@ export default function Dashboard() {
     useEffect(() => {
         if (isConnected && primaryWallet?.address) {
             loadUserData();
+            loadUserGroups();
             setupRealtimeSubscriptions();
         }
     }, [isConnected, primaryWallet?.address, refreshTrigger]);
@@ -150,6 +155,61 @@ export default function Dashboard() {
         };
     };
 
+    // Load user's created groups
+    const loadUserGroups = async () => {
+        if (!primaryWallet?.address || !isConnected) return;
+
+        try {
+            setIsLoadingGroups(true);
+            console.log('🔄 Loading user groups...');
+
+            // Get total group count first
+            const totalGroups = await getGroupCount();
+            console.log('📊 Total groups on blockchain:', totalGroups);
+
+            if (totalGroups === 0) {
+                setUserGroups([]);
+                return;
+            }
+
+            // Check all groups to find which ones the user created
+            const createdGroups = [];
+            const maxGroupsToCheck = Math.min(totalGroups, 50); // Limit for performance
+
+            for (let i = 0; i < maxGroupsToCheck; i++) {
+                try {
+                    // Check if user is creator of this group
+                    const isCreator = await isGroupCreator(i);
+                    if (isCreator) {
+                        // Get full group info
+                        const groupInfo = await getGroupInfo(i);
+                        if (groupInfo) {
+                            createdGroups.push({
+                                ...groupInfo,
+                                id: i,
+                                name: groupInfo.name || `Group ${i}`,
+                                description: `ROSCA Group #${i}`,
+                                contributionAmount: parseFloat(groupInfo.contribution?.toString() || '0') / 1e18,
+                                roundLengthDays: Math.floor(groupInfo.roundLength / 86400),
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ Could not check group ${i}:`, error);
+                }
+            }
+
+            console.log('✅ User created groups loaded:', createdGroups.length);
+            setUserGroups(createdGroups);
+
+        } catch (error) {
+            console.error('❌ Failed to load user groups:', error);
+            setUserGroups([]);
+        } finally {
+            setIsLoadingGroups(false);
+        }
+    };
+
     // Get user display name from Supabase profile or fallback
     const getUserDisplayName = () => {
         if (userProfile?.display_name) return userProfile.display_name;
@@ -194,13 +254,13 @@ export default function Dashboard() {
         setShowCreateModal(true);
     };
 
-    const handleGroupClick = (groupId: string) => {
+    const handleGroupClick = (groupId: number) => {
         setLocation(`/group/${groupId}`);
     };
 
-    // Refresh dashboard data after group creation
+    // Handle group creation success - refresh user groups
     const handleGroupCreated = () => {
-        console.log('🔄 Group created, refreshing dashboard data...');
+        console.log('🎉 Group created successfully, refreshing data...');
         setRefreshTrigger(prev => prev + 1);
         getGroupCount(); // Also refresh the group count immediately
     };
@@ -326,7 +386,7 @@ export default function Dashboard() {
                                             Your Groups
                                         </p>
                                         <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                                            {groupCount || 0}
+                                            {userGroups.length}
                                         </p>
                                     </div>
                                     <Bitcoin className="h-8 w-8 text-[hsl(27,87%,54%)]" />
@@ -470,19 +530,26 @@ export default function Dashboard() {
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                                    Your Groups
-                                </h2>
-                                <Badge variant="secondary">{groupCount || 0}</Badge>
+                                        Your Groups
+                                    </h2>
+                                    <Badge variant="secondary">{userGroups.length}</Badge>
                             </div>
                             
-                            {(groupCount || 0) === 0 ? (
+                            {isLoadingGroups ? (
+                                <div className="text-center py-12">
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-bitcoin mx-auto mb-4"></div>
+                                    <p className="text-gray-600 dark:text-gray-400">
+                                        Loading your groups...
+                                    </p>
+                                </div>
+                            ) : userGroups.length === 0 ? (
                                 <div className="text-center py-12">
                                     <Bitcoin className="h-16 w-16 mx-auto mb-4 text-gray-400" />
                                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                                        No groups yet
+                                        No groups created yet
                                     </h3>
                                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-                                        Create your first ROSCA group or join an existing one to get started.
+                                        Create your first ROSCA group to start saving with others.
                                     </p>
                                     <Button 
                                         onClick={handleCreateGroup}
@@ -493,11 +560,43 @@ export default function Dashboard() {
                                     </Button>
                                 </div>
                             ) : (
-                                <div className="text-center py-8">
-                                    <p className="text-gray-600 dark:text-gray-400">
-                                        You have created {groupCount} group{groupCount !== 1 ? 's' : ''}. 
-                                        Individual group details will be shown here once the feature is implemented.
-                                    </p>
+                                <div className="space-y-4">
+                                    {userGroups.map((group) => (
+                                        <Card key={group.id} className="border-l-4 border-l-bitcoin hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleGroupClick(group.id)}>
+                                            <CardContent className="p-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex-1">
+                                                        <h3 className="font-medium text-gray-900 dark:text-gray-100">
+                                                            {group.name}
+                                                        </h3>
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                                            {group.description}
+                                                        </p>
+                                                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                                                            <div className="flex items-center gap-1">
+                                                                <Users className="h-3 w-3" />
+                                                                {Number(group.memberCount)}/{group.maxMembers} members
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <Bitcoin className="h-3 w-3" />
+                                                                {group.contributionAmount.toFixed(4)} cBTC/round
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <Target className="h-3 w-3" />
+                                                                Round {group.currentRound}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Badge variant={group.isActive ? "default" : "secondary"}>
+                                                            {group.isActive ? "Active" : "Inactive"}
+                                                        </Badge>
+                                                        <Badge variant="outline">Creator</Badge>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
                                 </div>
                             )}
                         </CardContent>

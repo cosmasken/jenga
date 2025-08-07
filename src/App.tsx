@@ -19,12 +19,17 @@ import Disputes from "@/pages/disputes";
 import Profile from "@/pages/profile";
 import NotFound from "@/pages/not-found";
 
-function Router() {
-  const [location, setLocation] = useLocation();
-  const isLoggedIn = useIsLoggedIn();
+// Component for handling invite redirects
+function InviteHandler({ code, setLocation }: { code: string; setLocation: (url: string) => void }) {
+  useEffect(() => {
+    localStorage.setItem('jenga_invite_code', code);
+    setLocation(`/?invite=${code}`);
+  }, [code, setLocation]);
+  return null;
+}
 
-  // Check onboarding completion from localStorage
-  const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
+function Router() {
+  const [, setLocation] = useLocation();
 
   useEffect(() => {
     // Handle invite code in URL
@@ -45,14 +50,9 @@ function Router() {
       <Route path="/disputes" component={Disputes} />
       <Route path="/profile" component={Profile} />
       <Route path="/invite/:code">
-        {(params) => {
-          // Handle invite redirect
-          useEffect(() => {
-            localStorage.setItem('jenga_invite_code', params.code);
-            setLocation(`/?invite=${params.code}`);
-          }, [params.code]);
-          return null;
-        }}
+        {(params) => (
+          <InviteHandler code={params.code} setLocation={setLocation} />
+        )}
       </Route>
       <Route component={NotFound} />
     </Switch>

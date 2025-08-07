@@ -30,9 +30,10 @@ interface JoinGroupModalProps {
   isOpen: boolean;
   onClose: () => void;
   groupId: number | null;
+  onJoinSuccess?: () => void;
 }
 
-export function JoinGroupModal({ isOpen, onClose, groupId }: JoinGroupModalProps) {
+export function JoinGroupModal({ isOpen, onClose, groupId, onJoinSuccess }: JoinGroupModalProps) {
   const { primaryWallet } = useDynamicContext();
   const { 
     joinGroup, 
@@ -155,14 +156,18 @@ export function JoinGroupModal({ isOpen, onClose, groupId }: JoinGroupModalProps
       }
 
       setCurrentStep('success');
+      
+      // Call success callback to refresh parent component
+      if (onJoinSuccess) {
+        onJoinSuccess();
+      }
+      
       setTimeout(() => onClose(), 2000);
       
     } catch (error) {
       console.error('❌ Failed to join group:', error);
       showError('Join Failed', 'Could not join the group. Please try again.');
       setCurrentStep('review');
-    } finally {
-      setIsContributing(false);
     }
   };
 

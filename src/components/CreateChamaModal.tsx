@@ -14,23 +14,16 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   const [currentStep, setCurrentStep] = useState<'form' | 'preview' | 'transaction'>('form');
   const [formData, setFormData] = useState({
     name: '',
-    description: '',
     contributionAmount: '', // Amount in cBTC
     roundLength: '', // Round length in days
-    maxMembers: '5', // Default to 5 members
-    category: 'general',
-    tags: [] as string[],
-    isPrivate: false
+    maxMembers: '5' // Default to 5 members
   });
-  const [showAdvancedDetails, setShowAdvancedDetails] = useState(false);
   const [maxSpendable, setMaxSpendable] = useState<string>('0');
-  const [createdGroupId, setCreatedGroupId] = useState<string | null>(null);
 
-  const { primaryWallet, user } = useDynamicContext();
+  const { primaryWallet } = useDynamicContext();
   const {
     createGroup,
     isLoading,
-    error,
     isConnected,
     balance,
     isLoadingBalance,
@@ -40,8 +33,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   const {
     logActivity,
     createNotification,
-    awardAchievement,
-    isLoading: isSupabaseLoading
+    awardAchievement
   } = useSupabase();
   const { groupCreated, error: showError, transactionPending } = useRoscaToast();
 
@@ -101,9 +93,8 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
   // Reset modal state
   const resetModal = () => {
-    setFormData({ name: '', contributionAmount: '', roundLength: '', maxMembers: '' });
+    setFormData({ name: '', contributionAmount: '', roundLength: '', maxMembers: '5' });
     setCurrentStep('form');
-    setShowAdvancedDetails(false);
     onOpenChange(false);
   };
 
@@ -172,13 +163,6 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
               contribution_amount: formData.contributionAmount,
               max_members: formData.maxMembers,
               transaction_hash: hash
-            }
-            `Created ROSCA group "${formData.name}"`,
-            { 
-              group_name: formData.name,
-              transaction_hash: hash,
-              contribution_amount: formData.contributionAmount,
-              max_members: formData.maxMembers
             }
           );
         }

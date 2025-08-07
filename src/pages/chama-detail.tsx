@@ -35,6 +35,7 @@ import { useRoscaToast } from '@/hooks/use-rosca-toast';
 import { useErrorHandler } from '@/hooks/use-error-handler';
 import { WalletDropdown } from '@/components/WalletDropdown';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { JoinGroupModal } from '@/components/JoinGroupModal';
 import { formatDistanceToNow } from 'date-fns';
 
 // Mock data - in real app, fetch from contract
@@ -169,9 +170,9 @@ export default function ChamaDetail() {
 
   const [chama, setChama] = useState<ChamaDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isJoining, setIsJoining] = useState(false);
   const [isMember, setIsMember] = useState(false);
   const [isCreator, setIsCreator] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
 
   const chamaId = match?.id;
 
@@ -265,40 +266,43 @@ export default function ChamaDetail() {
     loadChamaDetail();
   }, [chamaId, handleError, getGroupInfo, isConnected, primaryWallet?.address, isGroupMember, isGroupCreator]);
 
-  const handleJoinChama = async () => {
-    if (!chama || !chamaId) return;
+  // Open the join modal
+  const handleJoinChama = () => {
+    if (!chamaId || !primaryWallet?.address) {
+      toast.error('Wallet Required', 'Please connect your wallet to join a group.');
+      return;
+    }
     
-    setIsJoining(true);
-    try {
-      const groupId = parseInt(chamaId);
-      if (isNaN(groupId)) {
-        throw new Error('Invalid group ID');
-      }
+    setShowJoinModal(true);
+  };
 
-      // Call the real contract join function
-      const txHash = await joinGroup(groupId);
-      
-      if (txHash) {
-        toast.success('Joined Chama!', `You've successfully joined ${chama.name}.`);
-        
-        // Update local state
-        setIsMember(true);
-        setChama(prev => prev ? {
-          ...prev,
-          currentMembers: prev.currentMembers + 1,
-          members: [...prev.members, {
-            address: primaryWallet?.address || '',
-            joinedAt: new Date(),
-            contributionsMade: 0,
-            isActive: true
-          }]
-        } : null);
+  // Handle successful join from modal
+  const handleJoinSuccess = async () => {
+    // Refresh chama details to get updated member count and status
+    const groupId = parseInt(chamaId || '0');
+    if (!isNaN(groupId)) {
+      try {
+        const contractData = await getGroupInfo(groupId);
+        if (contractData) {
+          // Update local state with fresh contract data
+          setChama(prev => prev ? {
+            ...prev,
+            currentMembers: Number(contractData.memberCount),
+            members: contractData.members?.map((address, index) => ({
+              address,
+              joinedAt: new Date(),
+              contributionsMade: contractData.currentRound - 1,
+              isActive: true,
+              nickname: address === contractData.creator ? 'Creator' : undefined
+            })) || []
+          } : null);
+          
+          // Update membership status
+          setIsMember(true);
+        }
+      } catch (error) {
+        console.error('❌ Error refreshing group info:', error);
       }
-    } catch (error) {
-      console.error('❌ Error joining chama:', error);
-      handleError(error, { context: 'joining chama' });
-    } finally {
-      setIsJoining(false);
     }
   };
 
@@ -633,21 +637,11 @@ export default function ChamaDetail() {
                     
                     <Button
                       onClick={handleJoinChama}
-                      disabled={isJoining}
                       className="w-full"
                       variant="bitcoin"
                     >
-                      {isJoining ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Joining...
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="h-4 w-4 mr-2" />
-                          Join Chama
-                        </>
-                      )}
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Join Chama
                     </Button>
                   </>
                 ) : (
@@ -722,6 +716,14 @@ export default function ChamaDetail() {
           </div>
         </div>
       </div>
+
+      {/* Join Group Modal */}
+      <JoinGroupModal
+        isOpen={showJoinModal}
+        onClose={() => setShowJoinModal(false)}
+        groupId={chamaId ? parseInt(chamaId) : null}
+        onJoinSuccess={handleJoinSuccess}
+      />
     </div>
   );
 }

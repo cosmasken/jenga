@@ -90,13 +90,24 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
+// Create singleton Supabase client instance
+let supabaseInstance: SupabaseClient | null = null;
+
+const getSupabaseInstance = (): SupabaseClient => {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+    console.log('🔧 Supabase client instance created');
+  }
+  return supabaseInstance;
+};
+
 export function useSupabase() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { primaryWallet } = useDynamicContext();
   const { handleError } = useErrorHandler();
 
-  const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase: SupabaseClient = getSupabaseInstance();
 
   // Set user context for RLS
   useEffect(() => {
