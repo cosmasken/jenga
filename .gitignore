@@ -12,6 +12,24 @@ dist
 dist-ssr
 *.local
 
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+
+# Development documentation (keep README.md)
+*_SUMMARY.md
+*_FIXES.md
+*_COMPLETED.md
+*_SETUP.md
+*DOCS.md
+LOGS.MD
+MIG.md
+docs/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -19,6 +37,6 @@ dist-ssr
 .DS_Store
 *.suo
 *.ntvs*
-*.njsproj
+*.njsproj*
 *.sln
 *.sw?
