@@ -53,7 +53,7 @@ import { useRoscaToast } from '@/hooks/use-rosca-toast';
 import { useErrorHandler } from '@/hooks/use-error-handler';
 import { WalletDropdown } from '@/components/WalletDropdown';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { JoinGroupModal } from '@/components/JoinGroupModal';
+import { JoinChamaModal } from '@/components/JoinChamaModal';
 import { useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 
 
@@ -592,15 +592,17 @@ return (
       </AnimatePresence>
     </div>
 
-    {/* Join Group Modal */}
-    <JoinGroupModal
-      isOpen={showJoinModal}
-      onClose={() => {
-        setShowJoinModal(false);
-        setSelectedGroupId(null);
+    {/* Join Chama Modal */}
+    <JoinChamaModal
+      open={showJoinModal}
+      onOpenChange={(open) => {
+        setShowJoinModal(open);
+        if (!open) {
+          setSelectedGroupId(null);
+        }
       }}
-      groupId={selectedGroupId}
-      onJoinSuccess={handleJoinSuccess}
+      groupId={selectedGroupId ? selectedGroupId.toString() : ''}
+      onGroupJoined={handleJoinSuccess}
     />
   </div>
 );
