@@ -102,18 +102,17 @@ function App() {
       <ThemeProvider>
         <TooltipProvider>
           <div className="min-h-screen bg-background text-foreground font-sans">
-            {/* Only show navigation if user is logged in and onboarded */}
-            {isLoggedIn && onboardingCompleted && <Navigation />}
-            
             <UnitDisplayProvider>
+              {isLoggedIn && onboardingCompleted && <Navigation />}
+              
               <Router />
+              
+              {/* Onboarding Modal */}
+              <OnboardingModal 
+                open={showOnboarding} 
+                onComplete={handleOnboardingComplete}
+              />
             </UnitDisplayProvider>
-            
-            {/* Onboarding Modal */}
-            <OnboardingModal 
-              open={showOnboarding} 
-              onComplete={handleOnboardingComplete}
-            />
             
             <Toaster />
           </div>
