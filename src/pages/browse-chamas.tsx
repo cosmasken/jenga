@@ -55,6 +55,8 @@ import { WalletDropdown } from '@/components/WalletDropdown';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { JoinChamaModal } from '@/components/JoinChamaModal';
 import { useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
+import { useUnitDisplay } from '@/contexts/UnitDisplayContext';
+import { formatAmount, formatDuration } from '@/lib/unitConverter';
 
 
 // Mock data for demonstration - in real app, this would come from the contract
@@ -62,7 +64,7 @@ interface ChamaGroup {
   id: string;
   name: string;
   description: string;
-  contributionAmount: number;
+  contributionAmount: bigint;
   roundLength: number; // in days
   maxMembers: number;
   currentMembers: number;
@@ -70,7 +72,7 @@ interface ChamaGroup {
   createdAt: Date;
   nextRoundDate: Date;
   status: 'open' | 'active' | 'full' | 'completed';
-  totalSaved: number;
+  totalSaved: bigint;
   currentRound: number;
   tags: string[];
   isVerified: boolean;
@@ -87,6 +89,7 @@ export default function BrowseChamas() {
   const [, setLocation] = useLocation();
   const { primaryWallet } = useDynamicContext();
   const { balance, getBalance, joinGroup, isGroupMember, isGroupCreator, getGroupCount, getGroupInfo } = useRosca();
+  const { displayUnit } = useUnitDisplay();
   const {
     logActivity,
     isLoading: isSupabaseLoading
@@ -146,15 +149,15 @@ export default function BrowseChamas() {
           const groupInfo = await getGroupInfo(i);
           if (groupInfo) {
             // Convert blockchain data to UI format
-            const contributionInCBTC = parseFloat(groupInfo.contribution?.toString() || '0') / 1e18;
-            const roundLengthInDays = Math.floor((groupInfo.roundLength || 86400) / 86400);
+            const contributionInCBTC = groupInfo.contribution; // Keep as BigInt
+            const roundLengthInSeconds = Number(groupInfo.roundLength); // Keep as number
             
             // Determine status based on group state
             let status: 'open' | 'active' | 'full' | 'completed' = 'completed';
             if (groupInfo.isActive) {
-              if (groupInfo.memberCount >= groupInfo.maxMembers) {
+              if (Number(groupInfo.memberCount) >= groupInfo.maxMembers) {
                 status = 'full';
-              } else if (groupInfo.memberCount > 1) {
+              } else if (Number(groupInfo.memberCount) > 1) {
                 status = 'active';
               } else {
                 status = 'open';
@@ -164,16 +167,16 @@ export default function BrowseChamas() {
             fetchedGroups.push({
               id: i.toString(), // Convert to string for consistency
               name: groupInfo.name || `Group ${i}`,
-              description: `ROSCA Group #${i} - ${groupInfo.maxMembers} members contributing ${contributionInCBTC.toFixed(4)} cBTC every ${roundLengthInDays} days`,
+              description: `ROSCA Group #${i} - ${groupInfo.maxMembers} members contributing ${formatAmount(contributionInCBTC, displayUnit)} every ${formatDuration(roundLengthInSeconds)}`,
               contributionAmount: contributionInCBTC,
-              roundLength: roundLengthInDays,
+              roundLength: roundLengthInSeconds,
               maxMembers: groupInfo.maxMembers || 0,
-              currentMembers: groupInfo.memberCount || 0,
+              currentMembers: Number(groupInfo.memberCount) || 0,
               creator: groupInfo.creator || '',
               createdAt: new Date(),
               nextRoundDate: new Date((groupInfo.nextDue || 0) * 1000),
               status,
-              totalSaved: parseFloat(groupInfo.totalPaidOut?.toString() || '0') / 1e18,
+              totalSaved: groupInfo.totalPaidOut, // Keep as BigInt
               currentRound: groupInfo.currentRound || 0,
               tags: ['rosca', 'savings'],
               isVerified: true,
@@ -386,7 +389,7 @@ const getButtonConfig = (chama: ChamaGroup) => {
     return { text: 'Full', action: 'none', disabled: true };
   }
 
-  if (parseFloat(balance) < chama.contributionAmount) {
+  if (parseFloat(balance) < parseFloat(formatEther(chama.contributionAmount))) {
     return { text: 'Insufficient Balance', action: 'none', disabled: true };
   }
 
@@ -683,14 +686,14 @@ function ChamaCard({ chama, onJoin, onViewDetails, onManage, buttonConfig, getSt
           <div className="flex items-center gap-2">
             <Bitcoin className="h-4 w-4 text-bitcoin" />
             <div>
-              <div className="font-medium">{chama.contributionAmount} cBTC</div>
+              <div className="font-medium">{formatAmount(chama.contributionAmount, displayUnit)}</div>
               <div className="text-xs text-gray-500">per round</div>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-gray-500" />
             <div>
-              <div className="font-medium">{chama.roundLength} days</div>
+              <div className="font-medium">{formatDuration(chama.roundLength)}</div>
               <div className="text-xs text-gray-500">round length</div>
             </div>
           </div>

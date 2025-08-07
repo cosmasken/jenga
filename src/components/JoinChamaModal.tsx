@@ -3,6 +3,8 @@ import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRosca } from '../hooks/useRosca';
 import { useSupabase } from '../hooks/useSupabase';
 import { useRoscaToast } from '../hooks/use-rosca-toast';
+import { useUnitDisplay } from '../contexts/UnitDisplayContext';
+import { formatAmount, formatDuration } from '../lib/unitConverter';
 
 interface JoinChamaModalProps {
   open: boolean;
@@ -55,6 +57,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
     awardAchievement
   } = useSupabase();
   const { memberJoined, error: showError, transactionPending } = useRoscaToast();
+  const { displayUnit } = useUnitDisplay();
 
   // Load group information when modal opens
   useEffect(() => {
@@ -98,7 +101,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
             const contributionWei = initialGroupData.contribution;
             console.log('💰 Contribution Wei value:', contributionWei, typeof contributionWei);
             
-            const contributionInCBTC = (parseFloat(contributionWei.toString()) / 1e18).toFixed(6);
+            const contributionInCBTC = formatAmount(contributionWei, displayUnit);
             console.log('💰 Contribution in cBTC:', contributionInCBTC);
 
             const processedGroupInfo = {
@@ -145,7 +148,47 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
             }
 
             if (info) {
-              const contributionInCBTC = (parseFloat(info.contribution.toString()) / 1e18).toFixed(6);
+              roundLength: Number(initialGroupData.roundLength),
+              maxMembers: Number(initialGroupData.maxMembers),
+              memberCount: Number(initialGroupData.memberCount),
+              currentRound: Number(initialGroupData.currentRound),
+              nextRecipient: initialGroupData.members?.[Number(initialGroupData.currentRound) % Number(initialGroupData.maxMembers)] || null,
+              isActive: Boolean(initialGroupData.isActive),
+              isClosed: !Boolean(initialGroupData.isActive)
+            };
+            
+            console.log('✅ Successfully processed group info:', processedGroupInfo);
+            setGroupInfo(processedGroupInfo);
+            
+          } catch (error) {
+            console.error('❌ ERROR processing initial group data:', error);
+            console.error('❌ Error details:', {
+              message: error.message,
+              stack: error.stack,
+              initialGroupData
+            });
+            showError('Failed to load group', 'Could not process group information. Please try again.');
+          } finally {
+            console.log('🏁 Finished processing initial data, setting loading to false');
+            setIsLoadingGroup(false);
+          }
+          
+        } else if (isConnected && primaryWallet) {
+          console.log('🌐 No initial data, fetching from blockchain...');
+          setIsLoadingGroup(true);
+          
+          try {
+            const numericId = parseInt(groupId);
+            if (isNaN(numericId)) {
+              throw new Error(`Invalid group ID: ${groupId}`);
+            }
+            
+            if (!info) {
+              console.error('❌ getGroupInfo returned null/undefined for ID:', numericId);
+            }
+
+            if (info) {
+              const contributionInCBTC = formatAmount(info.contribution, displayUnit);
               
               const processedGroupInfo = {
                 id: groupId,
@@ -187,15 +230,15 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
             isConnected,
             hasPrimaryWallet: !!primaryWallet
           });
-          setIsLoadingGroup(false);
-        }
+           setIsLoadingGroup(false);
+         }
       } else {
         console.log('❌ Modal conditions not met:', { open, groupId });
       }
     };
 
     loadGroupInfo();
-  }, [open, groupId, initialGroupData, isConnected, getGroupInfo, showError, primaryWallet]);
+  }, [open, groupId, initialGroupData, isConnected, getGroupInfo, showError, primaryWallet, displayUnit]);
 
   // Get max spendable amount when modal opens or balance changes
   useEffect(() => {
@@ -448,13 +491,13 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
                       <div className="flex justify-between">
                         <span className="text-gray-600 dark:text-gray-400">Contribution:</span>
                         <span className="font-mono text-gray-900 dark:text-white">
-                          {groupInfo.contribution} cBTC
+                          {groupInfo.contribution}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600 dark:text-gray-400">Round Duration:</span>
                         <span className="text-gray-900 dark:text-white">
-                          {Number(groupInfo.roundLength) / (24 * 60 * 60)} days
+                          {formatDuration(groupInfo.roundLength)}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -479,7 +522,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
                       <div className="text-sm text-bitcoin-orange">
                         <div className="font-medium mb-1">Security Deposit Required</div>
                         <div className="space-y-1 text-xs">
-                          <div>• You'll deposit <strong>{groupInfo.contribution} cBTC</strong> as collateral</div>
+                          <div>• You'll deposit <strong>{groupInfo.contribution}</strong> as collateral</div>
                           <div>• Returned after completing all rounds</div>
                           <div>• Ensures commitment from all members</div>
                         </div>
@@ -497,7 +540,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
                             Insufficient Balance
                           </p>
                           <p className="text-xs text-orange-600 dark:text-orange-300 mt-1">
-                            You need {groupInfo.contribution} cBTC to join. Your available balance is {maxSpendable} cBTC.
+                            You need {groupInfo.contribution} to join. Your available balance is {maxSpendable} cBTC.
                           </p>
                         </div>
                       </div>
@@ -584,15 +627,15 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Expected Payout:</span>
                     <span className="font-mono text-bitcoin-orange">
-                      {(parseFloat(groupInfo.contribution) * Number(groupInfo.maxMembers)).toFixed(4)} cBTC
+                      {formatAmount(parseFloat(groupInfo.contribution) * Number(groupInfo.maxMembers), displayUnit)}
                     </span>
                   </div>
                   <div className="border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
                     <div className="flex justify-between font-medium">
                       <span className="text-gray-600 dark:text-gray-400">Initial Deposit:</span>
                       <span className="font-mono text-bitcoin-orange">
-                        {groupInfo.contribution} cBTC
-                      </span>
+                      {groupInfo.contribution}
+                    </span>
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       This serves as your security deposit
@@ -659,8 +702,8 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-400">Deposit:</span>
                       <span className="font-mono text-bitcoin-orange">
-                        {groupInfo.contribution} cBTC
-                      </span>
+                      {groupInfo.contribution}
+                    </span>
                     </div>
                   </div>
                 </div>
