@@ -2,7 +2,7 @@
  * Test component to verify wallet functionality for both regular and embedded wallets
  */
 
-import React from 'react';
+
 import { useDynamicContext, useDynamicWaas } from '@dynamic-labs/sdk-react-core';
 import { isEthereumWallet } from '@dynamic-labs/ethereum';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

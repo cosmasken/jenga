@@ -3,7 +3,7 @@
  * Enhanced toast component with Bitcoin theming and notification integration
  */
 
-import React from 'react';
+
 import { motion } from 'framer-motion';
 import { 
   Check, 
