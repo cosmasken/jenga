@@ -76,7 +76,7 @@ export default function GroupDetail() {
     };
 
     loadGroup();
-  }, [id, isConnected, getGroupInfo, showError, setLocation]);
+  }, [id, isConnected]);
 
   const handleContribute = async () => {
     if (!group || !group.id) {

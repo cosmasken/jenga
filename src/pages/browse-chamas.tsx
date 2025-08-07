@@ -389,7 +389,7 @@ const getButtonConfig = (chama: ChamaGroup) => {
     return { text: 'Full', action: 'none', disabled: true };
   }
 
-  if (parseFloat(balance) < parseFloat(formatEther(chama.contributionAmount))) {
+  if (parseFloat(balance) < parseFloat(formatAmount(chama.contributionAmount, displayUnit).split(' ')[0])) {
     return { text: 'Insufficient Balance', action: 'none', disabled: true };
   }
 
@@ -630,6 +630,8 @@ interface ChamaCardProps {
 }
 
 function ChamaCard({ chama, onJoin, onViewDetails, onManage, buttonConfig, getStatusColor }: ChamaCardProps) {
+  const { displayUnit } = useUnitDisplay();
+  
   const handlePrimaryAction = () => {
     switch (buttonConfig.action) {
       case 'join':
