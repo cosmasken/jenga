@@ -12,6 +12,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
+import { useUnitDisplay } from "@/contexts/UnitDisplayContext";
+import { DisplayUnit } from "@/lib/unitConverter";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Home, LayoutDashboard, Users, Gavel, User, Moon, Sun, Copy, LogOut, Wallet } from "lucide-react";
 
 const navItems = [
@@ -26,6 +29,7 @@ export function Navigation() {
   const { primaryWallet, user, handleLogOut } = useDynamicContext();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
+  const { displayUnit, setDisplayUnit } = useUnitDisplay();
   
   // Check onboarding completion from localStorage
   const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
@@ -106,6 +110,15 @@ export function Navigation() {
 
           {/* User Menu */}
           <div className="flex items-center gap-3">
+            <Select value={displayUnit} onValueChange={(value: DisplayUnit) => setDisplayUnit(value)}>
+              <SelectTrigger className="w-[100px]">
+                <SelectValue placeholder="Unit" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cBTC">cBTC</SelectItem>
+                <SelectItem value="satoshi">Satoshi</SelectItem>
+              </SelectContent>
+            </Select>
             <Button
               onClick={toggleTheme}
               variant="ghost"
@@ -238,6 +251,17 @@ export function Navigation() {
                 <DropdownMenuItem onClick={toggleTheme}>
                   {theme === "light" ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
                   <span>Toggle theme</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Select value={displayUnit} onValueChange={(value: DisplayUnit) => setDisplayUnit(value)}>
+                    <SelectTrigger className="w-full h-8 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cBTC">cBTC</SelectItem>
+                      <SelectItem value="satoshi">Satoshi</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} className="text-red-600 dark:text-red-400">

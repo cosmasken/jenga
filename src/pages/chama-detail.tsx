@@ -37,6 +37,8 @@ import { WalletDropdown } from '@/components/WalletDropdown';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { JoinGroupModal } from '@/components/JoinGroupModal';
 import { formatDistanceToNow } from 'date-fns';
+import { formatAmount, formatDuration } from '@/lib/unitConverter';
+import { useUnitDisplay } from '@/contexts/UnitDisplayContext';
 
 // Mock data - in real app, fetch from contract
 interface ChamaDetail {
@@ -165,6 +167,7 @@ export default function ChamaDetail() {
   const [, params] = useRoute('/chama/:id');
   const { primaryWallet, isConnected } = useDynamicContext();
   const { balance, getGroupInfo, joinGroup, isGroupMember, isGroupCreator } = useRosca();
+  const { displayUnit } = useUnitDisplay();
   const toast = useRoscaToast();
   const { handleError } = useErrorHandler();
 
@@ -202,9 +205,9 @@ export default function ChamaDetail() {
             const chamaData: ChamaDetail = {
               id: chamaId,
               name: `ROSCA Group #${contractData.id}`,
-              description: `A Bitcoin savings circle with ${contractData.maxMembers} members contributing ${contractData.contribution} cBTC every ${contractData.roundLength} seconds.`,
-              contributionAmount: parseFloat(contractData.contribution.toString()) / 1e18, // Convert from wei
-              roundLength: Math.floor(contractData.roundLength / 86400), // Convert seconds to days
+              description: `A Bitcoin savings circle with ${contractData.maxMembers} members contributing ${formatAmount(contractData.contribution, displayUnit)} every ${formatDuration(Number(contractData.roundLength))}.`,
+              contributionAmount: contractData.contribution, // Keep as BigInt for formatAmount
+              roundLength: Number(contractData.roundLength), // Keep as number for formatDuration
               maxMembers: contractData.maxMembers,
               currentMembers: Number(contractData.memberCount),
               creator: contractData.creator,
@@ -213,7 +216,7 @@ export default function ChamaDetail() {
               status: contractData.isActive ? 
                 (Number(contractData.memberCount) >= contractData.maxMembers ? 'full' : 'open') : 
                 'completed',
-              totalSaved: parseFloat(contractData.totalPaidOut.toString()) / 1e18,
+              totalSaved: contractData.totalPaidOut, // Keep as BigInt for formatAmount
               currentRound: contractData.currentRound,
               tags: ['bitcoin', 'savings'],
               isVerified: true,
@@ -227,7 +230,7 @@ export default function ChamaDetail() {
               })) || [],
               rounds: [],
               rules: [
-                `Monthly contributions of ${parseFloat(contractData.contribution.toString()) / 1e18} cBTC are required`,
+                `Monthly contributions of ${formatAmount(contractData.contribution, displayUnit)} are required`,
                 'Missed contributions result in penalties',
                 'Members must complete all rounds to receive full benefits',
                 'Respectful communication is mandatory',
@@ -494,7 +497,7 @@ export default function ChamaDetail() {
               <Card>
                 <CardContent className="p-4 text-center">
                   <Bitcoin className="h-8 w-8 text-bitcoin mx-auto mb-2" />
-                  <div className="text-2xl font-bold">{chama.contributionAmount}</div>
+                  <div className="text-2xl font-bold">{formatAmount(chama.contributionAmount, displayUnit)}</div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">cBTC per round</div>
                 </CardContent>
               </Card>
@@ -502,7 +505,7 @@ export default function ChamaDetail() {
               <Card>
                 <CardContent className="p-4 text-center">
                   <Clock className="h-8 w-8 text-gray-500 mx-auto mb-2" />
-                  <div className="text-2xl font-bold">{chama.roundLength}</div>
+                  <div className="text-2xl font-bold">{formatDuration(chama.roundLength)}</div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">days per round</div>
                 </CardContent>
               </Card>
@@ -518,7 +521,7 @@ export default function ChamaDetail() {
               <Card>
                 <CardContent className="p-4 text-center">
                   <TrendingUp className="h-8 w-8 text-gray-500 mx-auto mb-2" />
-                  <div className="text-2xl font-bold">{chama.totalSaved}</div>
+                  <div className="text-2xl font-bold">{formatAmount(chama.totalSaved, displayUnit)}</div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">cBTC saved</div>
                 </CardContent>
               </Card>
@@ -637,7 +640,7 @@ export default function ChamaDetail() {
                   <>
                     <div className="text-center py-2">
                       <div className="text-2xl font-bold text-bitcoin mb-1">
-                        {chama.contributionAmount} cBTC
+                        {formatAmount(chama.contributionAmount, displayUnit)}
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">
                         Required contribution
@@ -694,7 +697,7 @@ export default function ChamaDetail() {
                 
                 <div className="text-center">
                   <div className="text-lg font-bold text-bitcoin">
-                    {chama.totalSaved} cBTC
+                    {formatAmount(chama.totalSaved, displayUnit)}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">
                     Total saved so far

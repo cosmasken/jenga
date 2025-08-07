@@ -9,11 +9,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useRosca } from '@/hooks/useRosca';
+import { useUnitDisplay } from '@/contexts/UnitDisplayContext';
+import { formatAmount, parseCbtcToWei } from '@/lib/unitConverter';
 
 export function WalletTest() {
   const { primaryWallet, user } = useDynamicContext();
   const { userHasEmbeddedWallet } = useDynamicWaas();
   const { balance, getBalance, isConnected } = useRosca();
+  const { displayUnit } = useUnitDisplay();
 
   const getWalletType = () => {
     if (!primaryWallet) return 'Not connected';
@@ -78,7 +81,7 @@ export function WalletTest() {
 
         <div>
           <p className="text-sm font-medium">Balance:</p>
-          <p className="text-sm text-gray-600">{balance} cBTC</p>
+          <p className="text-sm text-gray-600">{formatAmount(parseCbtcToWei(balance), displayUnit)}</p>
           <Button 
             size="sm" 
             variant="outline" 

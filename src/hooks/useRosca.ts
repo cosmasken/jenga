@@ -1,6 +1,8 @@
 import { useDynamicContext, useDynamicWaas } from "@dynamic-labs/sdk-react-core";
 import { isEthereumWallet } from "@dynamic-labs/ethereum";
-import { parseAbi, parseEther, formatEther } from "viem";
+import { formatEther, parseEther } from "viem";
+import { useUnitDisplay } from '../contexts/UnitDisplayContext'; // Import useUnitDisplay
+import { formatAmount, parseCbtcToWei } from '../lib/unitConverter'; // Import formatAmount and parseCbtcToWei
 import type { Abi, Address, Hash } from "viem";
 import React, { useState, useCallback, useEffect } from "react";
 import { CONTRACT_ADDRESSES, TRANSACTION_CONFIG } from "../config";
@@ -88,6 +90,7 @@ export interface ContractError extends Error {
 export function useRosca() {
   const { primaryWallet } = useDynamicContext();
   const { userHasEmbeddedWallet } = useDynamicWaas();
+  const { displayUnit } = useUnitDisplay();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ContractError | null>(null);
   const [groupCount, setGroupCount] = useState<number>(0);
@@ -174,20 +177,22 @@ export function useRosca() {
    */
   const getMaxSpendableAmount = useCallback(async (): Promise<string> => {
     try {
-      const balanceNum = parseFloat(balance);
-      console.log('🔍 getMaxSpendableAmount: Current balance:', balanceNum);
+      const balanceWei = parseCbtcToWei(balance); // Convert balance to Wei
+      console.log('🔍 getMaxSpendableAmount: Current balance (Wei):', balanceWei);
       
-      // Estimate gas for createGroup transaction (conservative estimate)
-      const estimatedGasInEth = 0.001; // ~0.001 cBTC for gas (conservative)
+      // Estimate gas for createGroup transaction (conservative estimate in cBTC, then convert to Wei)
+      const estimatedGasInWei = parseCbtcToWei('0.001'); // 0.001 cBTC for gas (conservative)
       
-      const maxSpendable = Math.max(0, balanceNum - estimatedGasInEth);
-      console.log('🔍 getMaxSpendableAmount: Max spendable:', maxSpendable);
-      return maxSpendable.toFixed(6); // 6 decimal places for precision
+      // Ensure balance is greater than estimated gas before subtraction
+      const maxSpendableWei = balanceWei > estimatedGasInWei ? balanceWei - estimatedGasInWei : 0n;
+      console.log('🔍 getMaxSpendableAmount: Max spendable (Wei):', maxSpendableWei);
+      
+      return formatAmount(maxSpendableWei, displayUnit); // Format using the display unit
     } catch (error) {
       console.error('Error calculating max spendable amount:', error);
-      return '0';
+      return formatAmount(0n, displayUnit);
     }
-  }, [balance]);
+  }, [balance, displayUnit]);
 
   /**
    * Create a new ROSCA group with enhanced parameters
@@ -958,16 +963,16 @@ export function useRosca() {
    * @returns Formatted string in ETH
    */
   const formatContribution = useCallback((contribution: bigint | undefined | null): string => {
-    if (!contribution || contribution === undefined || contribution === null) {
-      return "0.00";
+    if (contribution === undefined || contribution === null) {
+      return formatAmount(0n, displayUnit);
     }
     try {
-      return formatEther(contribution);
+      return formatAmount(contribution, displayUnit);
     } catch (error) {
       console.warn('Error formatting contribution:', error, 'value:', contribution);
-      return "0.00";
+      return formatAmount(0n, displayUnit);
     }
-  }, []);
+  }, [displayUnit]);
 
   /**
    * Check if current user is a member of a specific group
