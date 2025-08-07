@@ -3,9 +3,10 @@ import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { formatEther, parseEther } from "viem";
 import { useUnitDisplay } from '../contexts/UnitDisplayContext'; // Import useUnitDisplay
 import { formatAmount, parseCbtcToWei } from '../lib/unitConverter'; // Import formatAmount and parseCbtcToWei
-import type { Abi, Address, Hash } from "viem";
+import type { Address, Hash } from "viem";
 import React, { useState, useCallback, useEffect } from "react";
 import { CONTRACT_ADDRESSES, TRANSACTION_CONFIG } from "../config";
+import { parseAbi } from "viem";
 
 // Contract configuration
 export const ROSCA_CONTRACT_ADDRESS = CONTRACT_ADDRESSES.ROSCA;
