@@ -155,7 +155,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       // Show success message
       groupCreated(
         formData.name,
-        formData.contributionAmount,
+        parseInt(formData.maxMembers),
         hash
       );
 

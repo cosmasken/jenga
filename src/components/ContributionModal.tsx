@@ -147,38 +147,34 @@ export function ContributionModal({
         if (groupInfo.members) {
           for (const member of groupInfo.members) {
             if (member !== primaryWallet.address) {
-              await createNotification({
-                user_wallet_address: member,
-                title: 'Member Made Contribution 💰',
-                message: `A group member has made their contribution for round ${groupInfo.currentRound}.`,
-                type: 'success',
-                category: 'contribution',
-                group_id: groupInfo.id.toString(),
-                data: {
+              await createNotification(
+                member,
+                'Member Made Contribution 💰',
+                `A group member has made their contribution for round ${groupInfo.currentRound}.`,
+                'success',
+                {
                   group_id: groupInfo.id,
                   round: groupInfo.currentRound,
                   transaction_hash: hash
                 }
-              });
+              );
             }
           }
         }
 
         // Special notification for user
-        await createNotification({
-          user_wallet_address: primaryWallet.address,
-          title: 'Contribution Successful! ✅',
-          message: `Your contribution of ${formatContribution(groupInfo.contribution)} cBTC has been processed for round ${groupInfo.currentRound}.`,
-          type: 'success',
-          category: 'contribution',
-          group_id: groupInfo.id.toString(),
-          data: {
+        await createNotification(
+          primaryWallet.address,
+          'Contribution Successful! ✅',
+          `Your contribution of ${formatContribution(groupInfo.contribution)} cBTC has been processed for round ${groupInfo.currentRound}.`,
+          'success',
+          {
             group_id: groupInfo.id,
             contribution_amount: formatContribution(groupInfo.contribution),
             round: groupInfo.currentRound,
             transaction_hash: hash
           }
-        });
+        );
       } catch (notificationError) {
         console.warn('⚠️ Could not create notifications:', notificationError);
       }
@@ -323,7 +319,7 @@ export function ContributionModal({
                       </div>
                       <div className="flex justify-between text-sm">
                         <span>Group Members</span>
-                        <span>{groupInfo.memberCount}</span>
+                        <span>{Number(groupInfo.memberCount)}</span>
                       </div>
                     </div>
                   </CardContent>
