@@ -9,7 +9,8 @@ import { OnboardingModal } from "@/components/OnboardingModal";
 import { queryClient } from "@/lib/queryClient";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
+import { useIsLoggedIn, useDynamicContext } from "@dynamic-labs/sdk-react-core";
+import { useSimpleSupabase } from "@/hooks/useSimpleSupabase";
 
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
@@ -63,35 +64,85 @@ function Router() {
 function App() {
   const [location, setLocation] = useLocation();
   const isLoggedIn = useIsLoggedIn();
+  const { primaryWallet } = useDynamicContext();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(false);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   
-  // Check onboarding completion from localStorage
-  const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
+  const { user, loading, loadUser } = useSimpleSupabase();
 
-  // Handle onboarding modal visibility and redirects
+  // Check onboarding completion from database when wallet connects
   useEffect(() => {
-    if (isLoggedIn) {
-      const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
+    if (isLoggedIn && primaryWallet?.address) {
+      setCheckingOnboarding(true);
+      console.log('🔄 Checking onboarding status for wallet:', primaryWallet.address);
       
-      if (onboardingCompleted) {
-        // User is logged in and onboarded - redirect to dashboard if on landing page
-        if (location === '/') {
-          console.log('🔄 Logged in user on landing page, redirecting to dashboard');
-          setLocation('/dashboard');
+      // Load user from database
+      loadUser().then((userData) => {
+        console.log('🔍 Database lookup result:', {
+          userData: userData,
+          exists: !!userData,
+          onboarding_completed: userData?.onboarding_completed,
+          wallet: userData?.wallet_address
+        });
+        
+        if (userData) {
+          console.log('📊 User found in database:', {
+            id: userData.id,
+            wallet: userData.wallet_address,
+            display_name: userData.display_name,
+            onboarding_completed: userData.onboarding_completed,
+            onboarding_completed_at: userData.onboarding_completed_at
+          });
+          
+          const isOnboardingComplete = userData.onboarding_completed === true;
+          console.log('✨ Setting onboarding status:', {
+            raw_value: userData.onboarding_completed,
+            processed_value: isOnboardingComplete,
+            type: typeof userData.onboarding_completed
+          });
+          
+          setOnboardingCompleted(isOnboardingComplete);
+          
+          if (isOnboardingComplete) {
+            // User is onboarded - redirect to dashboard if on landing page
+            console.log('🔄 User is onboarded, hiding modal and redirecting if needed');
+            setShowOnboarding(false);
+            if (location === '/') {
+              console.log('🔄 Onboarded user on landing page, redirecting to dashboard');
+              setLocation('/dashboard');
+            }
+          } else {
+            // User exists but hasn't completed onboarding
+            console.log('🔄 User exists but onboarding not complete, showing modal');
+            setShowOnboarding(true);
+          }
+        } else {
+          // No user found in database - new user needs onboarding
+          console.log('🔄 No user found in database, showing onboarding modal');
+          setOnboardingCompleted(false);
+          setShowOnboarding(true);
         }
-        setShowOnboarding(false);
-      } else {
-        // User is logged in but not onboarded - show onboarding modal
-        console.log('🔄 Logged in user needs onboarding, showing modal');
+      }).catch((error) => {
+        console.error('❌ Error checking onboarding status:', error);
+        // On database error, assume new user needs onboarding
+        console.log('⚠️ Database error, treating as new user');
+        setOnboardingCompleted(false);
         setShowOnboarding(true);
-      }
-    } else {
-      // User is not logged in - hide onboarding modal
+      }).finally(() => {
+        setCheckingOnboarding(false);
+      });
+    } else if (!isLoggedIn) {
+      // User not logged in - reset state
+      setOnboardingCompleted(false);
       setShowOnboarding(false);
+      setCheckingOnboarding(false);
     }
-  }, [isLoggedIn, location, setLocation]);
+  }, [isLoggedIn, primaryWallet?.address, location, setLocation, loadUser]);
 
   const handleOnboardingComplete = () => {
+    console.log('✅ Onboarding completed, updating state');
+    setOnboardingCompleted(true);
     setShowOnboarding(false);
     // Redirect to dashboard after onboarding
     setLocation('/dashboard');

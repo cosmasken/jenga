@@ -1,0 +1,32 @@
+[
+    {
+        "schemaname": "public",
+        "viewname": "group_invitation_summary",
+        "viewowner": "postgres",
+        "definition": " SELECT gi.group_id,\n    g.name AS group_name,\n    count(gi.id) AS total_invitations,\n    count(\n        CASE\n            WHEN (gi.status = 'pending'::text) THEN 1\n            ELSE NULL::integer\n        END) AS pending_invitations,\n    count(\n        CASE\n            WHEN (gi.status = 'accepted'::text) THEN 1\n            ELSE NULL::integer\n        END) AS accepted_invitations,\n    count(\n        CASE\n            WHEN (gi.status = 'declined'::text) THEN 1\n            ELSE NULL::integer\n        END) AS declined_invitations\n   FROM (group_invitations gi\n     JOIN groups g ON ((gi.group_id = g.id)))\n  GROUP BY gi.group_id, g.name;"
+    },
+    {
+        "schemaname": "public",
+        "viewname": "group_stats",
+        "viewowner": "postgres",
+        "definition": " SELECT g.id,\n    g.name,\n    g.status,\n    g.current_members,\n    g.max_members,\n    g.contribution_amount,\n    g.current_round,\n    count(c.id) AS total_contributions,\n    COALESCE(sum(c.amount), (0)::numeric) AS total_contributed,\n    avg(u.trust_score) AS avg_member_trust_score\n   FROM (((groups g\n     LEFT JOIN group_members gm ON (((g.id = gm.group_id) AND (gm.status = 'active'::text))))\n     LEFT JOIN users u ON ((gm.wallet_address = u.wallet_address)))\n     LEFT JOIN contributions c ON (((g.id = c.group_id) AND (c.status = 'confirmed'::text))))\n  GROUP BY g.id, g.name, g.status, g.current_members, g.max_members, g.contribution_amount, g.current_round;"
+    },
+    {
+        "schemaname": "public",
+        "viewname": "referral_leaderboard",
+        "viewowner": "postgres",
+        "definition": " SELECT r.referrer_wallet_address,\n    u.display_name,\n    count(r.id) AS total_referrals,\n    count(\n        CASE\n            WHEN (r.status = 'qualified'::text) THEN 1\n            ELSE NULL::integer\n        END) AS qualified_referrals,\n    count(\n        CASE\n            WHEN (r.status = 'rewarded'::text) THEN 1\n            ELSE NULL::integer\n        END) AS rewarded_referrals,\n    COALESCE(sum(r.referrer_reward), (0)::numeric) AS total_rewards_earned\n   FROM (referrals r\n     LEFT JOIN users u ON ((r.referrer_wallet_address = u.wallet_address)))\n  GROUP BY r.referrer_wallet_address, u.display_name\n  ORDER BY (count(r.id)) DESC, (count(\n        CASE\n            WHEN (r.status = 'qualified'::text) THEN 1\n            ELSE NULL::integer\n        END)) DESC;"
+    },
+    {
+        "schemaname": "public",
+        "viewname": "user_savings_summary",
+        "viewowner": "postgres",
+        "definition": " SELECT user_wallet_address,\n    count(id) AS total_goals,\n    count(\n        CASE\n            WHEN (status = 'active'::text) THEN 1\n            ELSE NULL::integer\n        END) AS active_goals,\n    count(\n        CASE\n            WHEN (status = 'completed'::text) THEN 1\n            ELSE NULL::integer\n        END) AS completed_goals,\n    COALESCE(sum(target_amount), (0)::numeric) AS total_target_amount,\n    COALESCE(sum(current_amount), (0)::numeric) AS total_current_amount,\n    COALESCE(avg(progress_percentage), (0)::numeric) AS average_progress\n   FROM savings_goals sg\n  GROUP BY user_wallet_address;"
+    },
+    {
+        "schemaname": "public",
+        "viewname": "user_stats",
+        "viewowner": "postgres",
+        "definition": " SELECT u.wallet_address AS user_id,\n    u.display_name,\n    u.trust_score,\n    u.total_contributions,\n    u.groups_created,\n    u.groups_joined,\n    u.successful_rounds,\n    count(ua.id) AS total_achievements,\n    u.onboarding_completed,\n    u.created_at,\n    u.last_active_at\n   FROM (users u\n     LEFT JOIN user_achievements ua ON ((u.wallet_address = ua.user_id)))\n  GROUP BY u.wallet_address, u.display_name, u.trust_score, u.total_contributions, u.groups_created, u.groups_joined, u.successful_rounds, u.onboarding_completed, u.created_at, u.last_active_at;"
+    }
+]

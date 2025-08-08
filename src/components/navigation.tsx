@@ -272,8 +272,8 @@ export function Navigation() {
         </div>
       </nav>
 
-      {/* Spacer for fixed navigation */}
-      <div className="pt-16 pb-20 md:pb-0" />
+      {/* Spacer for fixed navigation - improved mobile spacing */}
+      <div className="pt-16 pb-16 md:pb-4" />
     </>
   );
 }

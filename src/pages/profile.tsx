@@ -1,334 +1,498 @@
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
-import { useRosca } from "@/hooks/useRosca";
-import { useLocation } from "wouter";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Bitcoin, Edit, TrendingUp, Trophy, Crown, Target, Star, Zap, Gem, Flame, Wallet, Copy, Users } from "lucide-react";
-import { useRoscaToast } from "@/hooks/use-rosca-toast";
+import React, { useState } from 'react';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useSimpleSupabase } from '@/hooks/useSimpleSupabase';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { 
+  User, 
+  Settings, 
+  Bell, 
+  Shield, 
+  Trophy, 
+  Activity, 
+  MapPin, 
+  Globe, 
+  Mail, 
+  Phone,
+  Wallet,
+  Save,
+  Clock,
+  Star
+} from 'lucide-react';
+import { toast } from 'sonner';
 
-export default function Profile() {
+// Timezone options (simplified)
+const timezones = [
+  { value: 'UTC', label: 'UTC (Coordinated Universal Time)' },
+  { value: 'America/New_York', label: 'Eastern Time (ET)' },
+  { value: 'America/Chicago', label: 'Central Time (CT)' },
+  { value: 'America/Denver', label: 'Mountain Time (MT)' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+  { value: 'Europe/London', label: 'London (GMT)' },
+  { value: 'Europe/Paris', label: 'Central European Time (CET)' },
+  { value: 'Asia/Tokyo', label: 'Japan Standard Time (JST)' },
+  { value: 'Asia/Shanghai', label: 'China Standard Time (CST)' },
+  { value: 'Australia/Sydney', label: 'Australian Eastern Time (AET)' },
+];
+
+export default function ProfilePage() {
   const { primaryWallet, user } = useDynamicContext();
-  const isLoggedIn = useIsLoggedIn();
-  const [, setLocation] = useLocation();
-  const { success, error } = useRoscaToast();
   const { 
-    isConnected, 
-    groupCount, 
-    getGroupCount, 
-    formatContribution 
-  } = useRosca();
+    user: userProfile, 
+    loading, 
+    saveUser, 
+    achievements, 
+    notifications,
+    unreadNotificationCount 
+  } = useSimpleSupabase();
 
-  const [userGroups, setUserGroups] = useState<any[]>([]);
-  const [reputationHistory, setReputationHistory] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setLocation("/");
+  // Form state
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    display_name: userProfile?.display_name || '',
+    bio: userProfile?.bio || '',
+    location: userProfile?.location || '',
+    timezone: userProfile?.timezone || 'UTC',
+    email: userProfile?.email || user?.email || '',
+    phone: userProfile?.phone || '',
+    notification_preferences: userProfile?.notification_preferences || {
+      email: true,
+      push: true,
+      sms: false
+    },
+    privacy_settings: userProfile?.privacy_settings || {
+      profile_public: true,
+      stats_public: true
     }
-  }, [isLoggedIn, setLocation]);
+  });
 
-  useEffect(() => {
-    if (isConnected && primaryWallet) {
-      getGroupCount();
-      // TODO: Implement getUserGroups and getReputationHistory when available
+  // Update form when user profile loads
+  React.useEffect(() => {
+    if (userProfile && !isEditing) {
+      setFormData({
+        display_name: userProfile.display_name || '',
+        bio: userProfile.bio || '',
+        location: userProfile.location || '',
+        timezone: userProfile.timezone || 'UTC',
+        email: userProfile.email || user?.email || '',
+        phone: userProfile.phone || '',
+        notification_preferences: userProfile.notification_preferences || {
+          email: true,
+          push: true,
+          sms: false
+        },
+        privacy_settings: userProfile.privacy_settings || {
+          profile_public: true,
+          stats_public: true
+        }
+      });
     }
-  }, [isConnected, primaryWallet, getGroupCount]);
+  }, [userProfile, user, isEditing]);
 
-  const copyAddress = () => {
-    if (primaryWallet?.address) {
-      navigator.clipboard.writeText(primaryWallet.address);
-      success("Address Copied! 📋", "Wallet address copied to clipboard");
+  const handleSave = async () => {
+    if (!formData.display_name.trim()) {
+      toast.error('Display name is required');
+      return;
+    }
+
+    const success = await saveUser({
+      display_name: formData.display_name.trim(),
+      bio: formData.bio.trim() || undefined,
+      location: formData.location.trim() || undefined,
+      timezone: formData.timezone,
+      email: formData.email.trim() || undefined,
+      phone: formData.phone.trim() || undefined,
+      notification_preferences: formData.notification_preferences,
+      privacy_settings: formData.privacy_settings
+    });
+
+    if (success) {
+      setIsEditing(false);
+      toast.success('Profile updated successfully!');
     }
   };
 
-  if (!isConnected || !primaryWallet) {
+  const handleCancel = () => {
+    setIsEditing(false);
+    // Reset form to original values
+    if (userProfile) {
+      setFormData({
+        display_name: userProfile.display_name || '',
+        bio: userProfile.bio || '',
+        location: userProfile.location || '',
+        timezone: userProfile.timezone || 'UTC',
+        email: userProfile.email || user?.email || '',
+        phone: userProfile.phone || '',
+        notification_preferences: userProfile.notification_preferences || {
+          email: true,
+          push: true,
+          sms: false
+        },
+        privacy_settings: userProfile.privacy_settings || {
+          profile_public: true,
+          stats_public: true
+        }
+      });
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const getRarityColor = (rarity: string) => {
+    switch (rarity) {
+      case 'common': return 'bg-gray-100 text-gray-800';
+      case 'uncommon': return 'bg-green-100 text-green-800';
+      case 'rare': return 'bg-blue-100 text-blue-800';
+      case 'epic': return 'bg-purple-100 text-purple-800';
+      case 'legendary': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  if (loading && !userProfile) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center">
-            <Wallet className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-            <h2 className="text-xl font-bold mb-2">Wallet Not Connected</h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              Please connect your wallet to view your profile.
-            </p>
-            <Button onClick={() => setLocation("/")} className="w-full">
-              Go to Landing
-            </Button>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-bitcoin mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading profile...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!primaryWallet?.address) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <Wallet className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Wallet Not Connected</h3>
+              <p className="text-gray-500">Please connect your wallet to view your profile.</p>
+            </div>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Calculate user stats from real data
-  const totalSaved = userGroups.reduce((sum, group) => {
-    return sum + (group.weeklyContribution * group.currentRound);
-  }, 0);
-
-  const activeGroups = userGroups.filter(g => g.status === 'active').length;
-  const completedGroups = userGroups.filter(g => g.status === 'completed').length;
-
-  // Mock reputation score - TODO: Implement real reputation system
-  const reputationScore = 4.8;
-
-  const getReputationBadge = (score: number) => {
-    if (score >= 4.8) return { icon: Crown, label: "Diamond", color: "text-blue-500" };
-    if (score >= 4.5) return { icon: Gem, label: "Platinum", color: "text-purple-500" };
-    if (score >= 4.0) return { icon: Trophy, label: "Gold", color: "text-yellow-500" };
-    if (score >= 3.5) return { icon: Star, label: "Silver", color: "text-gray-500" };
-    return { icon: Target, label: "Bronze", color: "text-orange-500" };
-  };
-
-  const reputationBadge = getReputationBadge(reputationScore);
-  const ReputationIcon = reputationBadge.icon;
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
-      <div className="max-w-4xl mx-auto">
-        {/* Profile Header */}
-        <motion.div
-          className="mb-8"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Profile</h1>
+          <p className="text-gray-500">Manage your account settings and preferences</p>
+        </div>
+        <div className="flex items-center gap-4">
+          {unreadNotificationCount > 0 && (
+            <Badge variant="secondary" className="bg-red-100 text-red-800">
+              {unreadNotificationCount} unread notifications
+            </Badge>
+          )}
+          {!isEditing ? (
+            <Button onClick={() => setIsEditing(true)} className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Edit Profile
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button onClick={handleCancel} variant="outline">
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={loading} className="flex items-center gap-2">
+                <Save className="h-4 w-4" />
+                {loading ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column - Profile Info */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Basic Information */}
           <Card>
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+            <CardHeader>
+              <div className="flex items-center gap-4">
                 <Avatar className="h-20 w-20">
-                  <AvatarFallback className="text-2xl bg-[hsl(27,87%,54%)] text-white">
-                    {user?.email?.[0]?.toUpperCase() || primaryWallet.address?.[2]?.toUpperCase() || "U"}
+                  <AvatarImage src={userProfile?.avatar_url} alt={formData.display_name} />
+                  <AvatarFallback className="text-lg">
+                    {formData.display_name.slice(0, 2).toUpperCase() || 'U'}
                   </AvatarFallback>
                 </Avatar>
-                
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                      {user?.email || "Anonymous User"}
-                    </h1>
-                    <Badge className={`${reputationBadge.color} bg-opacity-10`}>
-                      <ReputationIcon className="h-3 w-3 mr-1" />
-                      {reputationBadge.label}
+                <div>
+                  <CardTitle className="text-2xl">{formData.display_name || 'Anonymous User'}</CardTitle>
+                  <CardDescription className="flex items-center gap-2">
+                    <Wallet className="h-4 w-4" />
+                    {`${primaryWallet.address.slice(0, 6)}...${primaryWallet.address.slice(-4)}`}
+                  </CardDescription>
+                  {userProfile?.onboarding_completed && (
+                    <Badge className="mt-2 bg-green-100 text-green-800">
+                      <User className="h-3 w-3 mr-1" />
+                      Verified User
                     </Badge>
-                  </div>
-                  
-                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400 mb-3">
-                    <span className="font-mono text-sm">
-                      {primaryWallet.address?.slice(0, 6)}...{primaryWallet.address?.slice(-4)}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={copyAddress}
-                      className="h-6 w-6 p-0"
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                  
-                  <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                    <div className="flex items-center gap-1">
-                      <Star className="h-4 w-4 text-yellow-500" />
-                      <span>{reputationScore.toFixed(1)} Reputation</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Bitcoin className="h-4 w-4 text-[hsl(27,87%,54%)]" />
-                      <span>₿ {totalSaved.toFixed(4)} Saved</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
-                
-                <Button variant="outline" className="flex items-center gap-2">
-                  <Edit className="h-4 w-4" />
-                  Edit Profile
-                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="display_name">Display Name *</Label>
+                  {isEditing ? (
+                    <Input
+                      id="display_name"
+                      value={formData.display_name}
+                      onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                      placeholder="Enter your display name"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-600 mt-1">{formData.display_name || 'Not set'}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  {isEditing ? (
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="Enter your email"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-600 mt-1 flex items-center gap-2">
+                      {formData.email ? (
+                        <>
+                          <Mail className="h-4 w-4" />
+                          {formData.email}
+                        </>
+                      ) : (
+                        'Not set'
+                      )}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="phone">Phone</Label>
+                  {isEditing ? (
+                    <Input
+                      id="phone"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="Enter your phone number"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-600 mt-1 flex items-center gap-2">
+                      {formData.phone ? (
+                        <>
+                          <Phone className="h-4 w-4" />
+                          {formData.phone}
+                        </>
+                      ) : (
+                        'Not set'
+                      )}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="location">Location</Label>
+                  {isEditing ? (
+                    <Input
+                      id="location"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      placeholder="Enter your location"
+                    />
+                  ) : (
+                    <p className="text-sm text-gray-600 mt-1 flex items-center gap-2">
+                      {formData.location ? (
+                        <>
+                          <MapPin className="h-4 w-4" />
+                          {formData.location}
+                        </>
+                      ) : (
+                        'Not set'
+                      )}
+                    </p>
+                  )}
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="timezone">Timezone</Label>
+                {isEditing ? (
+                  <Select 
+                    value={formData.timezone} 
+                    onValueChange={(value) => setFormData({ ...formData, timezone: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timezones.map((tz) => (
+                        <SelectItem key={tz.value} value={tz.value}>
+                          {tz.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="text-sm text-gray-600 mt-1 flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    {timezones.find(tz => tz.value === formData.timezone)?.label || formData.timezone}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="bio">Bio</Label>
+                {isEditing ? (
+                  <Textarea
+                    id="bio"
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                    placeholder="Tell others about yourself..."
+                    rows={3}
+                  />
+                ) : (
+                  <p className="text-sm text-gray-600 mt-1">{formData.bio || 'No bio added yet'}</p>
+                )}
               </div>
             </CardContent>
           </Card>
-        </motion.div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            <Card>
-              <CardContent className="p-6 text-center">
-                <Users className="h-8 w-8 mx-auto mb-2 text-[hsl(27,87%,54%)]" />
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {userGroups.length}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Groups</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            <Card>
-              <CardContent className="p-6 text-center">
-                <TrendingUp className="h-8 w-8 mx-auto mb-2 text-green-500" />
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {activeGroups}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Active Groups</p>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-          >
-            <Card>
-              <CardContent className="p-6 text-center">
-                <Trophy className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                  {completedGroups}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Completed</p>
-              </CardContent>
-            </Card>
-          </motion.div>
         </div>
 
-        {/* Recent Activity */}
-        <motion.div
-          className="mb-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-        >
+        {/* Right Column - Stats & Achievements */}
+        <div className="space-y-6">
+          {/* Stats */}
           <Card>
-            <CardContent className="p-6">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-                Recent Activity
-              </h2>
-              
-              {reputationHistory.length === 0 ? (
-                <div className="text-center py-8">
-                  <Zap className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                    No activity yet
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Join a group or create one to start building your reputation.
-                  </p>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Statistics
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Trust Score</span>
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-yellow-500" />
+                  <span className="font-medium">{userProfile?.trust_score?.toFixed(1) || '0.0'}</span>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {reputationHistory.map((event, index) => (
-                    <div key={index} className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Total Contributions</span>
+                <span className="font-medium">{userProfile?.total_contributions || 0} cBTC</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Successful Rounds</span>
+                <span className="font-medium">{userProfile?.successful_rounds || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Groups Created</span>
+                <span className="font-medium">{userProfile?.groups_created || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-500">Groups Joined</span>
+                <span className="font-medium">{userProfile?.groups_joined || 0}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Achievements */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trophy className="h-5 w-5" />
+                Achievements ({achievements.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {achievements.length > 0 ? (
+                <div className="space-y-3">
+                  {achievements.slice(0, 5).map((userAchievement) => (
+                    <div key={userAchievement.id} className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
                       <div className="flex-shrink-0">
-                        {event.type === 'contribution' && <Bitcoin className="h-5 w-5 text-[hsl(27,87%,54%)]" />}
-                        {event.type === 'payout' && <TrendingUp className="h-5 w-5 text-green-500" />}
-                        {event.type === 'reputation' && <Star className="h-5 w-5 text-yellow-500" />}
+                        <div 
+                          className="w-8 h-8 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: userAchievement.achievement?.badge_color || '#6B7280' }}
+                        >
+                          <Trophy className="h-4 w-4 text-white" />
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                          {event.description}
-                        </p>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          {event.groupName} • {event.date.toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className={`text-sm font-medium ${
-                          event.points > 0 ? 'text-green-500' : 'text-red-500'
-                        }`}>
-                          {event.points > 0 ? '+' : ''}{event.points} pts
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-sm">{userAchievement.achievement?.name}</p>
+                          <Badge className={getRarityColor(userAchievement.achievement?.rarity || 'common')}>
+                            {userAchievement.achievement?.rarity}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-gray-500">{userAchievement.achievement?.description}</p>
+                        <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
+                          <Clock className="h-3 w-3" />
+                          {formatDate(userAchievement.earned_at)}
                         </p>
                       </div>
                     </div>
                   ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Groups Overview */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-        >
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                  Your Groups
-                </h2>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => setLocation("/dashboard")}
-                >
-                  View All
-                </Button>
-              </div>
-              
-              {userGroups.length === 0 ? (
-                <div className="text-center py-8">
-                  <Bitcoin className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                    No groups yet
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    Join your first ROSCA group to start saving together.
-                  </p>
-                  <Button 
-                    onClick={() => setLocation("/dashboard")}
-                    className="bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)]"
-                  >
-                    Explore Groups
-                  </Button>
+                  {achievements.length > 5 && (
+                    <p className="text-sm text-gray-500 text-center">
+                      +{achievements.length - 5} more achievements
+                    </p>
+                  )}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {userGroups.slice(0, 4).map((group, index) => (
-                    <Card 
-                      key={group.id} 
-                      className="cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => setLocation(`/group/${group.id}`)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                            {group.name}
-                          </h3>
-                          <Badge variant={group.status === 'active' ? 'default' : 'secondary'}>
-                            {group.status}
-                          </Badge>
-                        </div>
-                        <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                          <div className="flex justify-between">
-                            <span>Contribution:</span>
-                            <span>₿ {formatContribution(group.contribution)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Progress:</span>
-                            <span>{group.currentRound}/{group.totalRounds}</span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                <div className="text-center py-4">
+                  <Trophy className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No achievements yet</p>
+                  <p className="text-xs text-gray-400">Complete actions to earn achievements!</p>
                 </div>
               )}
             </CardContent>
           </Card>
-        </motion.div>
+
+          {/* Account Info */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Account Info
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Member Since</span>
+                <span>{userProfile?.created_at ? formatDate(userProfile.created_at) : 'Unknown'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Last Active</span>
+                <span>{userProfile?.last_active_at ? formatDate(userProfile.last_active_at) : 'Unknown'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Language</span>
+                <span>{userProfile?.preferred_language || 'English'}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
