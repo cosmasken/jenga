@@ -45,3 +45,13 @@ supabase/migrations/
 *.njsproj*
 *.sln
 *.sw?
+# Database files
+*.sql
+# Temporary documentation files
+*_README.md
+*_SUMMARY.md
+*_FIXES*.md
+CHANGES_COMPLETED.md
+MIG.md
+OLDFILES.md
+REPORT.md
