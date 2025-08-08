@@ -134,7 +134,7 @@ export function WalletDropdown({ className = '' }: WalletDropdownProps) {
           </Button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" className="w-80 p-0">
+        <DropdownMenuContent align="end" className="w-80 sm:w-80 w-72 p-0">
           <div className="p-4 bg-gradient-to-r from-bitcoin/5 to-bitcoin/10 border-b">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 bg-bitcoin/20 rounded-full flex items-center justify-center">

@@ -289,63 +289,70 @@ export default function Dashboard() {
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
                 <motion.div
-                    className="mb-8 flex items-center justify-between"
+                    className="mb-6 md:mb-8"
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
                 >
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-                            Dashboard
-                        </h1>
-                        <p className="text-gray-600 dark:text-gray-400">
-                            Welcome back, {getUserDisplayName()}
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        {/* Profile Button */}
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setShowEditProfile(true)}
-                            className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5 dark:border-bitcoin/30 dark:hover:border-bitcoin/50 dark:hover:bg-bitcoin/10 transition-all duration-200"
-                        >
-                            <User className="h-[1.2rem] w-[1.2rem] text-muted-foreground" />
-                        </Button>
-
-                        {/* Notification Bell */}
-                        <div className="relative">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                                Dashboard
+                            </h1>
+                            <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
+                                Welcome back, {getUserDisplayName()}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            {/* Profile Button */}
                             <Button
                                 variant="outline"
                                 size="icon"
-                                onClick={() => setShowNotificationSidebar(true)}
-                                className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5 dark:border-bitcoin/30 dark:hover:border-bitcoin/50 dark:hover:bg-bitcoin/10 transition-all duration-200"
+                                onClick={() => setShowEditProfile(true)}
+                                className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5 dark:border-bitcoin/30 dark:hover:border-bitcoin/50 dark:hover:bg-bitcoin/10 transition-all duration-200 h-8 w-8 sm:h-10 sm:w-10"
                             >
-                                {recentNotifications.filter(n => !n.is_read).length > 0 ? (
-                                    <Bell className="h-[1.2rem] w-[1.2rem] text-bitcoin" />
-                                ) : (
-                                    <BellOff className="h-[1.2rem] w-[1.2rem] text-muted-foreground" />
-                                )}
+                                <User className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
                             </Button>
-                            {recentNotifications.filter(n => !n.is_read).length > 0 && (
-                                <span className="absolute -top-2 -right-2 bg-bitcoin text-bitcoin-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
-                                    {recentNotifications.filter(n => !n.is_read).length > 9 ? '9+' : recentNotifications.filter(n => !n.is_read).length}
+
+                            {/* Notification Bell */}
+                            <div className="relative">
+                                <Button
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setShowNotificationSidebar(true)}
+                                    className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5 dark:border-bitcoin/30 dark:hover:border-bitcoin/50 dark:hover:bg-bitcoin/10 transition-all duration-200 h-8 w-8 sm:h-10 sm:w-10"
+                                >
+                                    {recentNotifications.filter(n => !n.is_read).length > 0 ? (
+                                        <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-bitcoin" />
+                                    ) : (
+                                        <BellOff className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+                                    )}
+                                </Button>
+                                {recentNotifications.filter(n => !n.is_read).length > 0 && (
+                                    <span className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-bitcoin text-bitcoin-foreground text-xs rounded-full h-4 w-4 sm:h-5 sm:w-5 flex items-center justify-center font-medium text-[10px] sm:text-xs">
+                                        {recentNotifications.filter(n => !n.is_read).length > 9 ? '9+' : recentNotifications.filter(n => !n.is_read).length}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* Event Monitoring Status - hidden on mobile */}
+                            <div className="hidden sm:flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${eventListener.isMonitoring ? 'bg-green-500' : 'bg-gray-400'}`} />
+                                <span className="text-xs text-muted-foreground">
+                                    {eventListener.isMonitoring ? 'Live' : 'Offline'}
                                 </span>
-                            )}
+                            </div>
+
+                            {/* Wallet Dropdown - compact on mobile */}
+                            <div className="block">
+                                <WalletDropdown />
+                            </div>
+
+                            {/* Theme Toggle - hidden on mobile (moved to wallet dropdown) */}
+                            <div className="hidden sm:block">
+                                <ThemeToggle />
+                            </div>
                         </div>
-
-                        {/* Event Monitoring Status */}
-                        <div className="flex items-center gap-2">
-                            <div className={`w-2 h-2 rounded-full ${eventListener.isMonitoring ? 'bg-green-500' : 'bg-gray-400'}`} />
-                            <span className="text-xs text-muted-foreground">
-                                {eventListener.isMonitoring ? 'Live' : 'Offline'}
-                            </span>
-                        </div>
-
-                        {/* Wallet Dropdown */}
-                        <WalletDropdown />
-
-                        <ThemeToggle />
                     </div>
                 </motion.div>
 

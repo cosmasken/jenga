@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { DynamicConnectButton } from '@/components/ui/dynamic-connect-button';
 import { WalletDropdown, CompactWalletButton } from '@/components/WalletDropdown';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { DevDatabaseSetup } from '@/components/DevDatabaseSetup';
 import { useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 
 export default function LandingPage() {
@@ -93,26 +94,28 @@ export default function LandingPage() {
     <div className="min-h-screen bg-gradient-to-br from-bitcoin/5 via-background to-yellow-400/5">
       {/* Header */}
       <header className="border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-bitcoin rounded-full flex items-center justify-center">
-                <Bitcoin className="text-white" size={24} />
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-bitcoin rounded-full flex items-center justify-center">
+                <Bitcoin className="text-white" size={20} />
               </div>
               <div>
-                <h1 className="text-xl font-bold">ROSCA</h1>
-                <p className="text-xs text-gray-600 dark:text-gray-400">Bitcoin Savings Circles</p>
+                <h1 className="text-lg sm:text-xl font-bold">ROSCA</h1>
+                <p className="text-xs text-gray-600 dark:text-gray-400 hidden sm:block">Bitcoin Savings Circles</p>
               </div>
             </div>
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              <ThemeToggle />
+            <div className="flex items-center space-x-1 sm:space-x-3">
+              <div className="hidden sm:block">
+                <ThemeToggle />
+              </div>
               {isLoggedIn ? (
                 <CompactWalletButton />
               ) : (
                 <DynamicConnectButton
-                  connectText="Connect Wallet"
-                  className="bg-bitcoin hover:bg-bitcoin/90 text-white text-sm sm:text-base"
-                  showIcon={true}
+                  connectText="Connect"
+                  className="bg-bitcoin hover:bg-bitcoin/90 text-white text-sm px-3 py-2 sm:px-4 sm:py-2"
+                  showIcon={false}
                   showConnectedState={false}
                 />
               )}
@@ -122,35 +125,35 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="py-20 px-4">
+      <section className="py-12 sm:py-20 px-4">
         <div className="max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <div className="w-20 h-20 bg-bitcoin/10 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Bitcoin className="text-bitcoin" size={40} />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-bitcoin/10 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
+              <Bitcoin className="text-bitcoin" size={32} />
             </div>
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-bitcoin to-yellow-500 bg-clip-text text-transparent">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 bg-gradient-to-r from-bitcoin to-yellow-500 bg-clip-text text-transparent px-2">
               Save Together,<br />Grow Together
             </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-3xl mx-auto">
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-400 mb-6 sm:mb-8 max-w-3xl mx-auto px-4">
               Join the future of community savings with Bitcoin-powered ROSCA circles.
               Transparent, secure, and built for families, friends, and communities.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4">
               <DynamicConnectButton
                 connectText="Start Saving Now"
                 size="lg"
-                className="bg-bitcoin hover:bg-bitcoin/90 text-white px-8 py-4 text-lg"
+                className="bg-bitcoin hover:bg-bitcoin/90 text-white px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg"
                 showIcon={true}
                 showConnectedState={false}
               />
               <Button
                 variant="outline"
                 size="lg"
-                className="px-8 py-4 text-lg"
+                className="px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg"
                 onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
               >
                 Learn How It Works
@@ -159,6 +162,15 @@ export default function LandingPage() {
           </motion.div>
         </div>
       </section>
+
+      {/* DEV: Database Setup Section (remove in production) */}
+      {import.meta.env.DEV && (
+        <section className="py-8 bg-red-50 dark:bg-red-900/20 border-y border-red-200 dark:border-red-800">
+          <div className="max-w-7xl mx-auto">
+            <DevDatabaseSetup />
+          </div>
+        </section>
+      )}
 
       {/* Stats Section */}
       <section className="py-16 bg-white/50 dark:bg-gray-900/50">

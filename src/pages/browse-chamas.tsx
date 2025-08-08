@@ -455,82 +455,87 @@ return (
         </div>
 
         {/* Filter Controls */}
-        <div className="flex flex-wrap items-center gap-4">
-          <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="open">Open</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="full">Full</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-3 sm:gap-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger className="w-32 sm:w-40 text-sm">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="open">Open</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="full">Full</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <Select value={contributionRange} onValueChange={setContributionRange}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Contribution Range" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Amounts</SelectItem>
-              <SelectItem value="low">Low (&lt; 0.01 cBTC)</SelectItem>
-              <SelectItem value="medium">Medium (0.01 - 0.05 cBTC)</SelectItem>
-              <SelectItem value="high">High (&gt; 0.05 cBTC)</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select value={contributionRange} onValueChange={setContributionRange}>
+              <SelectTrigger className="w-36 sm:w-48 text-sm">
+                <SelectValue placeholder="Amount" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Amounts</SelectItem>
+                <SelectItem value="low">Low (&lt; 0.01 cBTC)</SelectItem>
+                <SelectItem value="medium">Medium (0.01 - 0.05 cBTC)</SelectItem>
+                <SelectItem value="high">High (&gt; 0.05 cBTC)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select value={sortBy} onValueChange={(value: unknown) => setSortBy(value as SortOption)}>
-            <SelectTrigger className="w-48">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">Newest First</SelectItem>
-              <SelectItem value="oldest">Oldest First</SelectItem>
-              <SelectItem value="contribution-high">Highest Contribution</SelectItem>
-              <SelectItem value="contribution-low">Lowest Contribution</SelectItem>
-              <SelectItem value="members">Most Spots Available</SelectItem>
-              <SelectItem value="trust-score">Highest Trust Score</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <Select value={sortBy} onValueChange={(value: unknown) => setSortBy(value as SortOption)}>
+              <SelectTrigger className="w-36 sm:w-48 text-sm">
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Newest First</SelectItem>
+                <SelectItem value="oldest">Oldest First</SelectItem>
+                <SelectItem value="contribution-high">Highest Contribution</SelectItem>
+                <SelectItem value="contribution-low">Lowest Contribution</SelectItem>
+                <SelectItem value="members">Most Spots Available</SelectItem>
+                <SelectItem value="trust-score">Highest Trust Score</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Filter className="h-4 w-4 mr-2" />
-                Tags {selectedTags.length > 0 && `(${selectedTags.length})`}
-                <ChevronDown className="h-4 w-4 ml-2" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56">
-              {allTags.map((tag) => (
-                <DropdownMenuCheckboxItem
-                  key={tag}
-                  checked={selectedTags.includes(tag)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setSelectedTags([...selectedTags, tag]);
-                    } else {
-                      setSelectedTags(selectedTags.filter(t => t !== tag));
-                    }
-                  }}
-                >
-                  {tag}
-                </DropdownMenuCheckboxItem>
-              ))}
-              {selectedTags.length > 0 && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setSelectedTags([])}>
-                    Clear All
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter className="h-4 w-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Tags</span>
+                  {selectedTags.length > 0 && ` (${selectedTags.length})`}
+                  <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56">
+                {allTags.map((tag) => (
+                  <DropdownMenuCheckboxItem
+                    key={tag}
+                    checked={selectedTags.includes(tag)}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setSelectedTags([...selectedTags, tag]);
+                      } else {
+                        setSelectedTags(selectedTags.filter(t => t !== tag));
+                      }
+                    }}
+                  >
+                    {tag}
+                  </DropdownMenuCheckboxItem>
+                ))}
+                {selectedTags.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setSelectedTags([])}>
+                      Clear All
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
-          <div className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="text-sm text-gray-600 dark:text-gray-400 w-full sm:w-auto mt-2 sm:mt-0">
             {filteredAndSortedGroups.length} chama{filteredAndSortedGroups.length !== 1 ? 's' : ''} found
           </div>
         </div>

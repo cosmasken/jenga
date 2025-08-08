@@ -181,6 +181,7 @@ export function useSimpleSupabase() {
 
   /**
    * Create or update user profile (for onboarding)
+   * Simplified for development - no RLS complications
    */
   const saveUser = useCallback(async (userData: Partial<UserProfile>): Promise<UserProfile | null> => {
     if (!primaryWallet?.address) {
@@ -194,11 +195,32 @@ export function useSimpleSupabase() {
       const userPayload = {
         wallet_address: primaryWallet.address,
         last_active_at: new Date().toISOString(),
-        ...userData
+        trust_score: 5.0,
+        total_contributions: 0,
+        successful_rounds: 0,
+        groups_created: 0,
+        groups_joined: 0,
+        notification_preferences: {
+          email: true,
+          push: true,
+          sms: false
+        },
+        privacy_settings: {
+          profile_public: true,
+          stats_public: true
+        },
+        preferred_language: 'en',
+        onboarding_completed: false,
+        ...userData // This will override defaults with user's choices
       };
 
-      console.log('🔄 About to upsert user with payload:', userPayload);
+      console.log('🔄 DEV MODE: Saving user to database:', {
+        wallet: primaryWallet.address,
+        display_name: userPayload.display_name,
+        preferred_language: userPayload.preferred_language
+      });
       
+      // Direct Supabase upsert (no RLS in dev)
       const { data, error } = await supabase
         .from('users')
         .upsert(userPayload, { 
@@ -209,23 +231,23 @@ export function useSimpleSupabase() {
         .single();
 
       if (error) {
-        console.error('❌ Detailed Supabase error:', {
+        console.error('❌ Supabase error:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
           code: error.code
         });
-        toast.error(`Failed to save profile: ${error.message}`);
+        toast.error(`Database error: ${error.message}`);
         return null;
       }
 
+      console.log('✅ User saved to database successfully!');
       setUser(data);
       toast.success('Profile saved successfully!');
       return data;
     } catch (err: any) {
-      console.error('❌ Failed to save user - caught exception:', {
+      console.error('❌ Failed to save user:', {
         message: err?.message || 'Unknown error',
-        stack: err?.stack,
         error: err
       });
       toast.error(`Failed to save profile: ${err?.message || 'Unknown error'}`);
