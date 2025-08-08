@@ -41,6 +41,12 @@ import { formatDistanceToNow } from 'date-fns';
 import { formatAmount, formatDuration } from '@/lib/unitConverter';
 import { useUnitDisplay } from '@/contexts/UnitDisplayContext';
 
+// Utility function to truncate addresses for display
+const truncateAddress = (address: string, startChars: number = 6, endChars: number = 4): string => {
+  if (!address || address.length <= startChars + endChars + 3) return address;
+  return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
+};
+
 // Mock data - in real app, fetch from contract
 interface ChamaDetail {
   id: string;
@@ -420,31 +426,48 @@ export default function ChamaDetail() {
       {/* Header */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between h-16 gap-2">
+            {/* Left section with back button and title */}
+            <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setLocation('/browse')}
+                className="flex-shrink-0"
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white truncate">
                   {chama.name}
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 hidden sm:block">
                   Chama Details
                 </p>
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
-              <Button variant="outline" size="icon" onClick={handleShare}>
-                <Share2 className="h-4 w-4" />
+            {/* Right section with action buttons */}
+            <div className="flex items-center gap-1 sm:gap-2 lg:gap-3 flex-shrink-0">
+              {/* Share button - hidden on very small screens */}
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={handleShare}
+                className="hidden sm:flex h-8 w-8 sm:h-10 sm:w-10"
+              >
+                <Share2 className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
-              <WalletDropdown />
-              <ThemeToggle />
+              
+              {/* Wallet dropdown - compact on mobile */}
+              <div className="scale-90 sm:scale-100">
+                <WalletDropdown />
+              </div>
+              
+              {/* Theme toggle - hidden on small screens, shown on larger screens */}
+              <div className="hidden md:block">
+                <ThemeToggle />
+              </div>
             </div>
           </div>
         </div>
@@ -548,8 +571,8 @@ export default function ChamaDetail() {
                           <div className="font-medium">
                             {member.nickname || `Member ${index + 1}`}
                           </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {member.address}
+                          <div className="text-sm text-gray-600 dark:text-gray-400 font-mono">
+                            {truncateAddress(member.address)}
                           </div>
                         </div>
                       </div>
@@ -725,8 +748,8 @@ export default function ChamaDetail() {
                   </Avatar>
                   <div>
                     <div className="font-medium">Creator</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {chama.creator}
+                    <div className="text-sm text-gray-600 dark:text-gray-400 font-mono">
+                      {truncateAddress(chama.creator)}
                     </div>
                   </div>
                 </div>

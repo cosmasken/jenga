@@ -197,23 +197,25 @@ return (
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="flex items-center gap-4 mb-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setLocation("/dashboard")}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              Group #{group.id}
-            </h1>
-            <Badge variant={isActive ? "default" : "secondary"}>
-              {isActive ? "Active" : "Completed"}
-            </Badge>
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setLocation("/dashboard")}
+              className="flex items-center gap-1 sm:gap-2 flex-shrink-0"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="hidden sm:inline">Back</span>
+            </Button>
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-gray-100 truncate">
+                Group #{group.id}
+              </h1>
+              <Badge variant={isActive ? "default" : "secondary"} className="flex-shrink-0">
+                {isActive ? "Active" : "Completed"}
+              </Badge>
+            </div>
           </div>
         </div>
       </motion.div>

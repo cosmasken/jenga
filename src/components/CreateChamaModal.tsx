@@ -21,6 +21,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     maxMembers: '5' // Default to 5 members
   });
   const [maxSpendable, setMaxSpendable] = useState<string>('0');
+  const [maxSpendableRaw, setMaxSpendableRaw] = useState<string>('0'); // Store raw numeric value
 
   const { primaryWallet } = useDynamicContext();
   const {
@@ -43,7 +44,12 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   // Get max spendable amount when modal opens or balance changes
   useEffect(() => {
     if (open && isConnected) {
-      getMaxSpendableAmount().then(setMaxSpendable);
+      getMaxSpendableAmount().then((formattedAmount) => {
+        setMaxSpendable(formattedAmount);
+        // Extract numeric value from formatted string
+        const numericValue = formattedAmount.split(' ')[0];
+        setMaxSpendableRaw(numericValue);
+      });
     }
   }, [open, isConnected, balance, getMaxSpendableAmount]);
 
@@ -55,7 +61,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
     try {
       const contribution = parseFloat(formData.contributionAmount);
-      const maxSpendableNum = parseFloat(maxSpendable);
+      const maxSpendableNum = parseFloat(maxSpendableRaw);
       const balanceNum = parseFloat(balance);
 
       // Validate minimum contribution (0.0001 cBTC)
@@ -92,7 +98,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     } catch {
       return { isValid: true, error: null };
     }
-  }, [formData.contributionAmount, maxSpendable, balance, displayUnit]);
+  }, [formData.contributionAmount, maxSpendableRaw, balance, displayUnit]);
 
   // Reset modal state
   const resetModal = () => {
@@ -227,14 +233,14 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 bg-white dark:bg-card rounded-xl border border-gray-200 dark:border-border shadow-2xl">
+      <div className="relative w-full max-w-md mx-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl">
         {/* Header */}
         <div className="flex items-center gap-3 p-6 border-b border-gray-200 dark:border-border">
           <div className="w-8 h-8 bg-gradient-to-br from-bitcoin-orange to-bitcoin-yellow rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">₿</span>
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-foreground">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               {currentStep === 'form' && 'Create New Chama'}
               {currentStep === 'preview' && 'Transaction Preview'}
               {currentStep === 'transaction' && 'Creating Chama'}
@@ -250,27 +256,27 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
         {/* Step Indicator */}
         <div className="flex items-center justify-center gap-2 p-4 bg-gray-50 dark:bg-gray-800/50">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${currentStep === 'form'
-              ? 'bg-bitcoin-orange text-white shadow-bitcoin'
+              ? 'bg-bitcoin text-white shadow-bitcoin'
               : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
             }`}>
             1
           </div>
           <div className={`w-8 h-1 rounded transition-all ${['preview', 'transaction'].includes(currentStep)
-              ? 'bg-bitcoin-orange'
+              ? 'bg-bitcoin'
               : 'bg-gray-200 dark:bg-gray-700'
             }`}></div>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${currentStep === 'preview'
-              ? 'bg-bitcoin-orange text-white shadow-bitcoin'
+              ? 'bg-bitcoin text-white shadow-bitcoin'
               : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
             }`}>
             2
           </div>
           <div className={`w-8 h-1 rounded transition-all ${currentStep === 'transaction'
-              ? 'bg-bitcoin-orange'
+              ? 'bg-bitcoin'
               : 'bg-gray-200 dark:bg-gray-700'
             }`}></div>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${currentStep === 'transaction'
-              ? 'bg-bitcoin-orange text-white shadow-bitcoin'
+              ? 'bg-bitcoin text-white shadow-bitcoin'
               : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
             }`}>
             3
@@ -350,12 +356,12 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
             <span>Max (after gas):</span>
             <button
               type="button"
-              onClick={() => setFormData(prev => ({ ...prev, contributionAmount: maxSpendable }))}
+              onClick={() => setFormData(prev => ({ ...prev, contributionAmount: maxSpendableRaw }))}
               className="font-mono text-bitcoin hover:text-bitcoin-dark underline cursor-pointer transition-colors"
-              disabled={isLoadingBalance || parseFloat(maxSpendable) <= 0}
+              disabled={isLoadingBalance || parseFloat(maxSpendableRaw) <= 0}
               title="Use maximum amount"
             >
-              {formatAmount(parseCbtcToWei(maxSpendable), displayUnit)}
+              {maxSpendable}
             </button>
           </div>
         </div>
@@ -369,17 +375,17 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                         key={amount}
                         type="button"
                         onClick={() => setFormData(prev => ({ ...prev, contributionAmount: amount }))}
-                        className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-                        disabled={parseCbtcToWei(amount) > parseCbtcToWei(maxSpendable)}
+                        className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
+                        disabled={parseCbtcToWei(amount) > parseCbtcToWei(maxSpendableRaw)}
                       >
                         {formatAmount(parseCbtcToWei(amount), displayUnit)}
                       </button>
                     ))}
                     <button
                       type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, contributionAmount: (parseFloat(maxSpendable) * 0.5).toFixed(6) }))}
+                      onClick={() => setFormData(prev => ({ ...prev, contributionAmount: (parseFloat(maxSpendableRaw) * 0.5).toFixed(6) }))}
                       className="px-2 py-1 text-xs bg-bitcoin/10 hover:bg-bitcoin/20 text-bitcoin rounded transition-colors"
-                      disabled={parseFloat(maxSpendable) <= 0}
+                      disabled={parseFloat(maxSpendableRaw) <= 0}
                     >
                       50%
                     </button>
@@ -508,7 +514,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-bitcoin-orange to-bitcoin-orange-dark text-white rounded-lg hover:shadow-bitcoin disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-bitcoin to-bitcoin-dark text-white font-medium rounded-lg hover:shadow-bitcoin disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   disabled={isLoading ||
                     !formData.name ||
                     !formData.contributionAmount ||
@@ -606,7 +612,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                 <button
                   type="button"
                   onClick={handleTransactionSubmit}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-bitcoin-orange to-bitcoin-orange-dark text-white rounded-lg hover:shadow-bitcoin disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-bitcoin to-bitcoin-dark text-white font-medium rounded-lg hover:shadow-bitcoin disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   disabled={isLoading}
                 >
                   ✓ Create Chama
