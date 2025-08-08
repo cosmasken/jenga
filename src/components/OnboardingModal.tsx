@@ -149,9 +149,6 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
       if (createdUser) {
         console.log('✅ User profile created:', createdUser);
 
-        // Store language preference in localStorage for immediate use
-        localStorage.setItem(LANGUAGE_STORAGE_KEY, selectedLanguage);
-
         // Award onboarding achievement
         try {
           await awardAchievement('Welcome to Jenga!', {
@@ -181,23 +178,6 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
         } catch (notificationError) {
           console.warn('⚠️ Could not create welcome notification:', notificationError);
           // Don't fail onboarding if notification fails
-        }
-
-      // Store onboarding completion in localStorage (for backward compatibility)
-        localStorage.setItem('jenga_onboarding_completed', 'true');
-        localStorage.setItem('jenga_user_display_name', username.trim());
-        localStorage.setItem('jenga_user_profile_icon', selectedIcon.id);
-        localStorage.setItem('jenga_user_supabase_id', createdUser.id);
-        
-        // Complete onboarding in database
-        const onboardingCompleted = await completeOnboarding();
-        console.log('✅ Onboarding completion updated in database:', onboardingCompleted);
-        
-        // Store the identifier type and value for future reference
-        const identifierDisplay = getIdentifierDisplay();
-        if (identifierDisplay) {
-          localStorage.setItem('jenga_user_identifier_type', identifierDisplay.type);
-          localStorage.setItem('jenga_user_identifier_value', identifierDisplay.value);
         }
 
         // Show welcome toast with appropriate message

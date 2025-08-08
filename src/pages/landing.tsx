@@ -22,22 +22,15 @@ export default function LandingPage() {
   const [, setLocation] = useLocation();
 
   // Redirect authenticated users away from landing page
+  // Note: Onboarding status is now handled by App.tsx through database checks
   useEffect(() => {
-    const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
-    
     if (isLoggedIn) {
       console.log('🔄 User connected wallet on landing page');
-      
-      if (onboardingCompleted) {
-        console.log('🔄 Onboarding completed, redirecting to dashboard');
-        setLocation('/dashboard');
-      } else {
-        console.log('🔄 Onboarding not completed, staying on landing page - onboarding modal will handle this');
-        // Don't redirect to /onboarding route - let the App component handle the onboarding modal
-        // The onboarding modal will be triggered by the App component's logic
-      }
+      // Let App.tsx handle onboarding logic through database checks
+      // If user has completed onboarding, they will be redirected by App.tsx
+      console.log('🔄 App component will handle onboarding status through database checks');
     }
-  }, [isLoggedIn, setLocation]);
+  }, [isLoggedIn]);
 
   const features = [
     {

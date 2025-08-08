@@ -57,6 +57,7 @@ export default function Dashboard() {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [userGroups, setUserGroups] = useState<any[]>([]);
     const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+    const [hasShownWelcome, setHasShownWelcome] = useState(false);
     
     const { contributionReminder, memberJoined, success } = useRoscaToast();
 
@@ -214,9 +215,6 @@ export default function Dashboard() {
     const getUserDisplayName = () => {
         if (userProfile?.display_name) return userProfile.display_name;
         
-        const storedName = localStorage.getItem('jenga_user_display_name');
-        if (storedName) return storedName;
-        
         if (user?.email) return user.email;
         if (user?.phone) return user.phone;
         if (primaryWallet?.address) return `${primaryWallet.address.slice(0, 6)}...${primaryWallet.address.slice(-4)}`;
@@ -232,16 +230,23 @@ export default function Dashboard() {
 
     // Show welcome message for first-time visitors
     useEffect(() => {
-        const hasSeenWelcome = localStorage.getItem('jenga_dashboard_welcome_shown');
-        const userName = localStorage.getItem('jenga_user_display_name');
-        
-        if (!hasSeenWelcome && userName && isLoggedIn) {
+        // Only show welcome message for users who have completed onboarding
+        // and haven't seen the dashboard welcome yet, and we haven't shown it in this session
+        if (userProfile?.onboarding_completed && 
+            userProfile?.display_name && 
+            !userProfile?.dashboard_welcome_shown && 
+            !hasShownWelcome && 
+            isLoggedIn) {
+            
+            // Set flag immediately to prevent multiple toasts
+            setHasShownWelcome(true);
+            
             setTimeout(() => {
-                success(`Welcome to your Dashboard, ${userName}! 🏠`, "Start by creating your first savings group or joining an existing one");
-                localStorage.setItem('jenga_dashboard_welcome_shown', 'true');
+                success(`Welcome to your Dashboard, ${userProfile.display_name}! 🏠`, "Start by creating your first savings group or joining an existing one");
+                // TODO: Mark dashboard_welcome_shown in the database if needed
             }, 1000);
         }
-    }, [isLoggedIn, success]);
+    }, [isLoggedIn, userProfile?.onboarding_completed, userProfile?.display_name, userProfile?.dashboard_welcome_shown, hasShownWelcome, success]);
 
     // Redirect to landing if not logged in
     useEffect(() => {

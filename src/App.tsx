@@ -104,9 +104,6 @@ function App() {
           
           setOnboardingCompleted(isOnboardingComplete);
           
-          // Sync with localStorage for backward compatibility
-          localStorage.setItem('jenga_onboarding_completed', isOnboardingComplete.toString());
-          
           if (isOnboardingComplete) {
             // User is onboarded - redirect to dashboard if on landing page
             console.log('🔄 User is onboarded, hiding modal and redirecting if needed');
@@ -124,19 +121,14 @@ function App() {
           // No user found in database - new user needs onboarding
           console.log('🔄 No user found in database, showing onboarding modal');
           setOnboardingCompleted(false);
-          localStorage.setItem('jenga_onboarding_completed', 'false');
           setShowOnboarding(true);
         }
       }).catch((error) => {
         console.error('❌ Error checking onboarding status:', error);
-        // Fallback to localStorage on error
-        const localOnboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';
-        console.log('⚠️ Falling back to localStorage:', {
-          localStorage_value: localStorage.getItem('jenga_onboarding_completed'),
-          processed_value: localOnboardingCompleted
-        });
-        setOnboardingCompleted(localOnboardingCompleted);
-        setShowOnboarding(!localOnboardingCompleted);
+        // On database error, assume new user needs onboarding
+        console.log('⚠️ Database error, treating as new user');
+        setOnboardingCompleted(false);
+        setShowOnboarding(true);
       }).finally(() => {
         setCheckingOnboarding(false);
       });
@@ -152,7 +144,6 @@ function App() {
     console.log('✅ Onboarding completed, updating state');
     setOnboardingCompleted(true);
     setShowOnboarding(false);
-    localStorage.setItem('jenga_onboarding_completed', 'true');
     // Redirect to dashboard after onboarding
     setLocation('/dashboard');
   };
