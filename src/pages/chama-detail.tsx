@@ -41,6 +41,12 @@ import { formatDistanceToNow } from 'date-fns';
 import { formatAmount, formatDuration } from '@/lib/unitConverter';
 import { useUnitDisplay } from '@/contexts/UnitDisplayContext';
 
+// Utility function to truncate addresses for display
+const truncateAddress = (address: string, startChars: number = 6, endChars: number = 4): string => {
+  if (!address || address.length <= startChars + endChars + 3) return address;
+  return `${address.slice(0, startChars)}...${address.slice(-endChars)}`;
+};
+
 // Mock data - in real app, fetch from contract
 interface ChamaDetail {
   id: string;
@@ -548,8 +554,8 @@ export default function ChamaDetail() {
                           <div className="font-medium">
                             {member.nickname || `Member ${index + 1}`}
                           </div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {member.address}
+                          <div className="text-sm text-gray-600 dark:text-gray-400 font-mono">
+                            {truncateAddress(member.address)}
                           </div>
                         </div>
                       </div>
@@ -725,8 +731,8 @@ export default function ChamaDetail() {
                   </Avatar>
                   <div>
                     <div className="font-medium">Creator</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {chama.creator}
+                    <div className="text-sm text-gray-600 dark:text-gray-400 font-mono">
+                      {truncateAddress(chama.creator)}
                     </div>
                   </div>
                 </div>
