@@ -225,7 +225,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -233,7 +233,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl">
+      <div className="relative w-full max-w-md max-h-[90vh] overflow-hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-2xl flex flex-col">
         {/* Header */}
         <div className="flex items-center gap-3 p-6 border-b border-gray-200 dark:border-border">
           <div className="w-8 h-8 bg-gradient-to-br from-bitcoin-orange to-bitcoin-yellow rounded-lg flex items-center justify-center">
@@ -284,7 +284,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="flex-1 overflow-y-auto p-6">
           {/* Form Step */}
           {currentStep === 'form' && (
             <form onSubmit={handleFormSubmit} className="space-y-4">
