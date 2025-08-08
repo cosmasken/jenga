@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useRoscaToast } from "@/hooks/use-rosca-toast";
-import { ArrowLeft, Users, Share2, History, AlertTriangle, Check, Clock, Bitcoin, Wallet, Copy } from "lucide-react";
+import { GroupManagementModal } from "@/components/GroupManagementModal";
+import { ArrowLeft, Users, Share2, History, AlertTriangle, Check, Clock, Bitcoin, Wallet, Copy, Settings, Crown } from "lucide-react";
 
 export default function GroupDetail() {
   const { id } = useParams();
@@ -25,13 +26,18 @@ export default function GroupDetail() {
     contribute,
     formatContribution,
     isLoading,
-    error
+    error,
+    isGroupCreator,
+    isGroupMember
   } = useRosca();
   const { logActivity, createNotification } = useSupabase();
 
   const [group, setGroup] = useState<any>(null);
   const [isContributing, setIsContributing] = useState(false);
   const [loadingGroup, setLoadingGroup] = useState(true);
+  const [isCreator, setIsCreator] = useState(false);
+  const [isMember, setIsMember] = useState(false);
+  const [showManagementModal, setShowManagementModal] = useState(false);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -65,6 +71,24 @@ export default function GroupDetail() {
 
         setGroup(groupData);
         console.log('✅ Blockchain group loaded:', groupData);
+        
+        // Check user role after loading group data
+        if (primaryWallet?.address && isLoggedIn) {
+          const [creatorStatus, memberStatus] = await Promise.all([
+            isGroupCreator(groupId),
+            isGroupMember(groupId)
+          ]);
+          
+          setIsCreator(creatorStatus);
+          setIsMember(memberStatus);
+          
+          console.log('👤 User role detected:', {
+            isCreator: creatorStatus,
+            isMember: memberStatus,
+            userAddress: primaryWallet.address,
+            groupCreator: groupData.creator
+          });
+        }
 
       } catch (error) {
         console.error("Error loading group:", error);
@@ -126,6 +150,25 @@ const handleShare = () => {
 const handleInvite = () => {
   // TODO: Implement invite functionality
   success("Coming Soon! 🚀", "Invite functionality will be available soon");
+};
+
+// Handle group updates from management modal
+const handleGroupUpdated = async () => {
+  // Refresh group data after management actions
+  if (id && isConnected) {
+    try {
+      const groupId = parseInt(id);
+      if (!isNaN(groupId)) {
+        const updatedGroupData = await getGroupInfo(groupId);
+        if (updatedGroupData) {
+          setGroup(updatedGroupData);
+          console.log('✅ Group data refreshed after management action');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to refresh group data:', error);
+    }
+  }
 };
 
 if (!isConnected || !primaryWallet) {
@@ -328,6 +371,17 @@ return (
                 <Users className="h-4 w-4 mr-2" />
                 Invite Members
               </Button>
+              
+              {/* Management Button for Creators */}
+              {isCreator && (
+                <Button 
+                  onClick={() => setShowManagementModal(true)}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                >
+                  <Crown className="h-4 w-4 mr-2" />
+                  Manage Group
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -386,7 +440,7 @@ return (
                       size="sm"
                       onClick={() => {
                         navigator.clipboard.writeText(group.token);
-                        toast({ title: "Address copied to clipboard" });
+                        success("Address Copied!", "Token address copied to clipboard");
                       }}
                       className="h-6 w-6 p-0"
                     >
@@ -435,6 +489,14 @@ return (
       )}
       {/* End Error Display */}
     </div>
+    
+    {/* Group Management Modal */}
+    <GroupManagementModal
+      isOpen={showManagementModal}
+      onClose={() => setShowManagementModal(false)}
+      groupInfo={group}
+      onGroupUpdated={handleGroupUpdated}
+    />
   </div>
 );
 }
