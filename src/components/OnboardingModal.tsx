@@ -128,7 +128,7 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
         throw new Error('Database connection failed. Please check your Supabase configuration.');
       }
 
-      // Create user profile in Supabase
+      // Create user profile in Supabase with onboarding completed
       const userData = {
         display_name: username.trim(),
         bio: bio.trim() || undefined,
@@ -137,6 +137,8 @@ export function OnboardingModal({ open, onComplete }: OnboardingModalProps) {
         preferred_language: selectedLanguage,
         notification_preferences: notificationPreferences,
         privacy_settings: privacySettings,
+        onboarding_completed: true, // Mark as completed immediately
+        onboarding_completed_at: new Date().toISOString(),
         // Store selected icon in metadata for now
         // In a full implementation, you might want to add an avatar_icon field to the users table
       };
