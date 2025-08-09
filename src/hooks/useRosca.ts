@@ -93,6 +93,7 @@ export function useRosca() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ContractError | null>(null);
   const [groupCount, setGroupCount] = useState<number>(0);
+  const [balance, setBalance] = useState<string>('0'); // Balance as formatted string (cBTC)
   const [balanceWei, setBalanceWei] = useState<bigint>(0n); // Store balance as BigInt (Wei)
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
 
@@ -120,6 +121,7 @@ export function useRosca() {
     if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       console.log('🔍 getBalance: No wallet or not transaction capable');
       setBalance('0');
+      setBalanceWei(0n);
       return '0';
     }
 
@@ -140,10 +142,12 @@ export function useRosca() {
       console.log('🔍 getBalance: Formatted balance:', formattedBalance);
       
       setBalance(formattedBalance);
+      setBalanceWei(balance); // Also store raw BigInt balance
       return formattedBalance;
     } catch (error) {
       console.error('❌ Error fetching balance:', error);
       setBalance('0');
+      setBalanceWei(0n);
       return '0';
     } finally {
       setIsLoadingBalance(false);
@@ -166,6 +170,7 @@ export function useRosca() {
     } else {
       console.log('🔍 useEffect: No wallet connected, setting balance to 0');
       setBalance('0');
+      setBalanceWei(0n);
     }
   }, [primaryWallet, getBalance, isTransactionCapableWallet]);
 

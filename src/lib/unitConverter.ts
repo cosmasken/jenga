@@ -1,6 +1,28 @@
 import { formatEther, parseEther } from 'viem';
 
 /**
+ * Supported display units for amounts
+ */
+export type DisplayUnit = 'cBTC' | 'satoshi';
+
+/**
+ * Converts a BigInt (Wei) amount to a formatted display string based on unit preference.
+ * @param weiAmount The amount in Wei (BigInt).
+ * @param unit The display unit preference.
+ * @returns The formatted amount as a string for display.
+ */
+export function formatAmount(weiAmount: bigint, unit: DisplayUnit = 'cBTC'): string {
+  if (unit === 'satoshi') {
+    // Convert Wei to satoshis (1 cBTC = 100,000,000 satoshis)
+    const satoshis = weiAmount / BigInt(10**10); // Wei to satoshi conversion
+    return `${satoshis.toLocaleString()} sats`;
+  } else {
+    // Default to cBTC
+    return `${parseFloat(formatEther(weiAmount)).toFixed(6)} cBTC`;
+  }
+}
+
+/**
  * Converts a BigInt (Wei) amount to a formatted cBTC display string.
  * This should ONLY be used for display purposes in the UI.
  * @param weiAmount The amount in Wei (BigInt).
@@ -60,5 +82,4 @@ export function cbtcNumberToWei(cbtcAmount: number): bigint {
 
 // Legacy function names for backward compatibility during refactoring
 // TODO: Remove these after all components are updated
-export const formatAmount = formatAmountForDisplay;
 export const parseCbtcToWei = cbtcToWei;
