@@ -547,7 +547,12 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                       <div className="text-sm text-bitcoin-orange">
                         <div className="font-medium mb-1">Security Deposit Required</div>
                         <div className="space-y-1 text-xs">
-                          <div>• You'll deposit <strong>{formatAmount(cbtcToWei(formData.contributionAmount), displayUnit)}</strong> as collateral</div>
+                          <div>• You'll deposit <strong>
+                            {formData.selectedToken === 'cBTC' 
+                              ? formatAmount(cbtcToWei(formData.contributionAmount), displayUnit)
+                              : `${formData.contributionAmount} ${formData.selectedToken}`
+                            }
+                          </strong> as collateral</div>
                           <div>• Returned after completing all rounds</div>
                           <div>• Ensures commitment from all members</div>
                         </div>
@@ -670,7 +675,10 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Per Round:</span>
                     <span className="font-mono text-gray-900 dark:text-white">
-                      {formatAmount(cbtcToWei(formData.contributionAmount), displayUnit)}
+                      {formData.selectedToken === 'cBTC' 
+                        ? formatAmount(cbtcToWei(formData.contributionAmount), displayUnit)
+                        : `${formData.contributionAmount} ${formData.selectedToken}`
+                      }
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -687,7 +695,10 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                     <div className="flex justify-between font-medium">
                       <span className="text-gray-600 dark:text-gray-400">Security Deposit:</span>
                       <span className="font-mono text-bitcoin-orange">
-                        {formatAmount(cbtcToWei(formData.contributionAmount), displayUnit)}
+                        {formData.selectedToken === 'cBTC' 
+                          ? formatAmount(cbtcToWei(formData.contributionAmount), displayUnit)
+                          : `${formData.contributionAmount} ${formData.selectedToken}`
+                        }
                       </span>
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -772,7 +783,10 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Deposit:</span>
                     <span className="font-mono text-bitcoin-orange">
-                      {formatAmount(cbtcToWei(formData.contributionAmount), displayUnit)}
+                      {formData.selectedToken === 'cBTC' 
+                        ? formatAmount(cbtcToWei(formData.contributionAmount), displayUnit)
+                        : `${formData.contributionAmount} ${formData.selectedToken}`
+                      }
                     </span>
                   </div>
                 </div>
