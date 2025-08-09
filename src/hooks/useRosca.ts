@@ -187,7 +187,7 @@ export function useRosca() {
       console.log('🔍 getMaxSpendableAmount: Current balance (cBTC):', balance);
       
       // Estimate gas for createGroup transaction (conservative estimate)
-      const estimatedGasInWei = parseEther('0.001'); // 0.001 cBTC for gas (conservative)
+      const estimatedGasInWei = parseEther('0.0001'); // 0.001 cBTC for gas (conservative)
       
       // Ensure balance is greater than estimated gas before subtraction
       const maxSpendableWei = balanceWei > estimatedGasInWei ? balanceWei - estimatedGasInWei : 0n;

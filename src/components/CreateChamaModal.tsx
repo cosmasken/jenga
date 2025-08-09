@@ -49,7 +49,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   // Get selected token info and balance
   const selectedTokenInfo = getTokenInfo(formData.selectedToken);
   const selectedTokenAddress = selectedTokenInfo?.address || null;
-  
+
   // ERC20 balance for selected token
   const {
     balance: erc20Balance,
@@ -88,7 +88,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
       const contribution = parseFloat(formData.contributionAmount);
       const minContribution = getMinimumContribution(formData.selectedToken);
-      
+
       // Validate minimum contribution
       if (contribution < minContribution) {
         return {
@@ -97,7 +97,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
           shortError: 'Below minimum'
         };
       }
-      
+
       // For native cBTC, check against max spendable (accounting for gas)
       if (formData.selectedToken === 'cBTC') {
         const contributionWei = cbtcToWei(formData.contributionAmount);
@@ -175,10 +175,10 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
       // Send blockchain transaction
       console.log('🔄 Sending blockchain transaction...');
-      
+
       const selectedTokenInfo = getTokenInfo(formData.selectedToken);
       const tokenAddress = selectedTokenInfo?.address || '0x0000000000000000000000000000000000000000';
-      
+
       const result = await createGroup({
         token: tokenAddress,
         contribution: formData.contributionAmount,
@@ -357,8 +357,8 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                 <TokenSelector
                   value={formData.selectedToken}
                   onValueChange={(value) => {
-                    setFormData(prev => ({ 
-                      ...prev, 
+                    setFormData(prev => ({
+                      ...prev,
                       selectedToken: value,
                       contributionAmount: '' // Reset amount when token changes
                     }));
@@ -366,8 +366,8 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   placeholder="Select token for contributions..."
                   includeNative={true}
                   includeTestTokens={true}
-                  showFaucetBadge={true}
-                  showStablecoinBadge={true}
+                  showFaucetBadge={false}
+                  showStablecoinBadge={false}
                   className="w-full"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400">

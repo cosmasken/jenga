@@ -5,6 +5,7 @@ import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 import { useRosca } from "@/hooks/useRosca";
 import { useSupabase } from "@/hooks/useSupabase";
 import { CreateChamaModal } from "@/components/CreateChamaModal";
+import { FaucetModal } from "@/components/FaucetModal";
 import { NotificationSidebar } from "@/components/NotificationSidebar";
 import { EditProfile } from "@/components/EditProfile";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import { useEventListener } from "@/hooks/use-event-listener";
 import { useNotifications } from "@/hooks/use-notifications";
 import { WalletDropdown } from "@/components/WalletDropdown";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet, Bell, BellOff, Award, Target, User, Settings } from "lucide-react";
+import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet, Bell, BellOff, Award, Target, User, Settings, Zap } from "lucide-react";
 
 export default function Dashboard() {
     const [, setLocation] = useLocation();
@@ -46,6 +47,7 @@ export default function Dashboard() {
     const [userAchievements, setUserAchievements] = useState<any[]>([]);
     const [recentNotifications, setRecentNotifications] = useState<any[]>([]);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showFaucetModal, setShowFaucetModal] = useState(false);
     const [showNotificationSidebar, setShowNotificationSidebar] = useState(false);
     const [showEditProfile, setShowEditProfile] = useState(false);
     const [dashboardStats, setDashboardStats] = useState({
@@ -551,6 +553,14 @@ export default function Dashboard() {
                                     <Users className="h-4 w-4 mr-2" />
                                     Browse Groups
                                 </Button>
+                                <Button 
+                                    variant="outline"
+                                    onClick={() => setShowFaucetModal(true)}
+                                    className="border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                                >
+                                    <Zap className="h-4 w-4 mr-2" />
+                                    Faucet
+                                </Button>
                             </div>
                         </CardContent>
                     </Card>
@@ -601,6 +611,14 @@ export default function Dashboard() {
                                         >
                                             <Users className="h-4 w-4 mr-2" />
                                             Browse Groups
+                                        </Button>
+                                        <Button 
+                                            onClick={() => setShowFaucetModal(true)}
+                                            variant="outline"
+                                            className="border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                                        >
+                                            <Zap className="h-4 w-4 mr-2" />
+                                            Faucet
                                         </Button>
                                     </div>
                                 </div>
@@ -680,6 +698,12 @@ export default function Dashboard() {
                 open={showCreateModal} 
                 onOpenChange={setShowCreateModal}
                 onGroupCreated={handleGroupCreated}
+            />
+
+            {/* Faucet Modal */}
+            <FaucetModal 
+                open={showFaucetModal} 
+                onOpenChange={setShowFaucetModal}
             />
 
             {/* Notification Sidebar */}
