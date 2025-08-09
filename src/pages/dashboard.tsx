@@ -17,6 +17,7 @@ import { useEventListener } from "@/hooks/use-event-listener";
 import { useNotifications } from "@/hooks/use-notifications";
 import { WalletDropdown } from "@/components/WalletDropdown";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { getTokenInfoByAddress } from "@/lib/tokenUtils";
 import { Plus, Users, Bitcoin, TrendingUp, Trophy, Wallet, Bell, BellOff, Award, Target, User, Settings, Zap } from "lucide-react";
 
 export default function Dashboard() {
@@ -191,12 +192,22 @@ export default function Dashboard() {
                         // Get full group info
                         const groupInfo = await getGroupInfo(i);
                         if (groupInfo) {
+                            // Get token information
+                            const tokenInfo = getTokenInfoByAddress(groupInfo.token);
+                            const tokenSymbol = tokenInfo?.symbol || 'Unknown';
+                            
+                            // Calculate contribution amount based on token decimals
+                            const tokenDecimals = tokenInfo?.decimals || 18;
+                            const contributionAmount = parseFloat(groupInfo.contribution?.toString() || '0') / Math.pow(10, tokenDecimals);
+                            
                             userGroups.push({
                                 ...groupInfo,
                                 id: i,
                                 name: groupInfo.name || `Group ${i}`,
                                 description: `ROSCA Group #${i}`,
-                                contributionAmount: parseFloat(groupInfo.contribution?.toString() || '0') / 1e18,
+                                contributionAmount,
+                                tokenSymbol,
+                                tokenAddress: groupInfo.token,
                                 roundLengthDays: Math.floor(groupInfo.roundLength / 86400),
                                 userRole: isCreator ? 'creator' : 'member', // Track user's role
                             });
@@ -658,7 +669,12 @@ export default function Dashboard() {
                                                         </div>
                                                         <div className="flex items-center gap-1">
                                                             <Bitcoin className="h-3 w-3 flex-shrink-0" />
-                                                            <span className="whitespace-nowrap">{group.contributionAmount.toFixed(4)} cBTC/round</span>
+                                                            <span className="whitespace-nowrap">
+                                                                {group.tokenSymbol 
+                                                                    ? `${group.contributionAmount.toFixed(group.tokenSymbol === 'cBTC' ? 4 : 2)} ${group.tokenSymbol}/round`
+                                                                    : `${group.contributionAmount.toFixed(4)} cBTC/round`
+                                                                }
+                                                            </span>
                                                         </div>
                                                         <div className="flex items-center gap-1">
                                                             <Target className="h-3 w-3 flex-shrink-0" />

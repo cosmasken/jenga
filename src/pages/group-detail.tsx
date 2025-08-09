@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useRoscaToast } from "@/hooks/use-rosca-toast";
 import { GroupManagementModal } from "@/components/GroupManagementModal";
+import { getTokenInfoByAddress, formatTokenAmount } from "@/lib/tokenUtils";
 import { ArrowLeft, Users, Share2, History, AlertTriangle, Check, Clock, Bitcoin, Wallet, Copy, Settings, Crown } from "lucide-react";
 
 export default function GroupDetail() {
@@ -33,6 +34,7 @@ export default function GroupDetail() {
   const { logActivity, createNotification } = useSupabase();
 
   const [group, setGroup] = useState<any>(null);
+  const [tokenInfo, setTokenInfo] = useState<any>(null);
   const [isContributing, setIsContributing] = useState(false);
   const [loadingGroup, setLoadingGroup] = useState(true);
   const [isCreator, setIsCreator] = useState(false);
@@ -70,7 +72,13 @@ export default function GroupDetail() {
         }
 
         setGroup(groupData);
+        
+        // Get token information
+        const tokenInformation = getTokenInfoByAddress(groupData.token);
+        setTokenInfo(tokenInformation);
+        
         console.log('✅ Blockchain group loaded:', groupData);
+        console.log('✅ Token info loaded:', tokenInformation);
         
         // Check user role after loading group data
         if (primaryWallet?.address && isLoggedIn) {
@@ -119,7 +127,7 @@ export default function GroupDetail() {
         // Dismiss pending toast and show success
         pendingToast.dismiss();
         contributionSuccess(
-          formatContribution(group.contribution),
+          `${formatTokenAmount(group.contribution, tokenInfo?.symbol || 'Unknown')} ${tokenInfo?.symbol || 'Unknown'}`,
           group.name || `Group ${group.id}`,
           hash
         );
@@ -128,6 +136,9 @@ export default function GroupDetail() {
         const updatedGroup = await getGroupInfo(group.id);
         if (updatedGroup) {
           setGroup(updatedGroup);
+          // Update token info as well
+          const updatedTokenInfo = getTokenInfoByAddress(updatedGroup.token);
+          setTokenInfo(updatedTokenInfo);
         }
       }
     } catch (error: any) {
@@ -162,6 +173,9 @@ const handleGroupUpdated = async () => {
         const updatedGroupData = await getGroupInfo(groupId);
         if (updatedGroupData) {
           setGroup(updatedGroupData);
+          // Update token info as well
+          const updatedTokenInfo = getTokenInfoByAddress(updatedGroupData.token);
+          setTokenInfo(updatedTokenInfo);
           console.log('✅ Group data refreshed after management action');
         }
       }
@@ -228,7 +242,11 @@ if (!group) {
 const progressPercentage = group.totalRounds > 0 ? (group.currentRound / group.totalRounds) * 100 : 0;
 const isActive = group.currentRound < group.totalRounds;
 const nextDueDate = new Date(group.nextDue * 1000);
-const isEthGroup = group.token === "0x0000000000000000000000000000000000000000";
+
+// Use component-level token info
+const tokenSymbol = tokenInfo?.symbol || 'Unknown';
+const tokenIcon = tokenInfo?.icon || '🪙';
+const isNativeToken = group.token === "0x0000000000000000000000000000000000000000";
 
 return (
   <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6">
@@ -285,7 +303,7 @@ return (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Contribution:</span>
                     <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {isEthGroup ? "Ξ" : "₿"} {formatContribution(group.contribution)}
+                      {tokenIcon} {formatTokenAmount(group.contribution, tokenSymbol)} {tokenSymbol}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -297,7 +315,7 @@ return (
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Token:</span>
                     <span className="font-mono text-sm text-gray-900 dark:text-gray-100">
-                      {isEthGroup ? "ETH" : `${group.token.slice(0, 6)}...${group.token.slice(-4)}`}
+                      {tokenSymbol} {isNativeToken ? "(Native)" : `(${group.token.slice(0, 6)}...${group.token.slice(-4)})`}
                     </span>
                   </div>
                 </div>
