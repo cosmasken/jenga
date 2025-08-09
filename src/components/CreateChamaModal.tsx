@@ -4,6 +4,7 @@ import { useRosca } from '../hooks/useRosca';
 import { useSupabase } from '../hooks/useSupabase';
 import { useRoscaToast } from '../hooks/use-rosca-toast';
 import { useUnitDisplay } from '../contexts/UnitDisplayContext';
+import { useERC20Balance } from '../hooks/useERC20Balance';
 import { formatAmount, formatAmountForDisplay, formatDuration, cbtcToWei } from '../lib/unitConverter';
 import { formatEther } from 'viem';
 import { TokenSelector } from './TokenSelector';
@@ -44,6 +45,18 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     awardAchievement
   } = useSupabase();
   const { groupCreated, error: showError, transactionPending } = useRoscaToast();
+
+  // Get selected token info and balance
+  const selectedTokenInfo = getTokenInfo(formData.selectedToken);
+  const selectedTokenAddress = selectedTokenInfo?.address || null;
+  
+  // ERC20 balance for selected token
+  const {
+    balance: erc20Balance,
+    balanceWei: erc20BalanceWei,
+    isLoading: isLoadingERC20,
+    refetch: refetchERC20Balance
+  } = useERC20Balance(selectedTokenAddress, formData.selectedToken);
 
   // Get max spendable amount when modal opens or balance changes
   useEffect(() => {
@@ -116,8 +129,15 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
           };
         }
         
-        // TODO: Add ERC20 balance checking when we implement ERC20 balance fetching
-        // For now, just validate the input format
+        // Check against ERC20 balance
+        const contributionWei = parseTokenAmount(formData.contributionAmount, formData.selectedToken);
+        if (contributionWei > erc20BalanceWei) {
+          return {
+            isValid: false,
+            error: `Amount exceeds available balance. You have ${formatTokenAmount(erc20BalanceWei, formData.selectedToken)} ${formData.selectedToken}`,
+            shortError: 'Exceeds balance'
+          };
+        }
       }
 
       return {
@@ -127,7 +147,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     } catch {
       return { isValid: true, error: null };
     }
-  }, [formData.contributionAmount, formData.selectedToken, maxSpendableWei, maxSpendableDisplay, balance]);
+  }, [formData.contributionAmount, formData.selectedToken, maxSpendableWei, maxSpendableDisplay, balance, erc20BalanceWei]);
 
   // Reset modal state
   const resetModal = () => {
@@ -402,6 +422,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                               await refreshBalance();
                               const maxAmount = await getMaxSpendableAmount();
                               setMaxSpendableWei(maxAmount);
+                              setMaxSpendableDisplay(formatAmountForDisplay(maxAmount));
                             }}
                             className="text-bitcoin hover:text-bitcoin-dark transition-colors"
                             disabled={isLoadingBalance}
@@ -412,9 +433,24 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                         </div>
                       )
                     ) : (
-                      <span className="font-mono text-gray-500">
-                        Check wallet for {formData.selectedToken} balance
-                      </span>
+                      isLoadingERC20 ? (
+                        <span className="animate-pulse">Loading...</span>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <span className="font-mono">
+                            {formatTokenAmount(erc20BalanceWei, formData.selectedToken)} {formData.selectedToken}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={refetchERC20Balance}
+                            className="text-bitcoin hover:text-bitcoin-dark transition-colors"
+                            disabled={isLoadingERC20}
+                            title="Refresh balance"
+                          >
+                            🔄
+                          </button>
+                        </div>
+                      )
                     )}
                   </div>
                   {formData.selectedToken === 'cBTC' && (
