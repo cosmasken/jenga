@@ -6,6 +6,8 @@ import { useRoscaToast } from '../hooks/use-rosca-toast';
 import { useUnitDisplay } from '../contexts/UnitDisplayContext';
 import { formatAmount, formatAmountForDisplay, formatDuration, cbtcToWei } from '../lib/unitConverter';
 import { formatEther } from 'viem';
+import { TokenSelector } from './TokenSelector';
+import { getTokenInfo, formatTokenAmount, parseTokenAmount } from '../lib/tokenUtils';
 
 interface CreateChamaModalProps {
   open: boolean;
@@ -17,9 +19,10 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
   const [currentStep, setCurrentStep] = useState<'form' | 'preview' | 'transaction'>('form');
   const [formData, setFormData] = useState({
     name: '',
-    contributionAmount: '', // Amount in cBTC
+    contributionAmount: '', // Amount in selected token units
     roundLength: '', // Round length in days
-    maxMembers: '3' // Default to 5 members
+    maxMembers: '3', // Default to 3 members
+    selectedToken: 'cBTC' // Default to native cBTC
   });
   const [maxSpendableWei, setMaxSpendableWei] = useState<bigint>(0n); // Store as BigInt
   const [maxSpendableDisplay, setMaxSpendableDisplay] = useState<string>('0'); // For display only
@@ -58,42 +61,63 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     }
   }, [open, isConnected, balance, getMaxSpendableAmount]);
 
-  // Enhanced form validation with balance checking
+  // Enhanced form validation with balance checking for selected token
   const formValidation = React.useMemo(() => {
     if (!formData.contributionAmount) {
       return { isValid: true, error: null };
     }
 
     try {
+      const selectedTokenInfo = getTokenInfo(formData.selectedToken);
+      if (!selectedTokenInfo) {
+        return { isValid: false, error: 'Invalid token selected' };
+      }
+
       const contribution = parseFloat(formData.contributionAmount);
-      const contributionWei = cbtcToWei(formData.contributionAmount);
-      const balanceNum = parseFloat(balance);
+      
+      // For native cBTC, use existing logic
+      if (formData.selectedToken === 'cBTC') {
+        const contributionWei = cbtcToWei(formData.contributionAmount);
+        const balanceNum = parseFloat(balance);
 
-      // Validate minimum contribution (0.0001 cBTC)
-      if (contribution < 0.0001) {
-        return {
-          isValid: false,
-          error: 'Minimum contribution is ' + formatAmountForDisplay(cbtcToWei('0.0001')),
-          shortError: 'Below minimum'
-        };
-      }
+        // Validate minimum contribution (0.0001 cBTC)
+        if (contribution < 0.0001) {
+          return {
+            isValid: false,
+            error: 'Minimum contribution is ' + formatAmountForDisplay(cbtcToWei('0.0001')),
+            shortError: 'Below minimum'
+          };
+        }
 
-      // Validate against max spendable balance (accounting for gas)
-      if (contributionWei > maxSpendableWei) {
-        return {
-          isValid: false,
-          error: `Amount exceeds available balance. Maximum: ${maxSpendableDisplay}`,
-          shortError: 'Exceeds balance'
-        };
-      }
+        // Validate against max spendable balance (accounting for gas)
+        if (contributionWei > maxSpendableWei) {
+          return {
+            isValid: false,
+            error: `Amount exceeds available balance. Maximum: ${maxSpendableDisplay}`,
+            shortError: 'Exceeds balance'
+          };
+        }
 
-      // Warning if using more than 80% of balance
-      if (contribution > balanceNum * 0.8) {
-        return {
-          isValid: true,
-          error: null,
-          warning: 'Using most of your balance. Ensure you have enough for future transactions.'
-        };
+        // Warning if using more than 80% of balance
+        if (contribution > balanceNum * 0.8) {
+          return {
+            isValid: true,
+            error: null,
+            warning: 'Using most of your balance. Ensure you have enough for future transactions.'
+          };
+        }
+      } else {
+        // For ERC20 tokens, validate minimum amount (1 token unit)
+        if (contribution < 1) {
+          return {
+            isValid: false,
+            error: `Minimum contribution is 1 ${selectedTokenInfo.symbol}`,
+            shortError: 'Below minimum'
+          };
+        }
+        
+        // TODO: Add ERC20 balance checking when we implement ERC20 balance fetching
+        // For now, just validate the input format
       }
 
       return {
@@ -103,11 +127,11 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     } catch {
       return { isValid: true, error: null };
     }
-  }, [formData.contributionAmount, maxSpendableWei, maxSpendableDisplay, balance]);
+  }, [formData.contributionAmount, formData.selectedToken, maxSpendableWei, maxSpendableDisplay, balance]);
 
   // Reset modal state
   const resetModal = () => {
-    setFormData({ name: '', contributionAmount: '', roundLength: '', maxMembers: '5' });
+    setFormData({ name: '', contributionAmount: '', roundLength: '', maxMembers: '3', selectedToken: 'cBTC' });
     setCurrentStep('form');
     onOpenChange(false);
   };
@@ -139,8 +163,12 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
       // Send blockchain transaction
       console.log('🔄 Sending blockchain transaction...');
+      
+      const selectedTokenInfo = getTokenInfo(formData.selectedToken);
+      const tokenAddress = selectedTokenInfo?.address || '0x0000000000000000000000000000000000000000';
+      
       const result = await createGroup({
-        token: '0x0000000000000000000000000000000000000000',
+        token: tokenAddress,
         contribution: formData.contributionAmount,
         roundLength: parseInt(formData.roundLength) * 24 * 60 * 60, // Convert days to seconds
         maxMembers: parseInt(formData.maxMembers)
@@ -309,6 +337,32 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                 />
               </div>
 
+              {/* Token Selection */}
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Contribution Token
+                </label>
+                <TokenSelector
+                  value={formData.selectedToken}
+                  onValueChange={(value) => {
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      selectedToken: value,
+                      contributionAmount: '' // Reset amount when token changes
+                    }));
+                  }}
+                  placeholder="Select token for contributions..."
+                  includeNative={true}
+                  includeTestTokens={true}
+                  showFaucetBadge={true}
+                  showStablecoinBadge={true}
+                  className="w-full"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Choose the token that members will contribute to this chama
+                </p>
+              </div>
+
               {/* Contribution Amount */}
               <div className="space-y-2">
                 <label htmlFor="contribution" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -318,17 +372,17 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   <input
                     id="contribution"
                     type="number"
-                    step="0.0001"
-                    min="0.0001"
+                    step={formData.selectedToken === 'cBTC' ? "0.0001" : "1"}
+                    min={formData.selectedToken === 'cBTC' ? "0.0001" : "1"}
                     value={formData.contributionAmount}
                     onChange={(e) => setFormData(prev => ({ ...prev, contributionAmount: e.target.value }))}
-                    placeholder="0.0001"
-                    className={`w-full px-3 py-2 pr-16 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-2 focus:ring-bitcoin-orange focus:border-transparent ${!formValidation.isValid ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                    placeholder={formData.selectedToken === 'cBTC' ? "0.0001" : "1000"}
+                    className={`w-full px-3 py-2 pr-20 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-2 focus:ring-bitcoin-orange focus:border-transparent ${!formValidation.isValid ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                     required
                   />
                   <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 dark:text-gray-400 font-mono">
-                    cBTC
+                    {formData.selectedToken}
                   </span>
                 </div>
 
@@ -336,64 +390,89 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                 <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
                   <div className="flex items-center gap-2">
                     <span>Balance:</span>
-                    {isLoadingBalance ? (
-                      <span className="animate-pulse">Loading...</span>
+                    {formData.selectedToken === 'cBTC' ? (
+                      isLoadingBalance ? (
+                        <span className="animate-pulse">Loading...</span>
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <span className="font-mono">{formatAmount(cbtcToWei(balance), displayUnit)}</span>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              await refreshBalance();
+                              const maxAmount = await getMaxSpendableAmount();
+                              setMaxSpendableWei(maxAmount);
+                            }}
+                            className="text-bitcoin hover:text-bitcoin-dark transition-colors"
+                            disabled={isLoadingBalance}
+                            title="Refresh balance"
+                          >
+                            🔄
+                          </button>
+                        </div>
+                      )
                     ) : (
-                      <div className="flex items-center gap-1">
-                        <span className="font-mono">{formatAmount(cbtcToWei(balance), displayUnit)}</span>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            await refreshBalance();
-                            const maxAmount = await getMaxSpendableAmount();
-                            setMaxSpendableWei(maxAmount);
-                          }}
-                          className="text-bitcoin hover:text-bitcoin-dark transition-colors"
-                          disabled={isLoadingBalance}
-                          title="Refresh balance"
-                        >
-                          🔄
-                        </button>
-                      </div>
+                      <span className="font-mono text-gray-500">
+                        Check wallet for {formData.selectedToken} balance
+                      </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span>Max (after gas):</span>
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, contributionAmount: formatEther(maxSpendableWei) }))}
-                      className="font-mono text-bitcoin hover:text-bitcoin-dark underline cursor-pointer transition-colors"
-                      disabled={isLoadingBalance || maxSpendableWei <= 0n}
-                      title="Use maximum amount"
-                    >
-                      {maxSpendableDisplay}
-                    </button>
-                  </div>
+                  {formData.selectedToken === 'cBTC' && (
+                    <div className="flex items-center gap-2">
+                      <span>Max (after gas):</span>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, contributionAmount: formatEther(maxSpendableWei) }))}
+                        className="font-mono text-bitcoin hover:text-bitcoin-dark underline cursor-pointer transition-colors"
+                        disabled={isLoadingBalance || maxSpendableWei <= 0n}
+                        title="Use maximum amount"
+                      >
+                        {maxSpendableDisplay}
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Quick Amount Buttons */}
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-gray-600 dark:text-gray-400">Quick amounts:</span>
                   <div className="flex gap-1">
-                    {['0.001', '0.01', '0.1'].map((amount) => (
-                      <button
-                        key={amount}
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, contributionAmount: amount }))}
-                        className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
-                        disabled={cbtcToWei(amount) > maxSpendableWei}
-                      >
-                        {formatAmountForDisplay(cbtcToWei(amount))}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, contributionAmount: formatEther(maxSpendableWei / 2n) }))}
-                      className="px-2 py-1 text-xs bg-bitcoin/10 hover:bg-bitcoin/20 text-bitcoin rounded transition-colors"
-                      disabled={maxSpendableWei <= 0n}
-                    >
-                      50%
-                    </button>
+                    {formData.selectedToken === 'cBTC' ? (
+                      <>
+                        {['0.001', '0.01', '0.1'].map((amount) => (
+                          <button
+                            key={amount}
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, contributionAmount: amount }))}
+                            className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
+                            disabled={cbtcToWei(amount) > maxSpendableWei}
+                          >
+                            {formatAmountForDisplay(cbtcToWei(amount))}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, contributionAmount: formatEther(maxSpendableWei / 2n) }))}
+                          className="px-2 py-1 text-xs bg-bitcoin/10 hover:bg-bitcoin/20 text-bitcoin rounded transition-colors"
+                          disabled={maxSpendableWei <= 0n}
+                        >
+                          50%
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {['100', '500', '1000'].map((amount) => (
+                          <button
+                            key={amount}
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, contributionAmount: amount }))}
+                            className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
+                          >
+                            {amount}
+                          </button>
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
 
