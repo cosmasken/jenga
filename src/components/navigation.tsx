@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { useUnitDisplay } from "@/contexts/UnitDisplayContext";
 import type { DisplayUnit } from "@/lib/unitConverter";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Home, LayoutDashboard, Users, Gavel, User, Moon, Sun, Copy, LogOut, Wallet } from "lucide-react";
@@ -29,7 +28,6 @@ export function Navigation() {
   const { primaryWallet, user, handleLogOut } = useDynamicContext();
   const { theme, setTheme } = useTheme();
   const { toast } = useToast();
-  const { displayUnit, setDisplayUnit } = useUnitDisplay();
 
   // Check onboarding completion from localStorage
   const onboardingCompleted = localStorage.getItem('jenga_onboarding_completed') === 'true';

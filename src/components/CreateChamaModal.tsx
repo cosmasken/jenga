@@ -3,8 +3,8 @@ import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRosca } from '../hooks/useRosca';
 import { useSupabase } from '../hooks/useSupabase';
 import { useRoscaToast } from '../hooks/use-rosca-toast';
-import { useUnitDisplay } from '../contexts/UnitDisplayContext';
-import { formatAmount, formatDuration, parseCbtcToWei } from '../lib/unitConverter';
+import { formatAmountForDisplay, formatDuration, cbtcToWei } from '../lib/unitConverter';
+import { formatEther } from 'viem';
 
 interface CreateChamaModalProps {
   open: boolean;
@@ -20,8 +20,8 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     roundLength: '', // Round length in days
     maxMembers: '5' // Default to 5 members
   });
-  const [maxSpendable, setMaxSpendable] = useState<string>('0');
-  const [maxSpendableRaw, setMaxSpendableRaw] = useState<string>('0'); // Store raw numeric value
+  const [maxSpendableWei, setMaxSpendableWei] = useState<bigint>(0n); // Store as BigInt
+  const [maxSpendableDisplay, setMaxSpendableDisplay] = useState<string>('0'); // For display only
 
   const { primaryWallet } = useDynamicContext();
   const {
@@ -39,16 +39,19 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     awardAchievement
   } = useSupabase();
   const { groupCreated, error: showError, transactionPending } = useRoscaToast();
-  const { displayUnit } = useUnitDisplay();
 
   // Get max spendable amount when modal opens or balance changes
   useEffect(() => {
     if (open && isConnected) {
-      getMaxSpendableAmount().then((formattedAmount) => {
-        setMaxSpendable(formattedAmount);
-        // Extract numeric value from formatted string
-        const numericValue = formattedAmount.split(' ')[0];
-        setMaxSpendableRaw(numericValue);
+      getMaxSpendableAmount().then((maxSpendableAmountWei) => {
+        setMaxSpendableWei(maxSpendableAmountWei);
+        setMaxSpendableDisplay(formatAmountForDisplay(maxSpendableAmountWei));
+        
+        console.log('🔍 Max spendable updated:', {
+          wei: maxSpendableAmountWei.toString(),
+          display: formatAmountForDisplay(maxSpendableAmountWei),
+          cbtc: parseFloat(formatEther(maxSpendableAmountWei))
+        });
       });
     }
   }, [open, isConnected, balance, getMaxSpendableAmount]);
@@ -61,23 +64,23 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
     try {
       const contribution = parseFloat(formData.contributionAmount);
-      const maxSpendableNum = parseFloat(maxSpendableRaw);
+      const contributionWei = cbtcToWei(formData.contributionAmount);
       const balanceNum = parseFloat(balance);
 
       // Validate minimum contribution (0.0001 cBTC)
       if (contribution < 0.0001) {
         return {
           isValid: false,
-          error: 'Minimum contribution is ' + formatAmount(parseCbtcToWei('0.0001'), displayUnit),
+          error: 'Minimum contribution is ' + formatAmountForDisplay(cbtcToWei('0.0001')),
           shortError: 'Below minimum'
         };
       }
 
-      // Validate against balance (accounting for gas)
-      if (contribution > maxSpendableNum) {
+      // Validate against max spendable balance (accounting for gas)
+      if (contributionWei > maxSpendableWei) {
         return {
           isValid: false,
-          error: `Amount exceeds available balance. Maximum: ${formatAmount(parseCbtcToWei(maxSpendable), displayUnit)}`,
+          error: `Amount exceeds available balance. Maximum: ${maxSpendableDisplay}`,
           shortError: 'Exceeds balance'
         };
       }
@@ -98,7 +101,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     } catch {
       return { isValid: true, error: null };
     }
-  }, [formData.contributionAmount, maxSpendableRaw, balance, displayUnit]);
+  }, [formData.contributionAmount, maxSpendableWei, maxSpendableDisplay, balance]);
 
   // Reset modal state
   const resetModal = () => {
@@ -335,7 +338,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
               <span className="animate-pulse">Loading...</span>
             ) : (
               <div className="flex items-center gap-1">
-                <span className="font-mono">{formatAmount(parseCbtcToWei(balance), displayUnit)}</span>
+                <span className="font-mono">{formatAmount(parseCbtcToWei(balance))}</span>
                 <button
                   type="button"
                   onClick={async () => {
@@ -356,12 +359,12 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
             <span>Max (after gas):</span>
             <button
               type="button"
-              onClick={() => setFormData(prev => ({ ...prev, contributionAmount: maxSpendableRaw }))}
+              onClick={() => setFormData(prev => ({ ...prev, contributionAmount: formatEther(maxSpendableWei) }))}
               className="font-mono text-bitcoin hover:text-bitcoin-dark underline cursor-pointer transition-colors"
-              disabled={isLoadingBalance || parseFloat(maxSpendableRaw) <= 0}
+              disabled={isLoadingBalance || maxSpendableWei <= 0n}
               title="Use maximum amount"
             >
-              {maxSpendable}
+              {maxSpendableDisplay}
             </button>
           </div>
         </div>
@@ -376,16 +379,16 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                         type="button"
                         onClick={() => setFormData(prev => ({ ...prev, contributionAmount: amount }))}
                         className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded transition-colors"
-                        disabled={parseCbtcToWei(amount) > parseCbtcToWei(maxSpendableRaw)}
+                        disabled={cbtcToWei(amount) > maxSpendableWei}
                       >
-                        {formatAmount(parseCbtcToWei(amount), displayUnit)}
+                        {formatAmountForDisplay(cbtcToWei(amount))}
                       </button>
                     ))}
                     <button
                       type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, contributionAmount: (parseFloat(maxSpendableRaw) * 0.5).toFixed(6) }))}
+                      onClick={() => setFormData(prev => ({ ...prev, contributionAmount: formatEther(maxSpendableWei / 2n) }))}
                       className="px-2 py-1 text-xs bg-bitcoin/10 hover:bg-bitcoin/20 text-bitcoin rounded transition-colors"
-                      disabled={parseFloat(maxSpendableRaw) <= 0}
+                      disabled={maxSpendableWei <= 0n}
                     >
                       50%
                     </button>
@@ -435,7 +438,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                       <div className="text-sm text-bitcoin-orange">
                         <div className="font-medium mb-1">Security Deposit Required</div>
                         <div className="space-y-1 text-xs">
-                          <div>• You'll deposit <strong>{formatAmount(parseCbtcToWei(formData.contributionAmount), displayUnit)}</strong> as collateral</div>
+                          <div>• You'll deposit <strong>{formatAmount(parseCbtcToWei(formData.contributionAmount))}</strong> as collateral</div>
                           <div>• Returned after completing all rounds</div>
                           <div>• Ensures commitment from all members</div>
                         </div>
@@ -558,7 +561,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Per Round:</span>
                     <span className="font-mono text-gray-900 dark:text-white">
-                      {formatAmount(parseCbtcToWei(formData.contributionAmount), displayUnit)}
+                      {formatAmount(parseCbtcToWei(formData.contributionAmount))}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -575,7 +578,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                     <div className="flex justify-between font-medium">
                       <span className="text-gray-600 dark:text-gray-400">Security Deposit:</span>
                       <span className="font-mono text-bitcoin-orange">
-                        {formatAmount(parseCbtcToWei(formData.contributionAmount), displayUnit)}
+                        {formatAmount(parseCbtcToWei(formData.contributionAmount))}
                       </span>
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -660,7 +663,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Deposit:</span>
                     <span className="font-mono text-bitcoin-orange">
-                      {formatAmount(parseCbtcToWei(formData.contributionAmount), displayUnit)}
+                      {formatAmount(parseCbtcToWei(formData.contributionAmount))}
                     </span>
                   </div>
                 </div>

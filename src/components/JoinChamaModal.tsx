@@ -3,8 +3,7 @@ import { useDynamicContext } from "@dynamic-labs/sdk-react-core";
 import { useRosca } from '../hooks/useRosca';
 import { useSupabase } from '../hooks/useSupabase';
 import { useRoscaToast } from '../hooks/use-rosca-toast';
-import { useUnitDisplay } from '../contexts/UnitDisplayContext';
-import { formatAmount, formatDuration, parseCbtcToWei } from '../lib/unitConverter';
+import { formatAmountForDisplay, formatDuration, cbtcToWei } from '../lib/unitConverter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -74,7 +73,6 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
     awardAchievement
   } = useSupabase();
   const { memberJoined, error: showError, transactionPending } = useRoscaToast();
-  const { displayUnit } = useUnitDisplay();
 
   // Reset modal state when it closes
   const resetModal = useCallback(() => {
@@ -176,14 +174,20 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
         return;
       }
 
-      const maxSpendable = await getMaxSpendableAmount(); // This returns formatted string
-      setMaxSpendableFormatted(maxSpendable);
+      const maxSpendableWei = await getMaxSpendableAmount(); // This now returns BigInt
+      setMaxSpendableFormatted(formatAmountForDisplay(maxSpendableWei));
 
-      // Compare BigInt contribution with parsed BigInt maxSpendable
+      // Compare BigInt contribution with BigInt maxSpendable
       const contributionBigInt = groupInfo.contribution;
-      const maxSpendableBigInt = parseCbtcToWei(maxSpendable); // Convert formatted string back to BigInt
 
-      setCanAfford(maxSpendableBigInt >= contributionBigInt);
+      console.log('🔍 Balance comparison:', {
+        contribution: contributionBigInt.toString(),
+        maxSpendableWei: maxSpendableWei.toString(),
+        maxSpendableFormatted: formatAmountForDisplay(maxSpendableWei),
+        canAfford: maxSpendableWei >= contributionBigInt,
+      });
+
+      setCanAfford(maxSpendableWei >= contributionBigInt);
     };
     updateAffordability();
   }, [groupInfo, isConnected, balance, getMaxSpendableAmount]);
@@ -244,7 +248,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
           `Joined ROSCA group "${groupInfo.name || `Group ${groupId}`}"`,
           {
             group_name: groupInfo.name || `Group ${groupId}`,
-            contribution_amount: formatAmount(groupInfo.contribution, displayUnit), // Format for logging
+            contribution_amount: formatAmount(groupInfo.contribution), // Format for logging
             transaction_hash: hash
           }
         );
@@ -271,7 +275,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
           {
             group_name: groupInfo.name || `Group ${groupId}`,
             transaction_hash: hash,
-            contribution_amount: formatAmount(groupInfo.contribution, displayUnit), // Format for notification
+            contribution_amount: formatAmount(groupInfo.contribution), // Format for notification
             group_id: groupId
           }
         );
@@ -290,7 +294,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
       showError("Failed to Join Group", err.message || "Please try again or check your wallet connection.");
       setCurrentStep('preview'); // Go back to preview step on error
     }
-  }, [isConnected, primaryWallet, groupInfo, groupId, isGroupMember, showError, transactionPending, joinGroup, memberJoined, logActivity, awardAchievement, createNotification, onGroupJoined, displayUnit, resetModal]);
+  }, [isConnected, primaryWallet, groupInfo, groupId, isGroupMember, showError, transactionPending, joinGroup, memberJoined, logActivity, awardAchievement, createNotification, onGroupJoined, resetModal]);
 
   if (!open) return null;
 
@@ -420,7 +424,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
                             <div className="flex justify-between">
                               <span className="text-gray-600 dark:text-gray-400">Contribution:</span>
                               <span className="font-mono text-gray-900 dark:text-white">
-                                {formatAmount(groupInfo.contribution, displayUnit)}
+                                {formatAmount(groupInfo.contribution)}
                               </span>
                             </div>
                             <div className="flex justify-between">
@@ -451,7 +455,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
                             <div className="text-sm text-bitcoin-orange">
                               <div className="font-medium mb-1">Security Deposit Required</div>
                               <div className="space-y-1 text-xs">
-                                <div>• You'll deposit <strong>{formatAmount(groupInfo.contribution, displayUnit)}</strong> as collateral</div>
+                                <div>• You'll deposit <strong>{formatAmount(groupInfo.contribution)}</strong> as collateral</div>
                                 <div>• Returned after completing all rounds</div>
                                 <div>• Ensures commitment from all members</div>
                               </div>
@@ -469,7 +473,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
                                   Insufficient Balance
                                 </p>
                                 <p className="text-xs text-orange-600 dark:text-orange-300 mt-1">
-                                  You need {formatAmount(groupInfo.contribution, displayUnit)} to join. Your available balance is {maxSpendableFormatted}.
+                                  You need {formatAmount(groupInfo.contribution)} to join. Your available balance is {maxSpendableFormatted}.
                                 </p>
                               </div>
                             </div>
@@ -484,7 +488,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
                               <span className="animate-pulse">Loading...</span>
                             ) : (
                               <div className="flex items-center gap-1">
-                                <span className="font-mono">{formatAmount(parseCbtcToWei(balance), displayUnit)}</span>
+                                <span className="font-mono">{formatAmount(parseCbtcToWei(balance))}</span>
                                 <Button
                                   type="button"
                                   onClick={refreshBalance}
@@ -548,7 +552,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
                         <div className="flex justify-between">
                           <span className="text-gray-600 dark:text-gray-400">Monthly Contribution:</span>
                           <span className="font-mono text-gray-900 dark:text-white">
-                            {formatAmount(groupInfo.contribution, displayUnit)}
+                            {formatAmount(groupInfo.contribution)}
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -560,14 +564,14 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
                         <div className="flex justify-between">
                           <span className="text-gray-600 dark:text-gray-400">Expected Payout:</span>
                           <span className="font-mono text-bitcoin-orange">
-                            {formatAmount(groupInfo.contribution * BigInt(groupInfo.maxMembers), displayUnit)}
+                            {formatAmount(groupInfo.contribution * BigInt(groupInfo.maxMembers))}
                           </span>
                         </div>
                         <div className="border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
                           <div className="flex justify-between font-medium">
                             <span className="text-gray-600 dark:text-gray-400">Initial Deposit:</span>
                             <span className="font-mono text-bitcoin-orange">
-                              {formatAmount(groupInfo.contribution, displayUnit)}
+                              {formatAmount(groupInfo.contribution)}
                             </span>
                           </div>
                           <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -641,7 +645,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
                           <div className="flex justify-between">
                             <span className="text-gray-600 dark:text-gray-400">Deposit:</span>
                             <span className="font-mono text-bitcoin-orange">
-                              {formatAmount(groupInfo.contribution, displayUnit)}
+                              {formatAmount(groupInfo.contribution)}
                             </span>
                           </div>
                         </CardContent>
