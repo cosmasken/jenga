@@ -147,38 +147,34 @@ export function ContributionModal({
         if (groupInfo.members) {
           for (const member of groupInfo.members) {
             if (member !== primaryWallet.address) {
-              await createNotification({
-                user_wallet_address: member,
-                title: 'Member Made Contribution 💰',
-                message: `A group member has made their contribution for round ${groupInfo.currentRound}.`,
-                type: 'success',
-                category: 'contribution',
-                group_id: groupInfo.id.toString(),
-                data: {
+              await createNotification(
+                member,
+                'Member Made Contribution 💰',
+                `A group member has made their contribution for round ${groupInfo.currentRound}.`,
+                'success',
+                {
                   group_id: groupInfo.id,
                   round: groupInfo.currentRound,
                   transaction_hash: hash
                 }
-              });
+              );
             }
           }
         }
 
         // Special notification for user
-        await createNotification({
-          user_wallet_address: primaryWallet.address,
-          title: 'Contribution Successful! ✅',
-          message: `Your contribution of ${formatContribution(groupInfo.contribution)} cBTC has been processed for round ${groupInfo.currentRound}.`,
-          type: 'success',
-          category: 'contribution',
-          group_id: groupInfo.id.toString(),
-          data: {
+        await createNotification(
+          primaryWallet.address,
+          'Contribution Successful! ✅',
+          `Your contribution of ${formatContribution(groupInfo.contribution)} cBTC has been processed for round ${groupInfo.currentRound}.`,
+          'success',
+          {
             group_id: groupInfo.id,
             contribution_amount: formatContribution(groupInfo.contribution),
             round: groupInfo.currentRound,
             transaction_hash: hash
           }
-        });
+        );
       } catch (notificationError) {
         console.warn('⚠️ Could not create notifications:', notificationError);
       }
@@ -214,22 +210,24 @@ export function ContributionModal({
 
   return (
     <>
-      {/* Backdrop */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        onClick={handleClose}
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
-      />
+      {/* Container with centering */}
+      <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
+        {/* Backdrop */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onClick={handleClose}
+          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        />
 
-      {/* Modal */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="fixed inset-4 md:inset-auto md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:w-full md:max-w-md bg-white dark:bg-gray-900 rounded-xl shadow-2xl z-50 flex flex-col overflow-hidden"
-      >
+        {/* Modal */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="relative w-full max-w-md max-h-[90vh] bg-white dark:bg-gray-900 rounded-xl shadow-2xl z-50 flex flex-col overflow-hidden"
+        >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
@@ -253,7 +251,7 @@ export function ContributionModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 p-6">
+        <div className="flex-1 overflow-y-auto p-6">
           <AnimatePresence mode="wait">
             {currentStep === 'review' && (
               <motion.div
@@ -323,7 +321,7 @@ export function ContributionModal({
                       </div>
                       <div className="flex justify-between text-sm">
                         <span>Group Members</span>
-                        <span>{groupInfo.memberCount}</span>
+                        <span>{Number(groupInfo.memberCount)}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -459,7 +457,8 @@ export function ContributionModal({
             </Button>
           </div>
         )}
-      </motion.div>
+        </motion.div>
+      </div>
     </>
   );
 }

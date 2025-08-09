@@ -28,6 +28,7 @@ export default function Dashboard() {
         getGroupCount, 
         getGroupInfo,
         isGroupCreator,
+        isGroupMember,
         isLoading, 
         error,
         formatContribution 
@@ -156,13 +157,13 @@ export default function Dashboard() {
         };
     };
 
-    // Load user's created groups
+    // Load user's groups (both created and joined)
     const loadUserGroups = async () => {
         if (!primaryWallet?.address || !isConnected) return;
 
         try {
             setIsLoadingGroups(true);
-            console.log('🔄 Loading user groups...');
+            console.log('🔄 Loading user groups (created and joined)...');
 
             // Get total group count first
             const totalGroups = await getGroupCount();
@@ -173,25 +174,29 @@ export default function Dashboard() {
                 return;
             }
 
-            // Check all groups to find which ones the user created
-            const createdGroups = [];
+            // Check all groups to find which ones the user created OR is a member of
+            const userGroups = [];
             const maxGroupsToCheck = Math.min(totalGroups, 50); // Limit for performance
 
             for (let i = 0; i < maxGroupsToCheck; i++) {
                 try {
                     // Check if user is creator of this group
                     const isCreator = await isGroupCreator(i);
-                    if (isCreator) {
+                    // Check if user is a member of this group
+                    const isMember = await isGroupMember(i);
+                    
+                    if (isCreator || isMember) {
                         // Get full group info
                         const groupInfo = await getGroupInfo(i);
                         if (groupInfo) {
-                            createdGroups.push({
+                            userGroups.push({
                                 ...groupInfo,
                                 id: i,
                                 name: groupInfo.name || `Group ${i}`,
                                 description: `ROSCA Group #${i}`,
                                 contributionAmount: parseFloat(groupInfo.contribution?.toString() || '0') / 1e18,
                                 roundLengthDays: Math.floor(groupInfo.roundLength / 86400),
+                                userRole: isCreator ? 'creator' : 'member', // Track user's role
                             });
                         }
                     }
@@ -200,8 +205,8 @@ export default function Dashboard() {
                 }
             }
 
-            console.log('✅ User created groups loaded:', createdGroups.length);
-            setUserGroups(createdGroups);
+            console.log('✅ User groups loaded (created + member):', userGroups.length);
+            setUserGroups(userGroups);
 
         } catch (error) {
             console.error('❌ Failed to load user groups:', error);
@@ -259,8 +264,20 @@ export default function Dashboard() {
         setShowCreateModal(true);
     };
 
-    const handleGroupClick = (groupId: number) => {
-        setLocation(`/group/${groupId}`);
+    const handleGroupClick = (groupId: number, userRole?: 'creator' | 'member') => {
+        // If we have role information from the group list, use it
+        if (userRole === 'creator') {
+            // For creators, we could either go to management view or member view
+            // For now, let's go to member view which creators can also see
+            setLocation(`/group/${groupId}`);
+        } else {
+            // For members, go to the member detail view
+            setLocation(`/group/${groupId}`);
+        }
+        
+        // Alternative approach: route to chama detail page for discovery/member view
+        // and use /group/ for management. But both currently show member view.
+        // setLocation(`/chama/${groupId}`);
     };
 
     // Handle group creation success - refresh user groups
@@ -268,6 +285,13 @@ export default function Dashboard() {
         console.log('🎉 Group created successfully, refreshing data...');
         setRefreshTrigger(prev => prev + 1);
         getGroupCount(); // Also refresh the group count immediately
+    };
+
+    // Handle group join success - refresh user groups 
+    const handleGroupJoined = () => {
+        console.log('🎉 Successfully joined a group, refreshing data...');
+        setRefreshTrigger(prev => prev + 1);
+        getGroupCount(); // Also refresh the group count immediately  
     };
 
     if (!isConnected || !primaryWallet) {
@@ -558,52 +582,70 @@ export default function Dashboard() {
                                 <div className="text-center py-12">
                                     <Bitcoin className="h-16 w-16 mx-auto mb-4 text-gray-400" />
                                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                                        No groups created yet
+                                        No groups found
                                     </h3>
                                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-                                        Create your first ROSCA group to start saving with others.
+                                        You haven't created or joined any ROSCA groups yet. Create your first group or browse existing ones to get started.
                                     </p>
-                                    <Button 
-                                        onClick={handleCreateGroup}
-                                        className="bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)]"
-                                    >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Create Your First Group
-                                    </Button>
+                                    <div className="flex flex-wrap gap-4 justify-center">
+                                        <Button 
+                                            onClick={handleCreateGroup}
+                                            className="bg-[hsl(27,87%,54%)] hover:bg-[hsl(27,87%,49%)]"
+                                        >
+                                            <Plus className="h-4 w-4 mr-2" />
+                                            Create Group
+                                        </Button>
+                                        <Button 
+                                            onClick={() => setLocation('/browse')}
+                                            variant="outline"
+                                        >
+                                            <Users className="h-4 w-4 mr-2" />
+                                            Browse Groups
+                                        </Button>
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
                                     {userGroups.map((group) => (
-                                        <Card key={group.id} className="border-l-4 border-l-bitcoin hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleGroupClick(group.id)}>
+                                        <Card key={group.id} className="border-l-4 border-l-bitcoin hover:shadow-md transition-shadow cursor-pointer" onClick={() => handleGroupClick(group.id, group.userRole)}>
                                             <CardContent className="p-4">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex-1">
-                                                        <h3 className="font-medium text-gray-900 dark:text-gray-100">
-                                                            {group.name}
-                                                        </h3>
-                                                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                                            {group.description}
-                                                        </p>
-                                                        <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                                                            <div className="flex items-center gap-1">
-                                                                <Users className="h-3 w-3" />
-                                                                {Number(group.memberCount)}/{group.maxMembers} members
-                                                            </div>
-                                                            <div className="flex items-center gap-1">
-                                                                <Bitcoin className="h-3 w-3" />
-                                                                {group.contributionAmount.toFixed(4)} cBTC/round
-                                                            </div>
-                                                            <div className="flex items-center gap-1">
-                                                                <Target className="h-3 w-3" />
-                                                                Round {group.currentRound}
-                                                            </div>
+                                                <div className="flex flex-col gap-3">
+                                                    {/* Header with title and badges */}
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="flex-1 min-w-0">
+                                                            <h3 className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                                                                {group.name}
+                                                            </h3>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                                            <Badge variant={group.isActive ? "default" : "secondary"} className="text-xs">
+                                                                {group.isActive ? "Active" : "Inactive"}
+                                                            </Badge>
+                                                            <Badge variant={group.userRole === 'creator' ? "default" : "outline"} className="text-xs">
+                                                                {group.userRole === 'creator' ? 'Creator' : 'Member'}
+                                                            </Badge>
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <Badge variant={group.isActive ? "default" : "secondary"}>
-                                                            {group.isActive ? "Active" : "Inactive"}
-                                                        </Badge>
-                                                        <Badge variant="outline">Creator</Badge>
+                                                    
+                                                    {/* Description */}
+                                                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                                                        {group.description}
+                                                    </p>
+                                                    
+                                                    {/* Stats */}
+                                                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-gray-500">
+                                                        <div className="flex items-center gap-1">
+                                                            <Users className="h-3 w-3 flex-shrink-0" />
+                                                            <span className="whitespace-nowrap">{Number(group.memberCount)}/{group.maxMembers} members</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <Bitcoin className="h-3 w-3 flex-shrink-0" />
+                                                            <span className="whitespace-nowrap">{group.contributionAmount.toFixed(4)} cBTC/round</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <Target className="h-3 w-3 flex-shrink-0" />
+                                                            <span className="whitespace-nowrap">Round {group.currentRound}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </CardContent>

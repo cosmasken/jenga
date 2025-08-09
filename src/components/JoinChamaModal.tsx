@@ -4,7 +4,7 @@ import { useRosca } from '../hooks/useRosca';
 import { useSupabase } from '../hooks/useSupabase';
 import { useRoscaToast } from '../hooks/use-rosca-toast';
 import { useUnitDisplay } from '../contexts/UnitDisplayContext';
-import { formatAmount, formatDuration, parseCbtcToWei } from '../lib/unitConverter';
+import { formatAmount, formatAmountForDisplay, formatDuration, cbtcToWei } from '../lib/unitConverter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -57,6 +57,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
   const [canAfford, setCanAfford] = useState(false);
 
   const { primaryWallet } = useDynamicContext();
+  const { displayUnit } = useUnitDisplay();
   const {
     joinGroup,
     getGroupInfo,
@@ -74,7 +75,6 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
     awardAchievement
   } = useSupabase();
   const { memberJoined, error: showError, transactionPending } = useRoscaToast();
-  const { displayUnit } = useUnitDisplay();
 
   // Reset modal state when it closes
   const resetModal = useCallback(() => {
@@ -176,14 +176,20 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
         return;
       }
 
-      const maxSpendable = await getMaxSpendableAmount(); // This returns formatted string
-      setMaxSpendableFormatted(maxSpendable);
+      const maxSpendableWei = await getMaxSpendableAmount(); // This now returns BigInt
+      setMaxSpendableFormatted(formatAmountForDisplay(maxSpendableWei));
 
-      // Compare BigInt contribution with parsed BigInt maxSpendable
+      // Compare BigInt contribution with BigInt maxSpendable
       const contributionBigInt = groupInfo.contribution;
-      const maxSpendableBigInt = parseCbtcToWei(maxSpendable); // Convert formatted string back to BigInt
 
-      setCanAfford(maxSpendableBigInt >= contributionBigInt);
+      console.log('🔍 Balance comparison:', {
+        contribution: contributionBigInt.toString(),
+        maxSpendableWei: maxSpendableWei.toString(),
+        maxSpendableFormatted: formatAmountForDisplay(maxSpendableWei),
+        canAfford: maxSpendableWei >= contributionBigInt,
+      });
+
+      setCanAfford(maxSpendableWei >= contributionBigInt);
     };
     updateAffordability();
   }, [groupInfo, isConnected, balance, getMaxSpendableAmount]);
@@ -244,7 +250,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
           `Joined ROSCA group "${groupInfo.name || `Group ${groupId}`}"`,
           {
             group_name: groupInfo.name || `Group ${groupId}`,
-            contribution_amount: formatAmount(groupInfo.contribution, displayUnit), // Format for logging
+            contribution_amount: formatAmount(groupInfo.contribution), // Format for logging
             transaction_hash: hash
           }
         );
@@ -271,7 +277,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
           {
             group_name: groupInfo.name || `Group ${groupId}`,
             transaction_hash: hash,
-            contribution_amount: formatAmount(groupInfo.contribution, displayUnit), // Format for notification
+            contribution_amount: formatAmount(groupInfo.contribution), // Format for notification
             group_id: groupId
           }
         );
@@ -290,7 +296,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
       showError("Failed to Join Group", err.message || "Please try again or check your wallet connection.");
       setCurrentStep('preview'); // Go back to preview step on error
     }
-  }, [isConnected, primaryWallet, groupInfo, groupId, isGroupMember, showError, transactionPending, joinGroup, memberJoined, logActivity, awardAchievement, createNotification, onGroupJoined, displayUnit, resetModal]);
+  }, [isConnected, primaryWallet, groupInfo, groupId, isGroupMember, showError, transactionPending, joinGroup, memberJoined, logActivity, awardAchievement, createNotification, onGroupJoined, resetModal]);
 
   if (!open) return null;
 
@@ -484,7 +490,7 @@ export const JoinChamaModal: React.FC<JoinChamaModalProps> = ({
                               <span className="animate-pulse">Loading...</span>
                             ) : (
                               <div className="flex items-center gap-1">
-                                <span className="font-mono">{formatAmount(parseCbtcToWei(balance), displayUnit)}</span>
+                                <span className="font-mono">{formatAmount(cbtcToWei(balance), displayUnit)}</span>
                                 <Button
                                   type="button"
                                   onClick={refreshBalance}

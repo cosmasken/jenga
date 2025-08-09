@@ -151,23 +151,23 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TooltipProvider>
-          <div className="min-h-screen bg-background text-foreground font-sans">
-            <UnitDisplayProvider>
-              {isLoggedIn && onboardingCompleted && <Navigation />}
+        <UnitDisplayProvider>
+          <TooltipProvider>
+            <div className="min-h-screen bg-background text-foreground font-sans">
+                {isLoggedIn && onboardingCompleted && <Navigation />}
+                
+                <Router />
+                
+                {/* Onboarding Modal */}
+                <OnboardingModal 
+                  open={showOnboarding} 
+                  onComplete={handleOnboardingComplete}
+                />
               
-              <Router />
-              
-              {/* Onboarding Modal */}
-              <OnboardingModal 
-                open={showOnboarding} 
-                onComplete={handleOnboardingComplete}
-              />
-            </UnitDisplayProvider>
-            
-            <Toaster />
-          </div>
-        </TooltipProvider>
+              <Toaster />
+            </div>
+          </TooltipProvider>
+        </UnitDisplayProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

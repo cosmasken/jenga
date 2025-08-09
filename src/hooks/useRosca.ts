@@ -1,8 +1,7 @@
 import { useDynamicContext, useDynamicWaas } from "@dynamic-labs/sdk-react-core";
 import { isEthereumWallet } from "@dynamic-labs/ethereum";
 import { formatEther, parseEther } from "viem";
-import { useUnitDisplay } from '../contexts/UnitDisplayContext'; // Import useUnitDisplay
-import { formatAmount, parseCbtcToWei } from '../lib/unitConverter'; // Import formatAmount and parseCbtcToWei
+import { formatAmountForDisplay, cbtcToWei, weiToCbtc, weiToCbtcString } from '../lib/unitConverter';
 import type { Address, Hash } from "viem";
 import React, { useState, useCallback, useEffect } from "react";
 import { CONTRACT_ADDRESSES, TRANSACTION_CONFIG } from "../config";
@@ -91,11 +90,11 @@ export interface ContractError extends Error {
 export function useRosca() {
   const { primaryWallet } = useDynamicContext();
   const { userHasEmbeddedWallet } = useDynamicWaas();
-  const { displayUnit } = useUnitDisplay();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<ContractError | null>(null);
   const [groupCount, setGroupCount] = useState<number>(0);
-  const [balance, setBalance] = useState<string>('0');
+  const [balance, setBalance] = useState<string>('0'); // Balance as formatted string (cBTC)
+  const [balanceWei, setBalanceWei] = useState<bigint>(0n); // Store balance as BigInt (Wei)
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
 
   /**
@@ -122,6 +121,7 @@ export function useRosca() {
     if (!primaryWallet || !isTransactionCapableWallet(primaryWallet)) {
       console.log('🔍 getBalance: No wallet or not transaction capable');
       setBalance('0');
+      setBalanceWei(0n);
       return '0';
     }
 
@@ -142,10 +142,12 @@ export function useRosca() {
       console.log('🔍 getBalance: Formatted balance:', formattedBalance);
       
       setBalance(formattedBalance);
+      setBalanceWei(balance); // Also store raw BigInt balance
       return formattedBalance;
     } catch (error) {
       console.error('❌ Error fetching balance:', error);
       setBalance('0');
+      setBalanceWei(0n);
       return '0';
     } finally {
       setIsLoadingBalance(false);
@@ -168,6 +170,7 @@ export function useRosca() {
     } else {
       console.log('🔍 useEffect: No wallet connected, setting balance to 0');
       setBalance('0');
+      setBalanceWei(0n);
     }
   }, [primaryWallet, getBalance, isTransactionCapableWallet]);
 
@@ -175,8 +178,9 @@ export function useRosca() {
 
   /**
    * Calculate maximum spendable amount (balance - estimated gas)
+   * @returns Maximum spendable amount in Wei as BigInt
    */
-  const getMaxSpendableAmount = useCallback(async (): Promise<string> => {
+  const getMaxSpendableAmount = useCallback(async (): Promise<bigint> => {
     try {
       const balanceWei = parseCbtcToWei(balance); // Convert balance to Wei
       console.log('🔍 getMaxSpendableAmount: Current balance (Wei):', balanceWei);
@@ -188,12 +192,12 @@ export function useRosca() {
       const maxSpendableWei = balanceWei > estimatedGasInWei ? balanceWei - estimatedGasInWei : 0n;
       console.log('🔍 getMaxSpendableAmount: Max spendable (Wei):', maxSpendableWei);
       
-      return formatAmount(maxSpendableWei, displayUnit); // Format using the display unit
+      return maxSpendableWei; // Return raw BigInt
     } catch (error) {
       console.error('Error calculating max spendable amount:', error);
-      return formatAmount(0n, displayUnit);
+      return 0n;
     }
-  }, [balance, displayUnit]);
+  }, [balance]);
 
   /**
    * Create a new ROSCA group with enhanced parameters
@@ -965,15 +969,15 @@ export function useRosca() {
    */
   const formatContribution = useCallback((contribution: bigint | undefined | null): string => {
     if (contribution === undefined || contribution === null) {
-      return formatAmount(0n, displayUnit);
+      return formatAmount(0n);
     }
     try {
-      return formatAmount(contribution, displayUnit);
+      return formatAmount(contribution);
     } catch (error) {
       console.warn('Error formatting contribution:', error, 'value:', contribution);
-      return formatAmount(0n, displayUnit);
+      return formatAmount(0n);
     }
-  }, [displayUnit]);
+  }, []);
 
   /**
    * Check if current user is a member of a specific group

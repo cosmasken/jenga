@@ -1,25 +1,55 @@
 import { formatEther, parseEther } from 'viem';
 
+/**
+ * Supported display units for amounts
+ */
 export type DisplayUnit = 'cBTC' | 'satoshi';
 
-export const WEI_PER_CBTC = 1e18;
-export const SATOSHIS_PER_CBTC = 1e8; // Assuming 1 cBTC = 100,000,000 satoshis
+/**
+ * Converts a BigInt (Wei) amount to a formatted display string based on unit preference.
+ * @param weiAmount The amount in Wei (BigInt).
+ * @param unit The display unit preference.
+ * @returns The formatted amount as a string for display.
+ */
+export function formatAmount(weiAmount: bigint, unit: DisplayUnit = 'cBTC'): string {
+  if (unit === 'satoshi') {
+    // Convert Wei to satoshis (1 cBTC = 100,000,000 satoshis)
+    const satoshis = weiAmount / BigInt(10**10); // Wei to satoshi conversion
+    return `${satoshis.toLocaleString()} sats`;
+  } else {
+    // Default to cBTC
+    return `${parseFloat(formatEther(weiAmount)).toFixed(6)} cBTC`;
+  }
+}
 
 /**
- * Converts a BigInt (Wei) amount to a formatted string in the specified display unit.
+ * Converts a BigInt (Wei) amount to a formatted cBTC display string.
+ * This should ONLY be used for display purposes in the UI.
  * @param weiAmount The amount in Wei (BigInt).
- * @param unit The desired display unit ('cBTC' or 'satoshi').
- * @returns The formatted amount as a string.
+ * @returns The formatted amount as a string for display (e.g., "1.045628 cBTC").
  */
-export function formatAmount(weiAmount: bigint, unit: DisplayUnit): string {
-  if (unit === 'cBTC') {
-    return `${parseFloat(formatEther(weiAmount)).toFixed(6)} cBTC`;
-  } else if (unit === 'satoshi') {
-    const cbtcAmount = parseFloat(formatEther(weiAmount));
-    const satoshiAmount = cbtcAmount * SATOSHIS_PER_CBTC;
-    return `${satoshiAmount.toFixed(0)} satoshis`;
-  }
-  return `${parseFloat(formatEther(weiAmount)).toFixed(6)} cBTC`; // Default fallback
+export function formatAmountForDisplay(weiAmount: bigint): string {
+  return `${parseFloat(formatEther(weiAmount)).toFixed(6)} cBTC`;
+}
+
+/**
+ * Converts a BigInt (Wei) amount to a numeric cBTC value.
+ * Use this for calculations and comparisons.
+ * @param weiAmount The amount in Wei (BigInt).
+ * @returns The amount in cBTC as a number.
+ */
+export function weiToCbtc(weiAmount: bigint): number {
+  return parseFloat(formatEther(weiAmount));
+}
+
+/**
+ * Converts a BigInt (Wei) amount to a cBTC string (numeric only, no units).
+ * Use this when you need the numeric string representation.
+ * @param weiAmount The amount in Wei (BigInt).
+ * @returns The amount in cBTC as a numeric string.
+ */
+export function weiToCbtcString(weiAmount: bigint): string {
+  return parseFloat(formatEther(weiAmount)).toFixed(6);
 }
 
 /**
@@ -34,9 +64,22 @@ export function formatDuration(seconds: number): string {
 
 /**
  * Converts a string amount in cBTC to BigInt (Wei).
- * @param cbtcAmount The amount in cBTC as a string.
+ * @param cbtcAmount The amount in cBTC as a numeric string (e.g., "1.045628").
  * @returns The amount in Wei as a BigInt.
  */
-export function parseCbtcToWei(cbtcAmount: string): bigint {
+export function cbtcToWei(cbtcAmount: string): bigint {
   return parseEther(cbtcAmount);
 }
+
+/**
+ * Converts a numeric cBTC amount to BigInt (Wei).
+ * @param cbtcAmount The amount in cBTC as a number.
+ * @returns The amount in Wei as a BigInt.
+ */
+export function cbtcNumberToWei(cbtcAmount: number): bigint {
+  return parseEther(cbtcAmount.toString());
+}
+
+// Legacy function names for backward compatibility during refactoring
+// TODO: Remove these after all components are updated
+export const parseCbtcToWei = cbtcToWei;
