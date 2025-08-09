@@ -44,7 +44,7 @@ export function FaucetModal({ open, onOpenChange }: FaucetModalProps) {
   const { primaryWallet } = useDynamicContext();
   const { success, error: showError, transactionPending } = useRoscaToast();
   
-  const [selectedToken, setSelectedToken] = useState<string>('fUSDC');
+  const [selectedToken, setSelectedToken] = useState<string>('USDC');
   const [faucetStatuses, setFaucetStatuses] = useState<Record<string, TokenFaucetStatus>>({});
   const [isClaimingToken, setIsClaimingToken] = useState<string | null>(null);
 

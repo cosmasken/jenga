@@ -54,11 +54,11 @@ export const SUPPORTED_TOKENS: Record<string, TokenInfo> = {
     description: 'Native Bitcoin on Citrea Layer 2',
   },
   USDC: {
-    symbol: 'fUSDC',
-    name: 'Fake USD Coin',
+    symbol: 'USDC',
+    name: 'USD Coin',
     address: CONTRACT_ADDRESSES.USDC,
     decimals: 6,
-    icon: TOKEN_ICONS.fUSDC,
+    icon: TOKEN_ICONS.USDC,
     isNative: false,
     isStablecoin: true,
     isTestToken: true,
@@ -66,11 +66,11 @@ export const SUPPORTED_TOKENS: Record<string, TokenInfo> = {
     description: 'Test USDC token with built-in faucet',
   },
   USDT: {
-    symbol: 'fUSDT',
-    name: 'Fake Tether USD',
+    symbol: 'USDT',
+    name: 'Tether USD',
     address: CONTRACT_ADDRESSES.USDT,
     decimals: 6,
-    icon: TOKEN_ICONS.fUSDT,
+    icon: TOKEN_ICONS.USDT,
     isNative: false,
     isStablecoin: true,
     isTestToken: true,
@@ -78,11 +78,11 @@ export const SUPPORTED_TOKENS: Record<string, TokenInfo> = {
     description: 'Test USDT token with built-in faucet',
   },
   DAI: {
-    symbol: 'fDAI',
-    name: 'Fake Dai Stablecoin',
+    symbol: 'DAI',
+    name: 'Dai Stablecoin',
     address: CONTRACT_ADDRESSES.DAI,
     decimals: 18,
-    icon: TOKEN_ICONS.fDAI,
+    icon: TOKEN_ICONS.DAI,
     isNative: false,
     isStablecoin: true,
     isTestToken: true,
@@ -253,11 +253,8 @@ export function getMinimumContribution(symbol: string): number {
   switch (normalizedSymbol) {
     case 'CBTC':
       return 0.0001; // 0.0001 cBTC minimum
-    case 'FUSDC':
     case 'USDC':
-    case 'FUSDT':
     case 'USDT':
-    case 'FDAI':
     case 'DAI':
       return 100; // 100 tokens minimum for stablecoins
     default:
