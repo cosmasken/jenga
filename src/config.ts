@@ -79,10 +79,10 @@ export const DYNAMIC_NETWORK_CONFIG = [
  * Smart Contract Addresses
  */
 export const CONTRACT_ADDRESSES = {
-  ROSCA: '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address,
-  USDC: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174' as Address,
-  USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7' as Address,
-  DAI: '0x8f3cf7ad23cd3cadbd9736ec72f8d077c5c508b6' as Address,
+  ROSCA: '0x5824844E54fd6997Bc301100dBCa3d8981EC305f' as Address,
+  USDC: '0x539166A32F39f830a8E26D35a126901ccfe5A1aE' as Address,
+  USDT: '0x6bb7986B24075554E589aD1Be315DC0A0F49d951' as Address,
+  DAI: '0x27Abe9230594B7324b21709d2f41476fa3d27349' as Address,
   CBTC: '0x0000000000000000000000000000000000000000' as Address,
   // Add other contract addresses here as needed
   // GOVERNANCE: '0x...' as Address,

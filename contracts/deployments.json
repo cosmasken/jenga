@@ -1,10 +1,35 @@
 {
   "citrea-testnet": {
     "network": "citrea-testnet",
-    "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-    "deploymentTime": "2025-08-09T13:52:24.561Z",
-    "transactionHash": "0x18cea379d7f6707e31f83bd71957c0f7276d5a7cab31bca44f5288460f53cb51",
-    "blockNumber": 1
+    "deployer": "0x09aB514B6974601967E7b379478EFf4073cceD06",
+    "deploymentTime": "2025-08-09T14:06:07.495Z",
+    "contracts": {
+      "ROSCA": {
+        "address": "0x5824844E54fd6997Bc301100dBCa3d8981EC305f",
+        "name": "ROSCA",
+        "type": "Main Contract"
+      },
+      "USDC": {
+        "address": "0x539166A32F39f830a8E26D35a126901ccfe5A1aE",
+        "name": "Fake USD Coin",
+        "symbol": "fUSDC",
+        "decimals": 6,
+        "type": "ERC20 Token"
+      },
+      "USDT": {
+        "address": "0x6bb7986B24075554E589aD1Be315DC0A0F49d951",
+        "name": "Fake Tether USD",
+        "symbol": "fUSDT",
+        "decimals": 6,
+        "type": "ERC20 Token"
+      },
+      "DAI": {
+        "address": "0x27Abe9230594B7324b21709d2f41476fa3d27349",
+        "name": "Fake Dai Stablecoin",
+        "symbol": "fDAI",
+        "decimals": 18,
+        "type": "ERC20 Token"
+      }
+    }
   }
 }
