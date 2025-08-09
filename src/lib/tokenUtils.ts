@@ -243,6 +243,43 @@ export function getFaucetAmount(symbol: string): number {
 }
 
 /**
+ * Get minimum contribution amount for token
+ * @param symbol Token symbol
+ * @returns Minimum contribution amount in token units
+ */
+export function getMinimumContribution(symbol: string): number {
+  const normalizedSymbol = symbol.toUpperCase();
+  
+  switch (normalizedSymbol) {
+    case 'CBTC':
+      return 0.0001; // 0.0001 cBTC minimum
+    case 'FUSDC':
+    case 'USDC':
+    case 'FUSDT':
+    case 'USDT':
+    case 'FDAI':
+    case 'DAI':
+      return 100; // 100 tokens minimum for stablecoins
+    default:
+      return 1; // Default minimum
+  }
+}
+
+/**
+ * Get minimum contribution amount formatted for display
+ * @param symbol Token symbol
+ * @returns Formatted minimum amount string
+ */
+export function getMinimumContributionDisplay(symbol: string): string {
+  const minAmount = getMinimumContribution(symbol);
+  const tokenInfo = getTokenInfo(symbol);
+  
+  if (!tokenInfo) return `${minAmount} ${symbol}`;
+  
+  return `${minAmount} ${tokenInfo.symbol}`;
+}
+
+/**
  * Get token color for UI theming
  * @param symbol Token symbol
  * @returns Hex color code

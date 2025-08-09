@@ -8,7 +8,7 @@ import { useERC20Balance } from '../hooks/useERC20Balance';
 import { formatAmount, formatAmountForDisplay, formatDuration, cbtcToWei } from '../lib/unitConverter';
 import { formatEther } from 'viem';
 import { TokenSelector } from './TokenSelector';
-import { getTokenInfo, formatTokenAmount, parseTokenAmount } from '../lib/tokenUtils';
+import { getTokenInfo, formatTokenAmount, parseTokenAmount, getMinimumContribution, getMinimumContributionDisplay } from '../lib/tokenUtils';
 
 interface CreateChamaModalProps {
   open: boolean;
@@ -87,20 +87,21 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       }
 
       const contribution = parseFloat(formData.contributionAmount);
+      const minContribution = getMinimumContribution(formData.selectedToken);
       
-      // For native cBTC, use existing logic
+      // Validate minimum contribution
+      if (contribution < minContribution) {
+        return {
+          isValid: false,
+          error: `Minimum contribution is ${getMinimumContributionDisplay(formData.selectedToken)}`,
+          shortError: 'Below minimum'
+        };
+      }
+      
+      // For native cBTC, check against max spendable (accounting for gas)
       if (formData.selectedToken === 'cBTC') {
         const contributionWei = cbtcToWei(formData.contributionAmount);
         const balanceNum = parseFloat(balance);
-
-        // Validate minimum contribution (0.0001 cBTC)
-        if (contribution < 0.0001) {
-          return {
-            isValid: false,
-            error: 'Minimum contribution is ' + formatAmountForDisplay(cbtcToWei('0.0001')),
-            shortError: 'Below minimum'
-          };
-        }
 
         // Validate against max spendable balance (accounting for gas)
         if (contributionWei > maxSpendableWei) {
@@ -120,16 +121,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
           };
         }
       } else {
-        // For ERC20 tokens, validate minimum amount (1 token unit)
-        if (contribution < 1) {
-          return {
-            isValid: false,
-            error: `Minimum contribution is 1 ${selectedTokenInfo.symbol}`,
-            shortError: 'Below minimum'
-          };
-        }
-        
-        // Check against ERC20 balance
+        // For ERC20 tokens, check against ERC20 balance
         const contributionWei = parseTokenAmount(formData.contributionAmount, formData.selectedToken);
         if (contributionWei > erc20BalanceWei) {
           return {
@@ -393,10 +385,10 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                     id="contribution"
                     type="number"
                     step={formData.selectedToken === 'cBTC' ? "0.0001" : "1"}
-                    min={formData.selectedToken === 'cBTC' ? "0.0001" : "1"}
+                    min={getMinimumContribution(formData.selectedToken)}
                     value={formData.contributionAmount}
                     onChange={(e) => setFormData(prev => ({ ...prev, contributionAmount: e.target.value }))}
-                    placeholder={formData.selectedToken === 'cBTC' ? "0.0001" : "1000"}
+                    placeholder={formData.selectedToken === 'cBTC' ? "0.0001" : "100"}
                     className={`w-full px-3 py-2 pr-20 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400 focus:ring-2 focus:ring-bitcoin-orange focus:border-transparent ${!formValidation.isValid ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                       }`}
                     required
@@ -475,7 +467,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
                   <div className="flex gap-1">
                     {formData.selectedToken === 'cBTC' ? (
                       <>
-                        {['0.001', '0.01', '0.1'].map((amount) => (
+                        {['0.0001', '0.001', '0.01'].map((amount) => (
                           <button
                             key={amount}
                             type="button"

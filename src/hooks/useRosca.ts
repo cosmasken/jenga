@@ -182,15 +182,17 @@ export function useRosca() {
    */
   const getMaxSpendableAmount = useCallback(async (): Promise<bigint> => {
     try {
-      const balanceWei = parseCbtcToWei(balance); // Convert balance to Wei
+      const balanceWei = parseEther(balance); // Convert balance string to Wei
       console.log('🔍 getMaxSpendableAmount: Current balance (Wei):', balanceWei);
+      console.log('🔍 getMaxSpendableAmount: Current balance (cBTC):', balance);
       
-      // Estimate gas for createGroup transaction (conservative estimate in cBTC, then convert to Wei)
-      const estimatedGasInWei = parseCbtcToWei('0.001'); // 0.001 cBTC for gas (conservative)
+      // Estimate gas for createGroup transaction (conservative estimate)
+      const estimatedGasInWei = parseEther('0.001'); // 0.001 cBTC for gas (conservative)
       
       // Ensure balance is greater than estimated gas before subtraction
       const maxSpendableWei = balanceWei > estimatedGasInWei ? balanceWei - estimatedGasInWei : 0n;
       console.log('🔍 getMaxSpendableAmount: Max spendable (Wei):', maxSpendableWei);
+      console.log('🔍 getMaxSpendableAmount: Max spendable (cBTC):', formatEther(maxSpendableWei));
       
       return maxSpendableWei; // Return raw BigInt
     } catch (error) {
