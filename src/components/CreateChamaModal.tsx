@@ -19,7 +19,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
     name: '',
     contributionAmount: '', // Amount in cBTC
     roundLength: '', // Round length in days
-    maxMembers: '5' // Default to 5 members
+    maxMembers: '3' // Default to 5 members
   });
   const [maxSpendableWei, setMaxSpendableWei] = useState<bigint>(0n); // Store as BigInt
   const [maxSpendableDisplay, setMaxSpendableDisplay] = useState<string>('0'); // For display only
@@ -48,7 +48,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       getMaxSpendableAmount().then((maxSpendableAmountWei) => {
         setMaxSpendableWei(maxSpendableAmountWei);
         setMaxSpendableDisplay(formatAmountForDisplay(maxSpendableAmountWei));
-        
+
         console.log('🔍 Max spendable updated:', {
           wei: maxSpendableAmountWei.toString(),
           display: formatAmountForDisplay(maxSpendableAmountWei),
@@ -218,7 +218,7 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
       if (onGroupCreated) {
         onGroupCreated();
       }
-      
+
       setTimeout(() => resetModal(), 2000);
     } catch (err) {
       console.error('❌ Error creating chama:', err);
@@ -261,28 +261,28 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
         {/* Step Indicator */}
         <div className="flex items-center justify-center gap-2 p-4 bg-gray-50 dark:bg-gray-800/50">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${currentStep === 'form'
-              ? 'bg-bitcoin text-white shadow-bitcoin'
-              : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+            ? 'bg-bitcoin text-white shadow-bitcoin'
+            : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
             }`}>
             1
           </div>
           <div className={`w-8 h-1 rounded transition-all ${['preview', 'transaction'].includes(currentStep)
-              ? 'bg-bitcoin'
-              : 'bg-gray-200 dark:bg-gray-700'
+            ? 'bg-bitcoin'
+            : 'bg-gray-200 dark:bg-gray-700'
             }`}></div>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${currentStep === 'preview'
-              ? 'bg-bitcoin text-white shadow-bitcoin'
-              : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+            ? 'bg-bitcoin text-white shadow-bitcoin'
+            : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
             }`}>
             2
           </div>
           <div className={`w-8 h-1 rounded transition-all ${currentStep === 'transaction'
-              ? 'bg-bitcoin'
-              : 'bg-gray-200 dark:bg-gray-700'
+            ? 'bg-bitcoin'
+            : 'bg-gray-200 dark:bg-gray-700'
             }`}></div>
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all ${currentStep === 'transaction'
-              ? 'bg-bitcoin text-white shadow-bitcoin'
-              : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+            ? 'bg-bitcoin text-white shadow-bitcoin'
+            : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
             }`}>
             3
           </div>
@@ -334,42 +334,42 @@ export const CreateChamaModal: React.FC<CreateChamaModalProps> = ({ open, onOpen
 
                 {/* Balance Information */}
                 <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
-          <div className="flex items-center gap-2">
-            <span>Balance:</span>
-            {isLoadingBalance ? (
-              <span className="animate-pulse">Loading...</span>
-            ) : (
-              <div className="flex items-center gap-1">
-                <span className="font-mono">{formatAmount(cbtcToWei(balance), displayUnit)}</span>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await refreshBalance();
-                    const maxAmount = await getMaxSpendableAmount();
-                    setMaxSpendable(maxAmount);
-                  }}
-                  className="text-bitcoin hover:text-bitcoin-dark transition-colors"
-                  disabled={isLoadingBalance}
-                  title="Refresh balance"
-                >
-                  🔄
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <span>Max (after gas):</span>
-            <button
-              type="button"
-              onClick={() => setFormData(prev => ({ ...prev, contributionAmount: formatEther(maxSpendableWei) }))}
-              className="font-mono text-bitcoin hover:text-bitcoin-dark underline cursor-pointer transition-colors"
-              disabled={isLoadingBalance || maxSpendableWei <= 0n}
-              title="Use maximum amount"
-            >
-              {maxSpendableDisplay}
-            </button>
-          </div>
-        </div>
+                  <div className="flex items-center gap-2">
+                    <span>Balance:</span>
+                    {isLoadingBalance ? (
+                      <span className="animate-pulse">Loading...</span>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <span className="font-mono">{formatAmount(cbtcToWei(balance), displayUnit)}</span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await refreshBalance();
+                            const maxAmount = await getMaxSpendableAmount();
+                            setMaxSpendableWei(maxAmount);
+                          }}
+                          className="text-bitcoin hover:text-bitcoin-dark transition-colors"
+                          disabled={isLoadingBalance}
+                          title="Refresh balance"
+                        >
+                          🔄
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span>Max (after gas):</span>
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, contributionAmount: formatEther(maxSpendableWei) }))}
+                      className="font-mono text-bitcoin hover:text-bitcoin-dark underline cursor-pointer transition-colors"
+                      disabled={isLoadingBalance || maxSpendableWei <= 0n}
+                      title="Use maximum amount"
+                    >
+                      {maxSpendableDisplay}
+                    </button>
+                  </div>
+                </div>
 
                 {/* Quick Amount Buttons */}
                 <div className="flex items-center gap-2">

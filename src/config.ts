@@ -79,7 +79,11 @@ export const DYNAMIC_NETWORK_CONFIG = [
  * Smart Contract Addresses
  */
 export const CONTRACT_ADDRESSES = {
-  ROSCA: '0xB7AdF792C054976E1F40B45CB768f6D09E42358A' as Address,
+  ROSCA: '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address,
+  USDC: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174' as Address,
+  USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7' as Address,
+  DAI: '0x8f3cf7ad23cd3cadbd9736ec72f8d077c5c508b6' as Address,
+  CBTC: '0x0000000000000000000000000000000000000000' as Address,
   // Add other contract addresses here as needed
   // GOVERNANCE: '0x...' as Address,
   // TOKEN: '0x...' as Address,
@@ -90,6 +94,11 @@ export const CONTRACT_ADDRESSES = {
  * @deprecated Use CONTRACT_ADDRESSES.ROSCA instead
  */
 export const ROSCA_CONTRACT_ADDRESS = CONTRACT_ADDRESSES.ROSCA;
+export const USDC_CONTRACT_ADDRESS = CONTRACT_ADDRESSES.USDC;
+export const USDT_CONTRACT_ADDRESS = CONTRACT_ADDRESSES.USDT;
+export const DAI_CONTRACT_ADDRESS = CONTRACT_ADDRESSES.DAI;
+export const CBTC_CONTRACT_ADDRESS = CONTRACT_ADDRESSES.CBTC;
+
 
 // =============================================================================
 // APPLICATION CONFIGURATION

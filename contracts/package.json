@@ -1,0 +1,34 @@
+{
+  "name": "jenga-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for Jenga Bitcoin Chama dApp - ROSCA implementation on Citrea testnet",
+  "main": "index.js",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.1.0",
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "dotenv": "^17.2.1",
+    "ethers": "^6.15.0",
+    "hardhat": "^2.26.2",
+    "mocha": "^10.8.2"
+  },
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy": "hardhat run scripts/deploy.js --network citrea",
+    "deploy:local": "hardhat run scripts/deploy.js --network hardhat",
+    "verify": "hardhat verify --network citrea",
+    "clean": "hardhat clean",
+    "node": "hardhat node"
+  },
+  "keywords": [
+    "rosca",
+    "bitcoin",
+    "citrea",
+    "defi",
+    "savings",
+    "chama"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs"
+}
