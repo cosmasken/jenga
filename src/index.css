@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(0, 0%, 0%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(0, 0%, 0%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(0, 0%, 0%);
+  --primary: hsl(28, 96%, 53%);
+  --primary-foreground: hsl(0, 0%, 0%);
+  --secondary: hsl(0, 0%, 15%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(0, 0%, 96%);
+  --muted-foreground: hsl(0, 0%, 45%);
+  --accent: hsl(28, 96%, 53%);
+  --accent-foreground: hsl(0, 0%, 0%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(0, 0%, 89%);
+  --input: hsl(0, 0%, 89%);
+  --ring: hsl(28, 96%, 53%);
+  --bitcoin: hsl(28, 96%, 53%);
+  --neutral-850: hsl(0, 0%, 12%);
+  --radius: 0.75rem;
+  --font-mono: 'IBM Plex Mono', 'Menlo', 'Monaco', 'Consolas', 'Liberation Mono', 'Courier New', monospace;
+}
+
+.dark {
+  --background: hsl(0, 0%, 0%);
+  --foreground: hsl(0, 0%, 100%);
+  --card: hsl(0, 0%, 0%);
+  --card-foreground: hsl(0, 0%, 100%);
+  --popover: hsl(0, 0%, 0%);
+  --popover-foreground: hsl(0, 0%, 100%);
+  --primary: hsl(28, 96%, 53%);
+  --primary-foreground: hsl(0, 0%, 0%);
+  --secondary: hsl(0, 0%, 15%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(0, 0%, 9%);
+  --muted-foreground: hsl(0, 0%, 46%);
+  --accent: hsl(28, 96%, 53%);
+  --accent-foreground: hsl(0, 0%, 0%);
+  --destructive: hsl(0, 62%, 54%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(0, 0%, 15%);
+  --input: hsl(0, 0%, 18%);
+  --ring: hsl(28, 96%, 53%);
+  --bitcoin: hsl(28, 96%, 53%);
+  --neutral-850: hsl(0, 0%, 12%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-mono antialiased bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .bg-bitcoin {
+    background-color: var(--bitcoin);
+  }
+  
+  .text-bitcoin {
+    color: var(--bitcoin);
+  }
+  
+  .border-bitcoin {
+    border-color: var(--bitcoin);
+  }
+  
+  .bg-neutral-850 {
+    background-color: var(--neutral-850);
+  }
+}
