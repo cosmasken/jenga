@@ -65,6 +65,15 @@ export default function ChamaDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(false); // Prevent multiple calls
+  const [userMembershipStatus, setUserMembershipStatus] = useState<{
+    isMember: boolean;
+    isCreator: boolean;
+    hasContributed: boolean;
+  }>({
+    isMember: false,
+    isCreator: false,
+    hasContributed: false
+  });
 
   // Get chama address from URL params
   const chamaAddress = (params.address || '0x0000000000000000000000000000000000000000') as Address;
@@ -72,14 +81,69 @@ export default function ChamaDashboard() {
   // Use the Rosca hook
   const roscaHook = useRosca(FACTORY_ADDRESS);
 
-  // Calculate user role and permissions
+  // Check user membership status
+  const checkUserMembership = async () => {
+    if (!primaryWallet?.address || !chamaInfo) {
+      setUserMembershipStatus({
+        isMember: false,
+        isCreator: false,
+        hasContributed: false
+      });
+      return;
+    }
+
+    try {
+      const userAddress = primaryWallet.address as Address;
+
+      // Check if user is creator (first member)
+      const isCreator = chamaInfo.creator.toLowerCase() === userAddress.toLowerCase();
+
+      // Check if user is a member using the contract
+      const isMember = await roscaHook.isMember(chamaAddress, userAddress);
+
+      // Check if user has contributed this round (if they're a member)
+      let hasContributed = false;
+      if (isMember && chamaInfo.currentRound > 0) {
+        try {
+          hasContributed = await roscaHook.hasContributed(chamaAddress, userAddress, chamaInfo.currentRound);
+        } catch (error) {
+          console.warn('Could not check contribution status:', error);
+        }
+      }
+
+      setUserMembershipStatus({
+        isMember,
+        isCreator,
+        hasContributed
+      });
+
+      console.log('👤 User membership status:', {
+        userAddress,
+        isCreator,
+        isMember,
+        hasContributed,
+        chamaCreator: chamaInfo.creator
+      });
+
+    } catch (error) {
+      console.error('Failed to check user membership:', error);
+      setUserMembershipStatus({
+        isMember: false,
+        isCreator: false,
+        hasContributed: false
+      });
+    }
+  };
+
+
+  // Calculate user role and permissions based on membership status
   const userRole: UserRole = {
     isLoggedIn,
-    isCreator: isLoggedIn && chamaInfo?.creator.toLowerCase() === primaryWallet?.address?.toLowerCase(),
-    isMember: false, // Will be calculated based on actual membership check
-    canJoin: isLoggedIn && chamaInfo ? chamaInfo.totalMembers < chamaInfo.memberTarget : false,
-    canContribute: false, // Will be calculated based on membership and round status
-    canLeave: false // Will be calculated based on membership status
+    isCreator: userMembershipStatus.isCreator,
+    isMember: userMembershipStatus.isMember,
+    canJoin: isLoggedIn && chamaInfo && !userMembershipStatus.isMember && chamaInfo.totalMembers < chamaInfo.memberTarget,
+    canContribute: isLoggedIn && userMembershipStatus.isMember && !userMembershipStatus.hasContributed,
+    canLeave: isLoggedIn && userMembershipStatus.isMember && !userMembershipStatus.isCreator
   };
 
   // Load chama data - simplified to avoid infinite loops
@@ -105,6 +169,11 @@ export default function ChamaDashboard() {
       const info = await roscaHook.getChamaInfo(chamaAddress);
       setChamaInfo(info);
       console.log('✅ Chama info loaded successfully:', info);
+
+      // After loading chama info, check user membership if logged in
+      if (isLoggedIn && primaryWallet?.address) {
+        await checkUserMembership();
+      }
     } catch (err: any) {
       console.error('❌ Failed to load chama data:', err);
       setError(err.message || 'Failed to load chama data');
@@ -124,6 +193,20 @@ export default function ChamaDashboard() {
   useEffect(() => {
     loadChamaData();
   }, [chamaAddress]); // Only depend on chamaAddress
+
+  // Check user membership when chamaInfo loads or wallet changes
+  useEffect(() => {
+    if (chamaInfo && isLoggedIn && primaryWallet?.address) {
+      checkUserMembership();
+    } else {
+      // Reset membership status if not logged in or no chama info
+      setUserMembershipStatus({
+        isMember: false,
+        isCreator: false,
+        hasContributed: false
+      });
+    }
+  }, [chamaInfo, isLoggedIn, primaryWallet?.address]);
 
   // Debug logging
   useEffect(() => {
@@ -304,7 +387,7 @@ export default function ChamaDashboard() {
           Back to Dashboard
         </Button>
 
-        {/* Status Alert for Non-logged in users */}
+        {/* Role-based Status Alerts */}
         {!isLoggedIn && (
           <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950">
             <AlertCircle className="h-4 w-4 text-blue-600" />
@@ -320,6 +403,26 @@ export default function ChamaDashboard() {
             <Shield className="h-4 w-4 text-bitcoin" />
             <AlertDescription className="text-bitcoin">
               <strong>You are the creator</strong> of this chama. You can manage settings and invite members.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Member Badge */}
+        {userRole.isMember && !userRole.isCreator && (
+          <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800 dark:text-green-200">
+              <strong>You are a member</strong> of this chama. {userMembershipStatus.hasContributed ? 'You have contributed this round.' : 'You can contribute to the current round.'}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Non-member Badge */}
+        {isLoggedIn && !userRole.isMember && (
+          <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950">
+            <UserPlus className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="text-orange-800 dark:text-orange-200">
+              <strong>You are not a member</strong> of this chama. {userRole.canJoin ? 'You can join if there are available spots.' : 'This chama is full or closed to new members.'}
             </AlertDescription>
           </Alert>
         )}
@@ -486,14 +589,16 @@ export default function ChamaDashboard() {
                       <span className="text-sm font-medium text-bitcoin">You created this chama</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <Button
-                        onClick={handleContribute}
-                        disabled={isActionLoading}
-                        className="bg-bitcoin hover:bg-bitcoin/90"
-                      >
-                        <Coins className="w-4 h-4 mr-2" />
-                        {isActionLoading ? 'Contributing...' : 'Contribute'}
-                      </Button>
+                      {userRole.canContribute && (
+                        <Button
+                          onClick={handleContribute}
+                          disabled={isActionLoading}
+                          className="bg-bitcoin hover:bg-bitcoin/90"
+                        >
+                          <Coins className="w-4 h-4 mr-2" />
+                          {isActionLoading ? 'Contributing...' : 'Contribute'}
+                        </Button>
+                      )}
                       <Button
                         onClick={shareChama}
                         variant="outline"
@@ -502,6 +607,44 @@ export default function ChamaDashboard() {
                         <UserPlus className="w-4 h-4 mr-2" />
                         Invite Members
                       </Button>
+                    </div>
+                  </div>
+                ) : userRole.isMember ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                      <span className="text-sm font-medium text-green-600">You are a member</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {userRole.canContribute ? (
+                        <Button
+                          onClick={handleContribute}
+                          disabled={isActionLoading}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          <Coins className="w-4 h-4 mr-2" />
+                          {isActionLoading ? 'Contributing...' : 'Contribute'}
+                        </Button>
+                      ) : (
+                        <Button
+                          disabled
+                          className="bg-gray-400"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          Already Contributed
+                        </Button>
+                      )}
+                      {userRole.canLeave && (
+                        <Button
+                          onClick={handleLeave}
+                          disabled={isActionLoading}
+                          variant="outline"
+                          className="border-red-500 text-red-600 hover:bg-red-50"
+                        >
+                          <ArrowLeft className="w-4 h-4 mr-2" />
+                          {isActionLoading ? 'Leaving...' : 'Leave Chama'}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ) : userRole.canJoin ? (
@@ -523,16 +666,31 @@ export default function ChamaDashboard() {
                       {isActionLoading ? 'Joining...' : `Join Chama (${formatTokenAmount(chamaInfo.securityDeposit)} ${getTokenSymbol()})`}
                     </Button>
                   </div>
+                ) : isLoggedIn ? (
+                  <div className="text-center py-4">
+                    <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Users size={32} className="text-orange-600" />
+                    </div>
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                      {chamaInfo.totalMembers >= chamaInfo.memberTarget ? 'Chama Full' : 'Not a Member'}
+                    </h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {chamaInfo.totalMembers >= chamaInfo.memberTarget 
+                        ? 'This chama has reached its member limit. Check back later or explore other chamas.'
+                        : 'You are viewing this chama as a non-member. Join to participate in the savings circle.'
+                      }
+                    </p>
+                  </div>
                 ) : (
                   <div className="text-center py-4">
                     <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Users size={32} className="text-gray-400" />
+                      <AlertCircle size={32} className="text-gray-400" />
                     </div>
                     <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                      Chama Full
+                      Connect Wallet
                     </h4>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      This chama has reached its member limit. Check back later or explore other chamas.
+                      Connect your wallet to see your membership status and interact with this chama.
                     </p>
                   </div>
                 )}
