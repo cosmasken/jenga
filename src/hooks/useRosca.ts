@@ -530,12 +530,12 @@ const join = async (chama: Address): Promise<Hash | undefined> => {
     const [security, token] = await Promise.all([
       publicClient.readContract({
         address: chama,
-        abi: FACTORY_ABI,
+        abi: CIRCLE_ABI,
         functionName: 'securityDeposit',
       }),
       publicClient.readContract({
         address: chama,
-        abi: FACTORY_ABI,
+        abi: CIRCLE_ABI,
         functionName: 'token',
       })
     ]);
@@ -557,7 +557,7 @@ const join = async (chama: Address): Promise<Hash | undefined> => {
       console.log('✅ USDC approval completed, joining chama...');
       const hash = await client.writeContract({
         address: chama,
-        abi: FACTORY_ABI,
+        abi: CIRCLE_ABI,
         functionName: 'join',
       });
 
@@ -575,7 +575,7 @@ const join = async (chama: Address): Promise<Hash | undefined> => {
     console.log('🪙 Joining native cBTC chama...');
     const hash = await client.writeContract({
       address: chama,
-      abi: FACTORY_ABI,
+      abi: CIRCLE_ABI,
       functionName: 'join',
       value: security,
     });
@@ -643,12 +643,12 @@ const contribute = async (chama: Address): Promise<Hash | undefined> => {
     const [contributionAmount, token] = await Promise.all([
       publicClient.readContract({
         address: chama,
-        abi: FACTORY_ABI,
+        abi: CIRCLE_ABI,
         functionName: 'contribution',
       }),
       publicClient.readContract({
         address: chama,
-        abi: FACTORY_ABI,
+        abi: CIRCLE_ABI,
         functionName: 'token',
       })
     ]);
@@ -668,7 +668,7 @@ const contribute = async (chama: Address): Promise<Hash | undefined> => {
       console.log('✅ USDC approval completed, contributing to chama...');
       const hash = await client.writeContract({
         address: chama,
-        abi: FACTORY_ABI,
+        abi: CIRCLE_ABI,
         functionName: 'contribute',
       });
 
@@ -686,7 +686,7 @@ const contribute = async (chama: Address): Promise<Hash | undefined> => {
     console.log('🪙 Contributing to native cBTC chama...');
     const hash = await client.writeContract({
       address: chama,
-      abi: FACTORY_ABI,
+      abi: CIRCLE_ABI,
       functionName: 'contribute',
       value: contributionAmount,
     });
@@ -737,7 +737,7 @@ const leave = async (chama: Address): Promise<Hash | undefined> => {
 
     const hash = await client.writeContract({
       address: chama,
-      abi: FACTORY_ABI,
+      abi: CIRCLE_ABI,
       functionName: 'leave',
     });
 
