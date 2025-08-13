@@ -33,6 +33,8 @@ interface InviteAnalytics {
   conversionRate: number;
   createdAt: Date;
   status: 'active' | 'expired' | 'exhausted';
+  clickHistory?: any[];
+  usageHistory?: any[];
 }
 
 export default function InviteTest() {
@@ -44,20 +46,6 @@ export default function InviteTest() {
   const [activeTab, setActiveTab] = useState<'generate' | 'analytics' | 'users'>('generate');
   const inviteHandler = useInviteHandler();
 
-  // Mock data for demonstration
-  const mockInvitedUsers = [
-    { address: '0xabc123...', joinedAt: new Date('2024-01-15'), type: 'platform', bonus: '0.001 cBTC' },
-    { address: '0xdef456...', joinedAt: new Date('2024-01-16'), type: 'chama', bonus: '10% discount' },
-    { address: '0x789xyz...', joinedAt: new Date('2024-01-17'), type: 'platform', bonus: '0.001 cBTC' },
-  ];
-
-  const mockClickData = [
-    { timestamp: new Date('2024-01-15T10:30:00'), ip: '192.168.1.1', userAgent: 'Chrome/Mobile', converted: true },
-    { timestamp: new Date('2024-01-15T14:22:00'), ip: '192.168.1.2', userAgent: 'Safari/Desktop', converted: false },
-    { timestamp: new Date('2024-01-16T09:15:00'), ip: '192.168.1.3', userAgent: 'Firefox/Desktop', converted: true },
-    { timestamp: new Date('2024-01-17T16:45:00'), ip: '192.168.1.4', userAgent: 'Chrome/Desktop', converted: false },
-  ];
-
   useEffect(() => {
     loadInviteData();
   }, []);
@@ -65,19 +53,24 @@ export default function InviteTest() {
   const loadInviteData = () => {
     const invites = InviteStorageService.getUserInviteCodes(testAddress);
     setAllInvites(invites);
-    
-    // Generate mock analytics for each invite
-    const analyticsData = invites.map(invite => ({
-      code: invite.code,
-      clicks: Math.floor(Math.random() * 50) + invite.currentUses * 2,
-      conversions: invite.currentUses,
-      lastClicked: invite.currentUses > 0 ? new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000) : null,
-      invitedUsers: mockInvitedUsers.slice(0, invite.currentUses).map(u => u.address),
-      conversionRate: invite.currentUses > 0 ? (invite.currentUses / (Math.floor(Math.random() * 50) + invite.currentUses * 2)) * 100 : 0,
-      createdAt: invite.createdAt,
-      status: invite.isActive ? 'active' : (new Date() > invite.expiresAt ? 'expired' : 'exhausted') as 'active' | 'expired' | 'exhausted'
-    }));
-    
+
+    // Generate real analytics for each invite
+    const analyticsData = invites.map(invite => {
+      const realAnalytics = InviteStorageService.getRealAnalytics(invite.code);
+      return {
+        code: invite.code,
+        clicks: realAnalytics.totalClicks,
+        conversions: realAnalytics.totalConversions,
+        lastClicked: realAnalytics.lastClicked,
+        invitedUsers: realAnalytics.uniqueUsers,
+        conversionRate: realAnalytics.conversionRate,
+        createdAt: invite.createdAt,
+        status: invite.isActive ? 'active' : (new Date() > invite.expiresAt ? 'expired' : 'exhausted') as 'active' | 'expired' | 'exhausted',
+        clickHistory: realAnalytics.clickHistory,
+        usageHistory: realAnalytics.usageHistory
+      };
+    });
+
     setAnalytics(analyticsData);
   };
 
@@ -85,7 +78,7 @@ export default function InviteTest() {
     const inviteCode = InviteCodeGenerator.createInviteCode(testAddress, 'platform');
     InviteStorageService.saveInviteCode(inviteCode);
     setGeneratedCode(inviteCode.code);
-    
+
     const url = InviteCodeGenerator.generateShareableUrl(inviteCode.code);
     setTestUrl(url);
     loadInviteData();
@@ -96,18 +89,9 @@ export default function InviteTest() {
     const inviteCode = InviteCodeGenerator.createInviteCode(testAddress, 'chama', chamaAddress);
     InviteStorageService.saveInviteCode(inviteCode);
     setGeneratedCode(inviteCode.code);
-    
+
     const url = InviteCodeGenerator.generateShareableUrl(inviteCode.code, window.location.origin, chamaAddress);
     setTestUrl(url);
-    loadInviteData();
-  };
-
-  const simulateClick = (code: string) => {
-    // Simulate a click by incrementing usage (in real app, this would be tracked server-side)
-    const random = Math.random();
-    if (random > 0.7) { // 30% conversion rate simulation
-      InviteStorageService.incrementUsage(code);
-    }
     loadInviteData();
   };
 
@@ -115,8 +99,40 @@ export default function InviteTest() {
     const isValid = InviteCodeGenerator.isValidCodeFormat(code);
     const type = InviteCodeGenerator.getInviteType(code);
     const stored = InviteStorageService.getInviteCode(code);
-    
-    alert(`Code: ${code}\nValid: ${isValid}\nType: ${type}\nStored: ${stored ? 'Yes' : 'No'}`);
+    const analytics = InviteStorageService.getRealAnalytics(code);
+
+    alert(`Code: ${code}\nValid: ${isValid}\nType: ${type}\nStored: ${stored ? 'Yes' : 'No'}\nClicks: ${analytics.totalClicks}\nConversions: ${analytics.totalConversions}`);
+  };
+
+  // const getOverallStats = () => {
+  //   const stats = InviteStorageService.getInviteStats(testAddress);
+  //   return {
+  //     totalInvites: stats.totalInvites,
+  //     activeInvites: stats.activeInvites,
+  //     totalUses: stats.totalUses,
+  //     totalClicks: stats.totalClicks,
+  //     totalConversions: stats.totalConversions,
+  //     avgConversionRate: stats.avgConversionRate.toString()
+  //   };
+  // };
+
+  const getAllClickHistory = () => {
+    return analytics.flatMap(a => a.clickHistory || [])
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 10); // Show last 10 clicks
+  };
+
+  const getAllInvitedUsers = () => {
+    const allUsers = analytics.flatMap(a => a.usageHistory || [])
+      .filter(usage => usage.type === 'conversion')
+      .map(usage => ({
+        address: usage.userAddress,
+        joinedAt: usage.timestamp,
+        type: 'platform', // Could be enhanced to detect type
+        bonus: '0.001 cBTC'
+      }));
+
+    return allUsers;
   };
 
   const clearStorage = () => {
@@ -129,10 +145,10 @@ export default function InviteTest() {
   const getOverallStats = () => {
     const stats = InviteStorageService.getInviteStats(testAddress);
     const totalClicks = analytics.reduce((sum, a) => sum + a.clicks, 0);
-    const avgConversionRate = analytics.length > 0 
-      ? analytics.reduce((sum, a) => sum + a.conversionRate, 0) / analytics.length 
+    const avgConversionRate = analytics.length > 0
+      ? analytics.reduce((sum, a) => sum + a.conversionRate, 0) / analytics.length
       : 0;
-    
+
     return {
       ...stats,
       totalClicks,
@@ -143,7 +159,7 @@ export default function InviteTest() {
   const overallStats = getOverallStats();
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 p-8 text-black">
       <div className="max-w-6xl mx-auto space-y-6">
         <Card>
           <CardHeader>
@@ -153,16 +169,16 @@ export default function InviteTest() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            
+
             {/* URL Parameters Status */}
             {inviteHandler.hasInviteCode && (
               <Alert className="mb-4">
                 <Gift className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Invite Detected!</strong><br/>
-                  Code: {inviteHandler.inviteCode}<br/>
-                  Type: {inviteHandler.inviteType}<br/>
-                  Chama: {inviteHandler.chamaAddress || 'N/A'}<br/>
+                  <strong>Invite Detected!</strong><br />
+                  Code: {inviteHandler.inviteCode}<br />
+                  Type: {inviteHandler.inviteType}<br />
+                  Chama: {inviteHandler.chamaAddress || 'N/A'}<br />
                   Processing: {inviteHandler.isProcessing ? 'Yes' : 'No'}
                 </AlertDescription>
               </Alert>
@@ -235,9 +251,8 @@ export default function InviteTest() {
                         <Button size="sm" onClick={() => window.open(testUrl, '_blank')}>
                           Open URL
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => simulateClick(generatedCode)}>
-                          <MousePointer className="w-4 h-4 mr-1" />
-                          Simulate Click
+                        <Button size="sm" variant="outline" onClick={() => navigator.clipboard.writeText(testUrl)}>
+                          Copy URL
                         </Button>
                       </div>
                     </CardContent>
@@ -249,7 +264,7 @@ export default function InviteTest() {
                   <CardContent className="p-4 space-y-3">
                     <label className="text-sm font-medium">Test Manual Code:</label>
                     <div className="flex gap-2">
-                      <Input 
+                      <Input
                         placeholder="Enter invite code to test"
                         onKeyPress={(e) => {
                           if (e.key === 'Enter') {
@@ -300,16 +315,11 @@ export default function InviteTest() {
                                 {analytic.status}
                               </Badge>
                             </div>
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => simulateClick(analytic.code)}
-                            >
-                              <MousePointer className="w-4 h-4 mr-1" />
-                              Simulate Click
-                            </Button>
+                            <div className="text-sm text-gray-500">
+                              Created: {analytic.createdAt.toLocaleDateString()}
+                            </div>
                           </div>
-                          
+
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                             <div className="flex items-center gap-2">
                               <Eye className="w-4 h-4 text-blue-500" />
@@ -326,7 +336,7 @@ export default function InviteTest() {
                             <div className="flex items-center gap-2">
                               <Clock className="w-4 h-4 text-gray-500" />
                               <span>
-                                {analytic.lastClicked 
+                                {analytic.lastClicked
                                   ? analytic.lastClicked.toLocaleDateString()
                                   : 'No clicks'
                                 }
@@ -356,57 +366,73 @@ export default function InviteTest() {
               <TabsContent value="users" className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Invited Users ({mockInvitedUsers.length})</CardTitle>
+                    <CardTitle className="text-lg">Invited Users ({getAllInvitedUsers().length})</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-3">
-                      {mockInvitedUsers.map((user, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                              {index + 1}
-                            </div>
-                            <div>
-                              <div className="font-mono text-sm">{user.address}</div>
-                              <div className="text-xs text-gray-500">
-                                Joined {user.joinedAt.toLocaleDateString()} • {user.type}
+                    {getAllInvitedUsers().length === 0 ? (
+                      <div className="text-center text-gray-500 py-8">
+                        No users have joined via your invite codes yet.
+                        <br />
+                        <span className="text-sm">Share your invite links to start tracking conversions!</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {getAllInvitedUsers().map((user, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+                                {index + 1}
+                              </div>
+                              <div>
+                                <div className="font-mono text-sm">{user.address}</div>
+                                <div className="text-xs text-gray-500">
+                                  Joined {user.joinedAt.toLocaleDateString()} • {user.type}
+                                </div>
                               </div>
                             </div>
+                            <div className="text-right">
+                              <Badge variant="secondary" className="text-xs">
+                                {user.bonus}
+                              </Badge>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <Badge variant="secondary" className="text-xs">
-                              {user.bonus}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
                 {/* Click Details */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Recent Clicks</CardTitle>
+                    <CardTitle className="text-lg">Recent Clicks ({getAllClickHistory().length})</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-2">
-                      {mockClickData.map((click, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 text-sm border-b last:border-b-0">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-2 h-2 rounded-full ${click.converted ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-                            <span className="font-mono text-xs">{click.ip}</span>
-                            <span className="text-gray-500">{click.userAgent}</span>
+                    {getAllClickHistory().length === 0 ? (
+                      <div className="text-center text-gray-500 py-8">
+                        No clicks recorded yet.
+                        <br />
+                        <span className="text-sm">Open your invite links in new tabs to see click tracking!</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {getAllClickHistory().map((click, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 text-sm border-b last:border-b-0">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-2 h-2 rounded-full ${click.converted ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                              <span className="font-mono text-xs">{click.sessionId.slice(0, 8)}</span>
+                              <span className="text-gray-500">{click.userAgent.split(' ')[0]}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-500">{click.timestamp.toLocaleString()}</span>
+                              {click.converted && (
+                                <Badge variant="default" className="text-xs">Converted</Badge>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-gray-500">{click.timestamp.toLocaleString()}</span>
-                            {click.converted && (
-                              <Badge variant="default" className="text-xs">Converted</Badge>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -416,7 +442,7 @@ export default function InviteTest() {
             <Card className="mt-6">
               <CardContent className="p-4">
                 <h4 className="font-medium mb-2">Test Examples:</h4>
-                <div className="text-sm space-y-1 font-mono bg-gray-100 p-3 rounded">
+                <div className="text-sm space-y-1 font-mono bg-gray-100 p-3 rounded text-black" >
                   <p>Platform: <code>SACCO_123ABC_1234567890_DEF456</code></p>
                   <p>Chama: <code>CHAMA_123ABC_9876_1234567890_DEF456</code></p>
                   <p className="mt-2">Test URLs:</p>
