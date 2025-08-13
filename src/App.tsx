@@ -7,7 +7,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Navigation from "./components/Navigation";
 import Landing from "./pages/Landing";
-import SaccoDashboard from "./pages/SaccoDashboard";
+import SaccoOnboardingWrapper from "./components/SaccoOnboardingWrapper";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "@/pages/not-found";
 import CreatePage from "./pages/CreatePage";
@@ -20,7 +20,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/dashboard" component={Dashboard} />
-      <Route path="/sacco-dashboard" component={SaccoDashboard} />
+      <Route path="/sacco-dashboard" component={SaccoOnboardingWrapper} />
       <Route path="/create" component={CreatePage} />
       <Route path="/join" component={JoinChamaPage} />
       <Route path="/chama/:address" component={ChamaDashboard} />
