@@ -134,10 +134,10 @@ export const DYNAMIC_NETWORK_CONFIG = [
  * Smart Contract Addresses - Latest Deployment
  */
 export const CONTRACT_ADDRESSES = {
-  CHAMA_FACTORY: (import.meta.env.VITE_CHAMA_FACTORY_ADDRESS || '0xC1a490E09F8dE6Bd46560cCF55Cb6CfE20cC42c1') as Address,
-  MICRO_SACCO: (import.meta.env.VITE_SACCO_FACTORY_ADDRESS || '0x9c06872dA9fd120d57b73d8c97348675Db979Ad5') as Address,
+  CHAMA_FACTORY: (import.meta.env.VITE_CHAMA_FACTORY_ADDRESS || '0x19E81d61c409bdC791e67bDd234Fe00590622341') as Address,
+  MICRO_SACCO: (import.meta.env.VITE_SACCO_FACTORY_ADDRESS || '0x646E31916CF92E0bdE7A01b312f366A833Bbe2EF') as Address,
   // Single USDC contract for all stablecoin operations (loans, chama contributions, etc.)
-  USDC: '0x2b7C40E9B01b342f3730a886d65168eD501a88b8' as Address,
+  USDC: '0xF969efA16C2489a44b0276d6D7D6BF675BBD6f6f' as Address,
 } as const;
 
 /**
