@@ -97,6 +97,13 @@ export default function ChamaDashboard() {
 
       // Check if user is creator (first member)
       const isCreator = chamaInfo.creator.toLowerCase() === userAddress.toLowerCase();
+      
+      console.log('🔍 Creator check details:', {
+        userAddress: userAddress.toLowerCase(),
+        chamaCreator: chamaInfo.creator.toLowerCase(),
+        isCreator,
+        addressesMatch: userAddress.toLowerCase() === chamaInfo.creator.toLowerCase()
+      });
 
       // Check if user is a member using the contract
       const isMember = await roscaHook.isMember(chamaAddress, userAddress);
@@ -145,6 +152,14 @@ export default function ChamaDashboard() {
     canContribute: isLoggedIn && userMembershipStatus.isMember && !userMembershipStatus.hasContributed,
     canLeave: isLoggedIn && userMembershipStatus.isMember && !userMembershipStatus.isCreator
   };
+
+  // Debug userRole calculation
+  console.log('🎭 UserRole calculation:', {
+    userMembershipStatus,
+    userRole,
+    primaryWalletAddress: primaryWallet?.address,
+    chamaCreator: chamaInfo?.creator
+  });
 
   // Load chama data - simplified to avoid infinite loops
   const loadChamaData = async () => {
