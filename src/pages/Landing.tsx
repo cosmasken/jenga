@@ -8,13 +8,18 @@ import { DynamicConnectButton } from "@/components/ui/dynamic-connect-button";
 import { useLocation } from 'wouter';
 import { useIsLoggedIn, useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { useInviteHandler } from '@/hooks/useInviteHandler';
 import {
   Bitcoin,
   Users,
   Shield,
   TrendingUp,
   ArrowRight,
-  Wallet
+  Wallet,
+  Gift,
+  Sparkles
 } from 'lucide-react';
 
 
@@ -26,6 +31,9 @@ export default function Landing() {
   const { hasSeenWelcomeGuide } = useUserStore();
   const [showWelcomeGuide, setShowWelcomeGuide] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  
+  // Initialize invite handler
+  const inviteHandler = useInviteHandler();
 
   // const handleConnect = () => {
   //   connect();
@@ -81,6 +89,33 @@ export default function Landing() {
                   <h1 className="text-4xl font-bold text-gray-900 dark:text-white">Sacco & Chama</h1>
                 </div>
               </div>
+
+              {/* Invite Banner */}
+              {inviteHandler.hasInviteCode && (
+                <div className="mb-8 max-w-2xl mx-auto">
+                  <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800">
+                    <Gift className="h-5 w-5 text-orange-600" />
+                    <AlertDescription className="text-sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-orange-800 dark:text-orange-200">
+                            🎉 You've been invited to join Sacco & Chama!
+                          </span>
+                          {inviteHandler.inviteType === 'chama' && (
+                            <Badge variant="secondary" className="text-xs">
+                              Chama Invite
+                            </Badge>
+                          )}
+                        </div>
+                        <Sparkles className="w-4 h-4 text-orange-600" />
+                      </div>
+                      <p className="mt-1 text-orange-700 dark:text-orange-300">
+                        Connect your wallet to claim your invite bonus and get started!
+                      </p>
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
 
               {/* Hero Title */}
               <h2 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
