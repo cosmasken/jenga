@@ -116,18 +116,22 @@ export default function ChamaDashboard() {
     } finally {
       setIsLoading(false);
     }
-    // }, [chamaAddress, roscaHook]);
-    //     console.error('Failed to load chama data:', err);
-    //     setError(err.message || 'Failed to load chama data');
-    //   } finally {
-    //     setIsLoading(false);
-    //   }
-    // }, [chamaAddress, roscaHook]);
+  }, [chamaAddress, roscaHook]);
 
-    // Load data on mount
+  // Load data on mount
+  useEffect(() => {
+    loadChamaData();
+  }, [loadChamaData]);
+
+    // Debug logging
     useEffect(() => {
-      loadChamaData();
-    }, [loadChamaData]);
+      console.log('🔍 ChamaDashboard state:', {
+        isLoading,
+        error,
+        chamaInfo,
+        chamaAddress
+      });
+    }, [isLoading, error, chamaInfo, chamaAddress]);
 
     // Action handlers
     const handleJoin = async () => {
@@ -230,6 +234,7 @@ export default function ChamaDashboard() {
 
     // Loading state
     if (isLoading) {
+      console.log('🔄 Rendering loading state');
       return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
           <Header title="Loading..." />
@@ -247,6 +252,7 @@ export default function ChamaDashboard() {
 
     // Error state
     if (error || !chamaInfo) {
+      console.log('❌ Rendering error state:', { error, chamaInfo: !!chamaInfo });
       return (
         <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
           <Header title="Error" />
@@ -280,6 +286,7 @@ export default function ChamaDashboard() {
     }
 
     // Main render
+    console.log('✅ Rendering main chama dashboard with data:', chamaInfo);
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
         <Header title="Chama Details" />
