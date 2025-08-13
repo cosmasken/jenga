@@ -15,9 +15,9 @@ import RepayModal from '@/components/modals/RepayModal';
 import WithdrawModal from '@/components/modals/WithdrawModal';
 import { toast } from '@/hooks/use-toast';
 import { useDashboardData } from '@/hooks/useDashboardData';
-import { useSacco } from '@/hooks/useSacco';
-import { CONTRACT_ADDRESSES } from '@/config';
-import { formatUnits } from 'viem';
+import { useSaccoStatus, useSaccoFeatureAccess } from '@/contexts/SaccoStatusContext';
+import { SaccoStatusIndicator, SaccoTreasuryStats } from '@/components/SaccoStatusIndicator';
+import { BITCOIN_PRICE_USD } from '@/utils/constants';
 import {
   Users,
   Plus,
@@ -54,7 +54,7 @@ export default function Dashboard() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteType, setInviteType] = useState<'chama' | 'app'>('app');
   const [selectedChama, setSelectedChama] = useState<any>(null);
-  
+
   // Sacco modal states
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showBorrowModal, setShowBorrowModal] = useState(false);
@@ -72,32 +72,36 @@ export default function Dashboard() {
     isConnected
   } = useDashboardData();
 
-  // Use the Sacco hook for real data
+  // Use the global Sacco status context
   const {
+    isLoggedIn: saccoLoggedIn,
+    isSaccoMember,
     memberData,
-    maxBorrowableUSDC,
-    totalOwedUSDC,
-    treasuryBalance,
-    currentInterestRate,
+    treasuryData,
     isLoading: saccoLoading,
     error: saccoError,
-    refreshData: refreshSaccoData
-  } = useSacco(CONTRACT_ADDRESSES?.MICRO_SACCO);
+    refreshStatus: refreshSaccoData,
+    joinSacco
+  } = useSaccoStatus();
+
+  const {
+    canViewSaccoFeatures,
+    canUseSaccoFeatures,
+    shouldShowJoinPrompt
+  } = useSaccoFeatureAccess();
 
   // Combine loading states
   const isLoading = chamaLoading || saccoLoading;
   const error = chamaError || saccoError;
 
-  // Calculate derived Sacco values from real data
+  // Calculate derived Sacco values from context data
   const saccoData = {
-    totalCollateral: memberData ? parseFloat(formatUnits(memberData.ethDeposited, 18)) : 0,
-    borrowedAmount: memberData ? parseFloat(formatUnits(memberData.usdcBorrowed, 6)) : 0,
-    availableCredit: parseFloat(formatUnits(maxBorrowableUSDC, 6)),
-    healthFactor: memberData && memberData.usdcBorrowed > 0n 
-      ? (parseFloat(formatUnits(memberData.ethDeposited, 18)) * 45000) / parseFloat(formatUnits(memberData.usdcBorrowed, 6))
-      : 999, // Very high if no debt
-    interestRate: parseFloat(formatUnits(currentInterestRate, 2)), // Assuming 2 decimals for percentage
-    isMember: memberData?.isMember || false
+    totalCollateral: memberData?.ethDeposited || 0,
+    borrowedAmount: memberData?.usdcBorrowed || 0,
+    availableCredit: memberData?.availableCredit || 0,
+    healthFactor: memberData?.healthFactor || 999,
+    interestRate: memberData?.interestRate || 0,
+    isMember: isSaccoMember
   };
 
   // Enhanced refresh function that refreshes both Chama and Sacco data
@@ -106,6 +110,23 @@ export default function Dashboard() {
       refresh(),
       refreshSaccoData()
     ]);
+  };
+
+  // Helper function to calculate next round time
+  const getNextRoundText = (chama: any) => {
+    if (!chama.roundDuration) return "Round timing unknown";
+
+    // Calculate days remaining (simplified - in real app would use actual timestamps)
+    const daysInRound = Math.ceil(chama.roundDuration / (24 * 60 * 60));
+    const estimatedDaysRemaining = Math.max(1, daysInRound - (Date.now() % (daysInRound * 24 * 60 * 60 * 1000)) / (24 * 60 * 60 * 1000));
+
+    if (estimatedDaysRemaining < 1) {
+      return "Round ending soon";
+    } else if (estimatedDaysRemaining === 1) {
+      return "Next round in 1 day";
+    } else {
+      return `Next round in ${Math.ceil(estimatedDaysRemaining)} days`;
+    }
   };
 
   // Redirect if not logged in
@@ -155,7 +176,7 @@ export default function Dashboard() {
   }
 
   // Calculate total portfolio value
-  const totalPortfolioValue = (saccoData.totalCollateral * 45000) + dashboardStats.totalSaved;
+  const totalPortfolioValue = (saccoData.totalCollateral * BITCOIN_PRICE_USD) + dashboardStats.totalSaved;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
@@ -279,6 +300,30 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </motion.div>
+
+        {/* Error Alert */}
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6"
+          >
+            <Alert className="border-red-500 bg-red-50 dark:bg-red-950">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800 dark:text-red-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <strong>Error loading data:</strong> {error}
+                  </div>
+                  <Button size="sm" variant="outline" className="border-red-500 text-red-600 hover:bg-red-50" onClick={refreshAllData}>
+                    <RefreshCw size={14} className="mr-1" />
+                    Retry
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
 
         {/* Health Factor Alert */}
         {saccoData.healthFactor < 1.5 && (
@@ -484,10 +529,10 @@ export default function Dashboard() {
                           <span className="font-semibold">₿{saccoData.totalCollateral.toFixed(4)}</span>
                         </div>
                         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                          <div 
-                            className="bg-bitcoin h-2 rounded-full" 
-                            style={{ 
-                              width: `${Math.min((saccoData.totalCollateral / 5) * 100, 100)}%` 
+                          <div
+                            className="bg-bitcoin h-2 rounded-full"
+                            style={{
+                              width: `${Math.min((saccoData.totalCollateral / 5) * 100, 100)}%`
                             }}
                           ></div>
                         </div>
@@ -526,8 +571,8 @@ export default function Dashboard() {
                   <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
                   {!saccoData.isMember ? (
                     <div className="space-y-3">
-                      <Button 
-                        onClick={handleGoToSaccoDashboard} 
+                      <Button
+                        onClick={handleGoToSaccoDashboard}
                         className="w-full bg-bitcoin hover:bg-bitcoin/90"
                       >
                         <Shield size={16} className="mr-2" />
@@ -539,7 +584,7 @@ export default function Dashboard() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      <Button 
+                      <Button
                         onClick={() => setShowDepositModal(true)}
                         className="w-full bg-bitcoin hover:bg-bitcoin/90"
                         disabled={isLoading}
@@ -547,18 +592,18 @@ export default function Dashboard() {
                         <Coins size={16} className="mr-2" />
                         Deposit Collateral
                       </Button>
-                      <Button 
+                      <Button
                         onClick={() => setShowBorrowModal(true)}
-                        variant="outline" 
+                        variant="outline"
                         className="w-full"
                         disabled={isLoading || saccoData.availableCredit <= 0}
                       >
                         <DollarSign size={16} className="mr-2" />
                         Borrow USDC
                       </Button>
-                      <Button 
+                      <Button
                         onClick={() => setShowRepayModal(true)}
-                        variant="outline" 
+                        variant="outline"
                         className="w-full"
                         disabled={isLoading || saccoData.borrowedAmount <= 0}
                       >
@@ -566,9 +611,9 @@ export default function Dashboard() {
                         Repay Loan
                       </Button>
                       {saccoData.totalCollateral > 0 && (
-                        <Button 
+                        <Button
                           onClick={() => setShowWithdrawModal(true)}
-                          variant="outline" 
+                          variant="outline"
                           className="w-full border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950"
                           disabled={isLoading || saccoData.borrowedAmount > 0}
                         >
@@ -650,7 +695,7 @@ export default function Dashboard() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                               <Clock size={16} />
-                              <span>Next round in 5 days</span>
+                              <span>{getNextRoundText(chama)}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <Button
@@ -662,7 +707,11 @@ export default function Dashboard() {
                                 <Share2 size={14} className="mr-1" />
                                 Invite
                               </Button>
-                              <Button size="sm" className="bg-bitcoin hover:bg-bitcoin/90">
+                              <Button
+                                size="sm"
+                                className="bg-bitcoin hover:bg-bitcoin/90"
+                                onClick={() => navigate(`/chama/${chama.address}`)}
+                              >
                                 View Details
                               </Button>
                             </div>
@@ -693,19 +742,19 @@ export default function Dashboard() {
         onClose={() => setShowDepositModal(false)}
         onSuccess={refreshAllData}
       />
-      
+
       <BorrowModal
         isOpen={showBorrowModal}
         onClose={() => setShowBorrowModal(false)}
         onSuccess={refreshAllData}
       />
-      
+
       <RepayModal
         isOpen={showRepayModal}
         onClose={() => setShowRepayModal(false)}
         onSuccess={refreshAllData}
       />
-      
+
       <WithdrawModal
         isOpen={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}
@@ -714,457 +763,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-// export default function Dashboard() {
-//   const [, navigate] = useLocation();
-//   const isLoggedIn = useIsLoggedIn();
-//   const { primaryWallet } = useDynamicContext();
-
-//   // Use the new dashboard data hook
-//   const {
-//     userChamas,
-//     dashboardStats,
-//     isLoading,
-//     error,
-//     lastRefresh,
-//     refresh,
-//     isConnected
-//   } = useDashboardData();
-
-//   // Redirect if not logged in
-//   useEffect(() => {
-//     if (!isLoggedIn) {
-//       console.log('User not logged in, redirecting to home');
-//       navigate('/');
-//     }
-//   }, [isLoggedIn, navigate]);
-
-//   const getUserDisplayName = () => {
-//     if (primaryWallet?.address) {
-//       return `${primaryWallet.address.slice(0, 6)}...${primaryWallet.address.slice(-4)}`;
-//     }
-//     return 'User';
-//   };
-
-//   const handleGoToSaccoDashboard = () => {
-//     console.log('Navigating to Sacco Dashboard');
-//     navigate('/sacco-dashboard');
-//   };
-
-
-//   const handleCreateChama = () => {
-//     console.log('Navigating to create chama page');
-//     navigate('/create');
-//   };
-
-//   const handleJoinChama = () => {
-//     console.log('Navigating to join chama page');
-//     navigate('/join');
-//   };
-
-//   const handleBrowseChamas = () => {
-//     console.log('Navigating to browse chamas page');
-//     // For now, just show a toast - you can implement browse page later
-//     toast({
-//       title: '🔍 Browse Feature',
-//       description: 'Browse chamas feature coming soon!'
-//     });
-//   };
-
-//   // Redirect if not logged in
-//   useEffect(() => {
-//     if (!isLoggedIn) {
-//       console.log('User not logged in, redirecting to home');
-//       navigate('/');
-//     }
-//   }, [isLoggedIn, navigate]);
-
-
-//   if (!isLoggedIn) {
-//     return null; // Will redirect via useEffect
-//   }
-
-//   return (
-//     <div className="min-h-screen bg-gradient-to-br from-dark-bg via-dark-gray to-dark-bg">
-//       <Header title="Dashboard" />
-
-//       <div className="max-w-7xl mx-auto p-4 md:p-6">
-//         {/* Header */}
-//         <motion.div
-//           className="mb-6 md:mb-8"
-//           initial={{ opacity: 0, y: -20 }}
-//           animate={{ opacity: 1, y: 0 }}
-//           transition={{ duration: 0.5 }}
-//         >
-//           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-//             <div>
-//               <h1 className="text-2xl sm:text-3xl font-orbitron font-bold text-white mb-1">
-//                 Dashboard
-//               </h1>
-//               <p className="text-sm sm:text-base text-gray-400">
-//                 Welcome back, {getUserDisplayName()}
-//               </p>
-//             </div>
-//             <div className="flex items-center gap-2 sm:gap-3">
-//               {/* Refresh Button */}
-//               <Button
-//                 variant="outline"
-//                 size="icon"
-//                 onClick={refresh}
-//                 disabled={isLoading}
-//                 className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5 transition-all duration-200 h-8 w-8 sm:h-10 sm:w-10"
-//                 title={lastRefresh ? `Last refresh: ${lastRefresh.toLocaleTimeString()}` : 'Refresh data'}
-//               >
-//                 <RefreshCw className={`h-4 w-4 sm:h-5 sm:w-5 text-bitcoin ${isLoading ? 'animate-spin' : ''}`} />
-//               </Button>
-
-//               {/* Profile Button */}
-//               <Button
-//                 variant="outline"
-//                 size="icon"
-//                 className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5 transition-all duration-200 h-8 w-8 sm:h-10 sm:w-10"
-//               >
-//                 <User className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
-//               </Button>
-
-//               {/* Notification Bell */}
-//               <div className="relative">
-//                 <Button
-//                   variant="outline"
-//                   size="icon"
-//                   className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5 transition-all duration-200 h-8 w-8 sm:h-10 sm:w-10"
-//                 >
-//                   <BellOff className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
-//                 </Button>
-//               </div>
-
-//               {/* Connection Status */}
-//               <div className="hidden sm:flex items-center gap-2">
-//                 <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-//                 <span className="text-xs text-gray-400">
-//                   {isConnected ? 'Connected' : 'Disconnected'}
-//                 </span>
-//               </div>
-//             </div>
-//           </div>
-//         </motion.div>
-
-//         {/* Stats Grid */}
-//         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-//           <motion.div
-//             initial={{ opacity: 0, y: 20 }}
-//             animate={{ opacity: 1, y: 0 }}
-//             transition={{ duration: 0.5, delay: 0.1 }}
-//           >
-//             <Card className="glassmorphism border-bitcoin/30">
-//               <CardContent className="p-6">
-//                 <div className="flex items-center justify-between">
-//                   <div>
-//                     <p className="text-sm font-medium text-gray-400">
-//                       Total Chamas
-//                     </p>
-//                     <p className="text-2xl font-bold text-white">
-//                       {isLoading ? "..." : dashboardStats.totalChamas}
-//                     </p>
-//                   </div>
-//                   <Users className="h-8 w-8 text-bitcoin" />
-//                 </div>
-//               </CardContent>
-//             </Card>
-//           </motion.div>
-
-//           <motion.div
-//             initial={{ opacity: 0, y: 20 }}
-//             animate={{ opacity: 1, y: 0 }}
-//             transition={{ duration: 0.5, delay: 0.2 }}
-//           >
-//             <Card className="glassmorphism border-bitcoin/30">
-//               <CardContent className="p-6">
-//                 <div className="flex items-center justify-between">
-//                   <div>
-//                     <p className="text-sm font-medium text-gray-400">
-//                       Your Chamas
-//                     </p>
-//                     <p className="text-2xl font-bold text-white">
-//                       {isLoading ? "..." : dashboardStats.userChamas}
-//                     </p>
-//                   </div>
-//                   <Bitcoin className="h-8 w-8 text-bitcoin" />
-//                 </div>
-//               </CardContent>
-//             </Card>
-//           </motion.div>
-
-//           <motion.div
-//             initial={{ opacity: 0, y: 20 }}
-//             animate={{ opacity: 1, y: 0 }}
-//             transition={{ duration: 0.5, delay: 0.3 }}
-//           >
-//             <Card className="glassmorphism border-bitcoin/30">
-//               <CardContent className="p-6">
-//                 <div className="flex items-center justify-between">
-//                   <div>
-//                     <p className="text-sm font-medium text-gray-400">
-//                       Total Deposited
-//                     </p>
-//                     <p className="text-2xl font-bold text-white">
-//                       {isLoading ? "..." : `${dashboardStats.totalDeposited.toFixed(4)}`}
-//                     </p>
-//                     <p className="text-xs text-gray-500">
-//                       ≈ ${(dashboardStats.totalDeposited * 65000).toFixed(2)} USD
-//                     </p>
-//                   </div>
-//                   <TrendingUp className="h-8 w-8 text-electric" />
-//                 </div>
-//               </CardContent>
-//             </Card>
-//           </motion.div>
-
-//           <motion.div
-//             initial={{ opacity: 0, y: 20 }}
-//             animate={{ opacity: 1, y: 0 }}
-//             transition={{ duration: 0.5, delay: 0.4 }}
-//           >
-//             <Card className="glassmorphism border-bitcoin/30">
-//               <CardContent className="p-6">
-//                 <div className="flex items-center justify-between">
-//                   <div>
-//                     <p className="text-sm font-medium text-gray-400">
-//                       Avg Round
-//                     </p>
-//                     <p className="text-2xl font-bold text-white">
-//                       {isLoading ? "..." : dashboardStats.averageRound.toFixed(1)}
-//                     </p>
-//                   </div>
-//                   <Trophy className="h-8 w-8 text-neon-green" />
-//                 </div>
-//               </CardContent>
-//             </Card>
-//           </motion.div>
-//         </div>
-
-//         {/* Quick Actions */}
-//         <motion.div
-//           className="mb-8"
-//           initial={{ opacity: 0, y: 20 }}
-//           animate={{ opacity: 1, y: 0 }}
-//           transition={{ duration: 0.5, delay: 0.5 }}
-//         >
-//           <Card className="glassmorphism border-bitcoin/30">
-//             <CardContent className="p-6">
-//               <h2 className="text-xl font-orbitron font-bold text-white mb-4">
-//                 Quick Actions
-//               </h2>
-//               <div className="flex flex-wrap gap-4">
-//                 <Button
-//                   onClick={handleCreateChama}
-//                   className="bg-gradient-to-r from-bitcoin to-orange-600 hover:scale-105 transition-transform font-bold shadow-lg hover:shadow-bitcoin/50"
-//                 >
-//                   <Plus className="h-4 w-4 mr-2" />
-//                   Create Chama
-//                 </Button>
-//                 <Button
-//                   onClick={handleJoinChama}
-//                   variant="outline"
-//                   className="border-electric/50 text-electric hover:bg-electric/10 hover:scale-105 transition-all font-bold"
-//                 >
-//                   <Users className="h-4 w-4 mr-2" />
-//                   Join Chama
-//                 </Button>
-//                 <Button
-//                   onClick={handleBrowseChamas}
-//                   variant="outline"
-//                   className="border-neon-green/50 text-neon-green hover:bg-neon-green/10 hover:scale-105 transition-all font-bold"
-//                 >
-//                   <Search className="h-4 w-4 mr-2" />
-//                   Browse Chamas
-//                 </Button>
-//                 <Button
-//                   variant="outline"
-//                   className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 hover:scale-105 transition-all font-bold"
-//                   onClick={() => toast({ title: '⚡ Faucet', description: 'Faucet feature coming soon!' })}
-//                 >
-//                   <Zap className="h-4 w-4 mr-2" />
-//                   Faucet
-//                 </Button>
-//               </div>
-//             </CardContent>
-//           </Card>
-//         </motion.div>
-
-//         <motion.div
-//           className="mb-8"
-//           initial={{ opacity: 0, y: 20 }}
-//           animate={{ opacity: 1, y: 0 }}
-//           transition={{ duration: 0.5, delay: 0.5 }}
-//         >
-//           <Card className="glassmorphism border-bitcoin/30">
-//             <CardContent className="p-6">
-//               <h2 className="text-xl font-orbitron font-bold text-white mb-4">
-//                 Sacco Actions
-//               </h2>
-//               <div className="flex flex-wrap gap-4">
-//                 <Button
-//                   onClick={handleGoToSaccoDashboard}
-//                   className="bg-gradient-to-r from-bitcoin to-orange-600 hover:scale-105 transition-transform font-bold shadow-lg hover:shadow-bitcoin/50"
-//                 >
-//                   <Plus className="h-4 w-4 mr-2" />
-//                   Register
-//                 </Button>
-//               </div>
-//             </CardContent>
-//           </Card>
-//         </motion.div>
-
-//         {/* Your Chamas */}
-//         <motion.div
-//           initial={{ opacity: 0, y: 20 }}
-//           animate={{ opacity: 1, y: 0 }}
-//           transition={{ duration: 0.5, delay: 0.6 }}
-//         >
-//           <Card className="glassmorphism border-bitcoin/30">
-//             <CardContent className="p-6">
-//               <div className="flex items-center justify-between mb-4">
-//                 <h2 className="text-xl font-orbitron font-bold text-white">
-//                   Your Chamas
-//                 </h2>
-//                 <div className="flex items-center gap-2">
-//                   <Badge variant="secondary" className="bg-dark-gray text-gray-300">
-//                     {userChamas.length}
-//                   </Badge>
-//                   {lastRefresh && (
-//                     <span className="text-xs text-gray-500">
-//                       Updated {lastRefresh.toLocaleTimeString()}
-//                     </span>
-//                   )}
-//                 </div>
-//               </div>
-
-//               {isLoading ? (
-//                 <div className="text-center py-12">
-//                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-bitcoin mx-auto mb-4"></div>
-//                   <p className="text-gray-400">Loading your chamas...</p>
-//                 </div>
-//               ) : error ? (
-//                 <div className="text-center py-12">
-//                   <div className="text-red-400 mb-4">⚠️ Error loading chamas</div>
-//                   <p className="text-gray-400 mb-4">{error}</p>
-//                   <Button onClick={refresh} variant="outline" className="border-bitcoin/50 text-bitcoin">
-//                     <RefreshCw className="w-4 h-4 mr-2" />
-//                     Try Again
-//                   </Button>
-//                 </div>
-//               ) : userChamas.length === 0 ? (
-//                 <div className="text-center py-12">
-//                   <Bitcoin className="h-16 w-16 mx-auto mb-4 text-gray-500" />
-//                   <h3 className="text-lg font-medium text-white mb-2">
-//                     No chamas found
-//                   </h3>
-//                   <p className="text-gray-400 mb-6">
-//                     You haven't created or joined any ROSCA chamas yet. Create your first chama or join an existing one to get started.
-//                   </p>
-//                   <div className="flex flex-wrap gap-4 justify-center">
-//                     <Button
-//                       onClick={handleCreateChama}
-//                       className="bg-gradient-to-r from-bitcoin to-orange-600 hover:scale-105 transition-transform font-bold"
-//                     >
-//                       <Plus className="h-4 w-4 mr-2" />
-//                       Create Chama
-//                     </Button>
-//                     <Button
-//                       onClick={handleJoinChama}
-//                       variant="outline"
-//                       className="border-electric/50 text-electric hover:bg-electric/10"
-//                     >
-//                       <Users className="h-4 w-4 mr-2" />
-//                       Join Chama
-//                     </Button>
-//                     <Button
-//                       onClick={handleBrowseChamas}
-//                       variant="outline"
-//                       className="border-neon-green/50 text-neon-green hover:bg-neon-green/10"
-//                     >
-//                       <Search className="h-4 w-4 mr-2" />
-//                       Browse Chamas
-//                     </Button>
-//                   </div>
-//                 </div>
-//               ) : (
-//                 <div className="space-y-4">
-//                   {userChamas.map((chama) => (
-//                     <Card
-//                       key={chama.address}
-//                       className="border-l-4 border-l-bitcoin hover:shadow-md transition-shadow cursor-pointer glassmorphism hover:bg-dark-gray/30"
-//                       onClick={() => navigate(`/dashboard/${chama.address}`)}
-//                     >
-//                       <CardContent className="p-4">
-//                         <div className="flex flex-col gap-3">
-//                           {/* Header with title and badges */}
-//                           <div className="flex items-start justify-between gap-3">
-//                             <div className="flex-1 min-w-0">
-//                               <h3 className="font-medium text-white truncate">
-//                                 {chama.name}
-//                               </h3>
-//                               <p className="text-xs text-gray-500 font-mono">
-//                                 {chama.address}
-//                               </p>
-//                             </div>
-//                             <div className="flex items-center gap-2 flex-shrink-0">
-//                               <Badge variant={chama.isActive ? "default" : "secondary"} className="text-xs">
-//                                 {chama.isActive ? "Active" : "Inactive"}
-//                               </Badge>
-//                               <Badge variant={chama.userRole === 'creator' ? "default" : "outline"} className="text-xs">
-//                                 {chama.userRole === 'creator' ? 'Creator' : 'Member'}
-//                               </Badge>
-//                               <Button
-//                                 variant="ghost"
-//                                 size="sm"
-//                                 onClick={(e) => {
-//                                   e.stopPropagation();
-//                                   window.open(`https://explorer.testnet.citrea.xyz/address/${chama.address}`, '_blank');
-//                                 }}
-//                                 className="h-6 w-6 p-0 text-gray-400 hover:text-white"
-//                               >
-//                                 <ExternalLink className="h-3 w-3" />
-//                               </Button>
-//                             </div>
-//                           </div>
-
-//                           {/* Stats */}
-//                           <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-gray-400">
-//                             <div className="flex items-center gap-1">
-//                               <Users className="h-3 w-3 flex-shrink-0" />
-//                               <span className="whitespace-nowrap">
-//                                 {chama.totalMembers}/{chama.memberTarget} members
-//                               </span>
-//                             </div>
-//                             <div className="flex items-center gap-1">
-//                               <Bitcoin className="h-3 w-3 flex-shrink-0" />
-//                               <span className="whitespace-nowrap">
-//                                 {chama.contributionAmount.toFixed(chama.tokenSymbol === 'cBTC' ? 4 : 2)} {chama.tokenSymbol}/round
-//                               </span>
-//                             </div>
-//                             <div className="flex items-center gap-1">
-//                               <Target className="h-3 w-3 flex-shrink-0" />
-//                               <span className="whitespace-nowrap">Round {chama.currentRound}</span>
-//                             </div>
-//                             <div className="flex items-center gap-1">
-//                               <TrendingUp className="h-3 w-3 flex-shrink-0" />
-//                               <span className="whitespace-nowrap">
-//                                 {chama.securityDepositAmount.toFixed(chama.tokenSymbol === 'cBTC' ? 4 : 2)} {chama.tokenSymbol} deposit
-//                               </span>
-//                             </div>
-//                           </div>
-//                         </div>
-//                       </CardContent>
-//                     </Card>
-//                   ))}
-//                 </div>
-//               )}
-//             </CardContent>
-//           </Card>
-//         </motion.div>
-//       </div>
-//     </div>
-//   );
-// }
