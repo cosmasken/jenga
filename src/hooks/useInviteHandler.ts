@@ -116,11 +116,19 @@ export function useInviteHandler() {
 
   const processInviteCode = async (inviteCode: string, chamaAddress: string | null, inviteType: 'platform' | 'chama') => {
     try {
+      console.log('🔄 Processing invite code:', inviteCode.slice(-6));
+      
+      // Record the click/usage
+      if (primaryWallet?.address) {
+        InviteStorageService.recordUsage(inviteCode, primaryWallet.address as Address, 'click');
+      }
+
       // Validate the invite code
       const storedInvite = InviteStorageService.getInviteCode(inviteCode);
       
       if (!storedInvite) {
         // Code not found locally - this is expected for codes from other users
+        console.log('📝 External invite code detected');
         toast({
           title: '✅ Invite Code Applied!',
           description: 'Welcome! You\'ve joined via an invite link.',
@@ -128,13 +136,14 @@ export function useInviteHandler() {
       } else if (!storedInvite.isActive) {
         throw new Error('This invite code has expired or reached its usage limit');
       } else {
-        // Increment usage count
-        const success = InviteStorageService.incrementUsage(inviteCode);
+        // Increment usage count with real tracking
+        const success = InviteStorageService.incrementUsage(inviteCode, primaryWallet?.address as Address);
         
         if (!success) {
           throw new Error('This invite code has reached its usage limit');
         }
 
+        console.log('✅ Invite code usage incremented');
         toast({
           title: '✅ Invite Code Applied!',
           description: 'Welcome! You\'ve successfully used an invite code.',
@@ -143,9 +152,11 @@ export function useInviteHandler() {
 
       // Navigate based on invite type
       if (inviteType === 'chama' && chamaAddress) {
+        console.log('🎯 Navigating to chama join page');
         // Navigate to chama join page with parameters
         navigate(`/join?chama=${chamaAddress}&invite=${inviteCode}`);
       } else {
+        console.log('🏠 Navigating to dashboard');
         // Navigate to dashboard for platform invites
         navigate('/dashboard');
       }
@@ -154,7 +165,7 @@ export function useInviteHandler() {
       window.history.replaceState({}, document.title, window.location.pathname);
 
     } catch (error: any) {
-      console.error('Failed to process invite code:', error);
+      console.error('❌ Failed to process invite code:', error);
       
       toast({
         title: '❌ Invite Code Error',
