@@ -9,7 +9,7 @@ import { toast } from '@/hooks/use-toast';
 export interface InviteHandlerState {
   hasInviteCode: boolean;
   inviteCode: string | null;
-  inviteType: 'platform' | 'chama' | null;
+  inviteType: 'chama' | null;
   chamaAddress: string | null;
   isProcessing: boolean;
   error: string | null;
@@ -39,7 +39,7 @@ export function useInviteHandler() {
     const inviteCode = urlParams.get('invite');
     const chamaAddress = urlParams.get('chama');
 
-    if (inviteCode) {
+    if (inviteCode && chamaAddress) {
       const inviteType = InviteCodeGenerator.getInviteType(inviteCode);
       
       if (!inviteType) {
@@ -59,19 +59,19 @@ export function useInviteHandler() {
         error: null
       }));
 
-      // Store pending invite data (including chama address) if user is not logged in
+      // Store pending invite data if user is not logged in
       if (!isLoggedIn) {
         const inviteData = {
           code: inviteCode,
-          chamaAddress: chamaAddress || null,
+          chamaAddress,
           type: inviteType
         };
         
         localStorage.setItem('sacco_pending_invite_data', JSON.stringify(inviteData));
         
         toast({
-          title: '🎉 Invite Code Detected!',
-          description: 'Please connect your wallet to complete the invitation.',
+          title: '🎉 Chama Invite Detected!',
+          description: 'Please connect your wallet to join this chama.',
         });
       } else {
         // If already logged in, process immediately
@@ -114,9 +114,10 @@ export function useInviteHandler() {
     }
   };
 
-  const processInviteCode = async (inviteCode: string, chamaAddress: string | null, inviteType: 'platform' | 'chama') => {
+  const processInviteCode = async (inviteCode: string, chamaAddress: string, inviteType: 'chama') => {
     try {
-      console.log('🔄 Processing invite code:', inviteCode.slice(-6));
+      console.log('🔄 Processing chama invite code:', inviteCode.slice(-6));
+      console.log('🎯 Chama address:', chamaAddress);
       
       // Record the click/usage
       if (primaryWallet?.address) {
@@ -128,10 +129,10 @@ export function useInviteHandler() {
       
       if (!storedInvite) {
         // Code not found locally - this is expected for codes from other users
-        console.log('📝 External invite code detected');
+        console.log('📝 External chama invite code detected');
         toast({
-          title: '✅ Invite Code Applied!',
-          description: 'Welcome! You\'ve joined via an invite link.',
+          title: '✅ Chama Invite Applied!',
+          description: 'Welcome! You\'ve been invited to join this chama.',
         });
       } else if (!storedInvite.isActive) {
         throw new Error('This invite code has expired or reached its usage limit');
@@ -143,33 +144,26 @@ export function useInviteHandler() {
           throw new Error('This invite code has reached its usage limit');
         }
 
-        console.log('✅ Invite code usage incremented');
+        console.log('✅ Chama invite code usage incremented');
         toast({
-          title: '✅ Invite Code Applied!',
-          description: 'Welcome! You\'ve successfully used an invite code.',
+          title: '✅ Chama Invite Applied!',
+          description: 'Welcome! You\'ve successfully used a chama invite code.',
         });
       }
 
-      // Navigate based on invite type
-      if (inviteType === 'chama' && chamaAddress) {
-        console.log('🎯 Navigating to chama join page');
-        // Navigate to chama join page with parameters
-        navigate(`/join?chama=${chamaAddress}&invite=${inviteCode}`);
-      } else {
-        console.log('🏠 Navigating to dashboard');
-        // Navigate to dashboard for platform invites
-        navigate('/dashboard');
-      }
+      // Navigate to chama join page
+      console.log('🎯 Navigating to chama join page');
+      navigate(`/join?chama=${chamaAddress}&invite=${inviteCode}`);
 
       // Clear URL parameters from current page
       window.history.replaceState({}, document.title, window.location.pathname);
 
     } catch (error: any) {
-      console.error('❌ Failed to process invite code:', error);
+      console.error('❌ Failed to process chama invite code:', error);
       
       toast({
-        title: '❌ Invite Code Error',
-        description: error.message || 'Failed to process invite code',
+        title: '❌ Chama Invite Error',
+        description: error.message || 'Failed to process chama invite code',
         variant: 'destructive'
       });
       

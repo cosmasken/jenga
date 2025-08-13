@@ -99,18 +99,16 @@ export default function Landing() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-orange-800 dark:text-orange-200">
-                            🎉 You've been invited to join Sacco & Chama!
+                            🎉 You've been invited to join a Chama!
                           </span>
-                          {inviteHandler.inviteType === 'chama' && (
-                            <Badge variant="secondary" className="text-xs">
-                              Chama Invite
-                            </Badge>
-                          )}
+                          <Badge variant="secondary" className="text-xs">
+                            Chama Invite
+                          </Badge>
                         </div>
                         <Sparkles className="w-4 h-4 text-orange-600" />
                       </div>
                       <p className="mt-1 text-orange-700 dark:text-orange-300">
-                        Connect your wallet to claim your invite bonus and get started!
+                        Connect your wallet to join this savings circle and start building wealth together!
                       </p>
                     </AlertDescription>
                   </Alert>
