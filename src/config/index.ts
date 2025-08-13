@@ -136,15 +136,9 @@ export const DYNAMIC_NETWORK_CONFIG = [
 export const CONTRACT_ADDRESSES = {
   CHAMA_FACTORY: (import.meta.env.VITE_CHAMA_FACTORY_ADDRESS || '0xC1a490E09F8dE6Bd46560cCF55Cb6CfE20cC42c1') as Address,
   MICRO_SACCO: (import.meta.env.VITE_SACCO_FACTORY_ADDRESS || '0x9c06872dA9fd120d57b73d8c97348675Db979Ad5') as Address,
-  // Test tokens
+  // Single USDC contract for all stablecoin operations (loans, chama contributions, etc.)
   USDC: '0x2b7C40E9B01b342f3730a886d65168eD501a88b8' as Address,
 } as const;
-
-// export const CONTRACT_ADDRESSES = {
-//   CHAMA_FACTORY: (import.meta.env.VITE_CHAMA_FACTORY_ADDRESS || '0xC1a490E09F8dE6Bd46560cCF55Cb6CfE20cC42c1') as Address,
-//   // Test tokens
-//   USDC: '0x1e1e5F011d6881427708bB68978D870CCD3F474e' as Address,
-// } as const;
 
 /**
  * Deployment Information (updated automatically by deployment script)
@@ -164,7 +158,7 @@ export const DEPLOYMENT_INFO = {
  */
 export const CONTRACT_URLS = {
   SACCO: `${NETWORK_CONFIG.EXPLORER_URL}/address/${CONTRACT_ADDRESSES.MICRO_SACCO}`,
-  USDT: `${NETWORK_CONFIG.EXPLORER_URL}/address/${CONTRACT_ADDRESSES.USDC}`,
+  USDC: `${NETWORK_CONFIG.EXPLORER_URL}/address/${CONTRACT_ADDRESSES.USDC}`,
 } as const;
 
 // =============================================================================
@@ -262,20 +256,9 @@ export const SUPPORTED_TOKENS = [
 
 /**
  * Loan Assets Configuration (What users can borrow)
- * Separate from collateral assets in the new architecture
+ * Using single USDC contract for all stablecoin operations
  */
 export const LOAN_ASSETS = [
-  {
-    address: CONTRACT_ADDRESSES.USDC,
-    symbol: 'USDT',
-    name: 'Mock Tether USD',
-    displayName: 'Tether USD (Test)',
-    decimals: 6,
-    logo: '/tokens/usdt.png',
-    description: 'Stablecoin available for borrowing',
-    color: '#26A17B',
-    isLoanAsset: true,
-  },
   {
     address: CONTRACT_ADDRESSES.USDC,
     symbol: 'USDC',
@@ -283,11 +266,10 @@ export const LOAN_ASSETS = [
     displayName: 'USD Coin (Test)',
     decimals: 6,
     logo: '/tokens/usdc.png',
-    description: 'Stablecoin available for borrowing',
+    description: 'Primary stablecoin for loans and chama contributions',
     color: '#2775CA',
     isLoanAsset: true,
   },
-
 ] as const;
 
 
@@ -299,7 +281,7 @@ export const LOAN_CONFIG = {
   TIERS: {
     MICRO: {
       name: 'Micro Loan',
-      maxAmount: 1000, // USDT/USDC
+      maxAmount: 1000, // USDC
       maxAmountFormatted: '1,000',
       collateralRatio: 150, // 150%
       platformUserRate: 12, // 12% APR
@@ -310,7 +292,7 @@ export const LOAN_CONFIG = {
     },
     SMALL: {
       name: 'Small Loan',
-      maxAmount: 5000, // USDT/USDC
+      maxAmount: 5000, // USDC
       maxAmountFormatted: '5,000',
       collateralRatio: 175, // 175%
       platformUserRate: 15, // 15% APR
@@ -321,7 +303,7 @@ export const LOAN_CONFIG = {
     },
     LARGE: {
       name: 'Large Loan',
-      maxAmount: 25000, // USDT/USDC
+      maxAmount: 25000, // USDC
       maxAmountFormatted: '25,000',
       collateralRatio: 200, // 200%
       platformUserRate: 18, // 18% APR
@@ -367,7 +349,6 @@ export const LOAN_CONFIG = {
   DEMO_PRICES: {
     cBTC: 50000, // $50,000 per cBTC
     JGT: 1,      // $1 per JGT
-    USDT: 1,     // $1 per USDT
     USDC: 1      // $1 per USDC
   }
 } as const;

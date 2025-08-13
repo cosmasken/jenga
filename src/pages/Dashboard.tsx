@@ -52,6 +52,7 @@ export default function Dashboard() {
   const { primaryWallet } = useDynamicContext();
   const [activeTab, setActiveTab] = useState<'overview' | 'sacco' | 'chama'>('overview');
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [selectedChama, setSelectedChama] = useState<any>(null);
 
   // Sacco modal states
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -157,7 +158,8 @@ export default function Dashboard() {
     navigate('/join');
   };
 
-  const handleInviteToApp = () => {
+  const handleInviteToChama = (chama: any) => {
+    setSelectedChama(chama);
     setShowInviteModal(true);
   };
 
@@ -190,14 +192,6 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <Button
-                onClick={handleInviteToApp}
-                variant="outline"
-                className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5 transition-all duration-200"
-              >
-                <Share2 className="h-4 w-4 mr-2 text-bitcoin" />
-                <span className="hidden sm:inline">Invite Friends</span>
-              </Button>
               <Button
                 variant="outline"
                 size="icon"
@@ -377,16 +371,6 @@ export default function Dashboard() {
               <UserPlus size={20} />
               <span>Join Chama</span>
               <span className="text-xs opacity-80">Find Groups</span>
-            </Button>
-
-            <Button
-              onClick={handleInviteToApp}
-              variant="outline"
-              className="border-orange-500 text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-950 font-medium h-auto p-4 flex-col gap-2"
-            >
-              <Share2 size={20} />
-              <span>Invite Friends</span>
-              <span className="text-xs opacity-80">Share Platform</span>
             </Button>
 
             <Button
@@ -690,6 +674,15 @@ export default function Dashboard() {
                             <div className="flex items-center gap-2">
                               <Button
                                 size="sm"
+                                variant="outline"
+                                onClick={() => handleInviteToChama(chama)}
+                                className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5"
+                              >
+                                <Share2 size={14} className="mr-1" />
+                                Invite
+                              </Button>
+                              <Button
+                                size="sm"
                                 className="bg-bitcoin hover:bg-bitcoin/90"
                                 onClick={() => navigate(`/chama/${chama.address}`)}
                               >
@@ -712,6 +705,8 @@ export default function Dashboard() {
       <InviteModal
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
+        chamaAddress={selectedChama?.address}
+        chamaName={selectedChama?.name}
       />
 
       {/* Sacco Modals */}
