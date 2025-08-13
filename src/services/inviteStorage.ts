@@ -265,8 +265,6 @@ export class InviteStorageService {
     totalInvites: number;
     activeInvites: number;
     totalUses: number;
-    platformInvites: number;
-    chamaInvites: number;
     totalClicks: number;
     totalConversions: number;
     avgConversionRate: number;
@@ -274,7 +272,6 @@ export class InviteStorageService {
     try {
       const userCodes = this.getUserInviteCodes(inviter);
       const allClicks = this.getAllClicks();
-      const allUsage = this.getAllUsage();
       
       // Get clicks and conversions for user's codes
       const userClicks = allClicks.filter(click => 
@@ -290,8 +287,6 @@ export class InviteStorageService {
         totalInvites: userCodes.length,
         activeInvites: userCodes.filter(code => code.isActive).length,
         totalUses: userCodes.reduce((sum, code) => sum + code.currentUses, 0),
-        platformInvites: userCodes.filter(code => code.type === 'platform').length,
-        chamaInvites: userCodes.filter(code => code.type === 'chama').length,
         totalClicks: userClicks.length,
         totalConversions: userConversions.length,
         avgConversionRate: parseFloat(avgConversionRate.toFixed(1))
@@ -302,12 +297,28 @@ export class InviteStorageService {
         totalInvites: 0,
         activeInvites: 0,
         totalUses: 0,
-        platformInvites: 0,
-        chamaInvites: 0,
         totalClicks: 0,
         totalConversions: 0,
         avgConversionRate: 0
       };
+    }
+  }
+
+  /**
+   * Gets invite codes for a specific chama
+   * @param chamaAddress - Address of the chama
+   * @returns Array of invite codes for the chama
+   */
+  static getChamaInviteCodes(chamaAddress: Address): InviteCode[] {
+    try {
+      const allCodes = this.getAllInviteCodes();
+      return allCodes.filter(code => 
+        code.type === 'chama' && 
+        code.chamaAddress?.toLowerCase() === chamaAddress.toLowerCase()
+      );
+    } catch (error) {
+      console.error('Failed to get chama invite codes:', error);
+      return [];
     }
   }
 

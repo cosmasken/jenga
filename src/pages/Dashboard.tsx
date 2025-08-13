@@ -52,8 +52,6 @@ export default function Dashboard() {
   const { primaryWallet } = useDynamicContext();
   const [activeTab, setActiveTab] = useState<'overview' | 'sacco' | 'chama'>('overview');
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteType, setInviteType] = useState<'chama' | 'app'>('app');
-  const [selectedChama, setSelectedChama] = useState<any>(null);
 
   // Sacco modal states
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -160,14 +158,6 @@ export default function Dashboard() {
   };
 
   const handleInviteToApp = () => {
-    setInviteType('app');
-    setSelectedChama(null);
-    setShowInviteModal(true);
-  };
-
-  const handleInviteToChama = (chama: any) => {
-    setInviteType('chama');
-    setSelectedChama(chama);
     setShowInviteModal(true);
   };
 
@@ -700,15 +690,6 @@ export default function Dashboard() {
                             <div className="flex items-center gap-2">
                               <Button
                                 size="sm"
-                                variant="outline"
-                                onClick={() => handleInviteToChama(chama)}
-                                className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5"
-                              >
-                                <Share2 size={14} className="mr-1" />
-                                Invite
-                              </Button>
-                              <Button
-                                size="sm"
                                 className="bg-bitcoin hover:bg-bitcoin/90"
                                 onClick={() => navigate(`/chama/${chama.address}`)}
                               >
@@ -731,9 +712,6 @@ export default function Dashboard() {
       <InviteModal
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
-        type={inviteType}
-        chamaName={selectedChama?.name}
-        chamaId={selectedChama?.address}
       />
 
       {/* Sacco Modals */}

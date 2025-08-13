@@ -31,18 +31,16 @@ import {
 interface InviteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'chama' | 'app';
+  chamaAddress: Address;
   chamaName?: string;
-  chamaId?: string;
   shareableLink?: string;
 }
 
 export default function InviteModal({
   isOpen,
   onClose,
-  type,
+  chamaAddress,
   chamaName,
-  chamaId,
   shareableLink: providedLink
 }: InviteModalProps) {
   const { primaryWallet } = useDynamicContext();
@@ -54,34 +52,35 @@ export default function InviteModal({
     totalInvites: 0,
     activeInvites: 0,
     totalUses: 0,
-    platformInvites: 0,
-    chamaInvites: 0
+    totalClicks: 0,
+    totalConversions: 0,
+    avgConversionRate: 0
   });
 
   // Generate or load existing invite code
   useEffect(() => {
-    if (!primaryWallet?.address || !isOpen) return;
+    if (!primaryWallet?.address || !isOpen || !chamaAddress) return;
 
     const userAddress = primaryWallet.address as Address;
-
+    
     // Load user stats
     const stats = InviteStorageService.getInviteStats(userAddress);
     setUserStats(stats);
 
     // Generate new invite code or use existing one
     generateInviteCode(userAddress);
-  }, [type, chamaId, primaryWallet?.address, isOpen]);
+  }, [primaryWallet?.address, isOpen, chamaAddress]);
 
   const generateInviteCode = async (userAddress: Address) => {
     setIsGeneratingCode(true);
-
+    
     try {
-      // Check if we have an existing active code for this type/chama
+      // Check if we have an existing active code for this chama
       const existingCodes = InviteStorageService.getUserInviteCodes(userAddress);
-      const existingCode = existingCodes.find(code =>
-        code.type === (type === 'app' ? 'platform' : 'chama') &&
-        code.isActive &&
-        (type === 'app' || code.chamaAddress === chamaId)
+      const existingCode = existingCodes.find(code => 
+        code.type === 'chama' &&
+        code.chamaAddress?.toLowerCase() === chamaAddress.toLowerCase() &&
+        code.isActive
       );
 
       let codeToUse: InviteCode;
@@ -90,12 +89,8 @@ export default function InviteModal({
         codeToUse = existingCode;
       } else {
         // Create new invite code
-        codeToUse = InviteCodeGenerator.createInviteCode(
-          userAddress,
-          type === 'app' ? 'platform' : 'chama',
-          chamaId as Address | undefined
-        );
-
+        codeToUse = InviteCodeGenerator.createInviteCode(userAddress, chamaAddress, chamaName);
+        
         // Save to storage
         InviteStorageService.saveInviteCode(codeToUse);
       }
@@ -103,11 +98,7 @@ export default function InviteModal({
       setInviteCode(codeToUse);
 
       // Generate shareable link
-      const link = InviteCodeGenerator.generateShareableUrl(
-        codeToUse.code,
-        window.location.origin,
-        chamaId as Address | undefined
-      );
+      const link = InviteCodeGenerator.generateShareableUrl(codeToUse.code, chamaAddress, window.location.origin);
       setShareableLink(link);
 
     } catch (error) {
@@ -123,7 +114,7 @@ export default function InviteModal({
   };
 
   const refreshInviteCode = () => {
-    if (!primaryWallet?.address) return;
+    if (!primaryWallet?.address || !chamaAddress) return;
     generateInviteCode(primaryWallet.address as Address);
   };
 
@@ -132,7 +123,7 @@ export default function InviteModal({
       await navigator.clipboard.writeText(text);
       toast({
         title: '✅ Copied!',
-        description: 'Invite link copied to clipboard',
+        description: 'Chama invite link copied to clipboard',
       });
     } catch (err) {
       console.error('Failed to copy text: ', err);
@@ -146,35 +137,30 @@ export default function InviteModal({
 
   const shareViaTwitter = () => {
     const inviteCodeText = inviteCode ? ` Use code: ${inviteCode.code.slice(-6)}` : '';
-    const text = type === 'chama'
-      ? `Join my Bitcoin savings circle "${chamaName}" on Sacco & Chama! 🚀 Build wealth together through community-powered savings.${inviteCodeText} ${shareableLink}`
-      : `Join me on Sacco & Chama - the Bitcoin finance platform for DeFi lending and community savings! 🚀${inviteCodeText} ${shareableLink}`;
-
+    const chamaNameText = chamaName ? `"${chamaName}"` : 'this chama';
+    const text = `Join my Bitcoin savings circle ${chamaNameText} on Sacco & Chama! 🚀 Build wealth together through community-powered savings.${inviteCodeText} ${shareableLink}`;
+    
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
     window.open(twitterUrl, '_blank');
   };
 
   const shareViaWhatsApp = () => {
     const inviteCodeText = inviteCode ? `\n\nYour invite code: ${inviteCode.code}` : '';
-    const text = type === 'chama'
-      ? `Hey! Join my Bitcoin savings circle "${chamaName}" on Sacco & Chama! We're building wealth together through community-powered savings.${inviteCodeText}\n\n${shareableLink}`
-      : `Hey! Check out Sacco & Chama - an amazing Bitcoin finance platform for DeFi lending and community savings!${inviteCodeText}\n\n${shareableLink}`;
-
+    const chamaNameText = chamaName ? `"${chamaName}"` : 'this chama';
+    const text = `Hey! Join my Bitcoin savings circle ${chamaNameText} on Sacco & Chama! We're building wealth together through community-powered savings.${inviteCodeText}\n\n${shareableLink}`;
+    
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
     window.open(whatsappUrl, '_blank');
   };
 
   const shareViaEmail = () => {
-    const subject = type === 'chama'
-      ? `Join my Bitcoin savings circle: ${chamaName}`
-      : 'Join me on Sacco & Chama - Bitcoin Finance Platform';
-
+    const chamaNameText = chamaName ? `"${chamaName}"` : 'this chama';
+    const subject = `Join my Bitcoin savings circle: ${chamaNameText}`;
+    
     const inviteCodeText = inviteCode ? `\n\nYour invite code: ${inviteCode.code}\n` : '\n';
-
-    const body = type === 'chama'
-      ? `Hi there!\n\nI'd like to invite you to join my Bitcoin savings circle "${chamaName}" on Sacco & Chama.\n\nWe're building wealth together through community-powered savings circles where members contribute Bitcoin regularly and take turns receiving payouts.${inviteCodeText}\nClick here to join: ${shareableLink}\n\nYou'll need to connect your wallet and deposit collateral to participate.\n\nLooking forward to saving together!\n\nBest regards`
-      : `Hi there!\n\nI'd like to invite you to join Sacco & Chama - an innovative Bitcoin finance platform that combines DeFi lending with community savings circles.\n\nWith Sacco & Chama you can:\n• Use Bitcoin as collateral to borrow USDC (Sacco DeFi)\n• Join community savings circles (Chamas)\n• Participate in cooperative governance${inviteCodeText}\nJoin here: ${shareableLink}\n\nBest regards`;
-
+    
+    const body = `Hi there!\n\nI'd like to invite you to join my Bitcoin savings circle ${chamaNameText} on Sacco & Chama.\n\nWe're building wealth together through community-powered savings circles where members contribute Bitcoin regularly and take turns receiving payouts.${inviteCodeText}\nClick here to join: ${shareableLink}\n\nYou'll need to connect your wallet and deposit collateral to participate.\n\nLooking forward to saving together!\n\nBest regards`;
+    
     const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(mailtoUrl);
   };
@@ -188,7 +174,7 @@ export default function InviteModal({
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Share2 className="w-5 h-5 text-bitcoin" />
-              {type === 'chama' ? 'Invite to Chama' : 'Invite to Sacco & Chama'}
+              Invite to Chama
               {inviteCode && (
                 <Badge variant="secondary" className="ml-2">
                   {inviteCode.currentUses}/{inviteCode.maxUses} uses
@@ -204,7 +190,7 @@ export default function InviteModal({
               <X className="h-4 w-4" />
             </Button>
           </div>
-          {type === 'chama' && chamaName && (
+          {chamaName && (
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Inviting members to: <span className="font-semibold">{chamaName}</span>
             </p>
@@ -222,7 +208,7 @@ export default function InviteModal({
             </div>
           )}
         </CardHeader>
-
+        
         <CardContent className="space-y-6">
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
             <TabsList className="grid w-full grid-cols-3">
@@ -238,11 +224,7 @@ export default function InviteModal({
                 <AlertDescription className="text-sm">
                   <div className="flex items-center justify-between">
                     <span>
-                      {type === 'chama' ? (
-                        <>Earn rewards when friends join your chama!</>
-                      ) : (
-                        <>Earn rewards when friends join Sacco & Chama!</>
-                      )}
+                      Earn rewards when friends join your chama!
                     </span>
                     <Sparkles className="w-4 h-4 text-bitcoin" />
                   </div>
@@ -298,7 +280,7 @@ export default function InviteModal({
                     <Twitter className="w-5 h-5 text-blue-500" />
                     <span className="text-xs">Twitter</span>
                   </Button>
-
+                  
                   <Button
                     variant="outline"
                     onClick={shareViaWhatsApp}
@@ -308,7 +290,7 @@ export default function InviteModal({
                     <MessageCircle className="w-5 h-5 text-green-500" />
                     <span className="text-xs">WhatsApp</span>
                   </Button>
-
+                  
                   <Button
                     variant="outline"
                     onClick={shareViaEmail}
@@ -325,8 +307,8 @@ export default function InviteModal({
             <TabsContent value="qr" className="space-y-4">
               <div className="flex flex-col items-center space-y-4">
                 {shareableLink ? (
-                  <QRCodeGenerator
-                    value={shareableLink}
+                  <QRCodeGenerator 
+                    value={shareableLink} 
                     size={200}
                     className="w-full"
                   />
@@ -338,7 +320,7 @@ export default function InviteModal({
                     </div>
                   </div>
                 )}
-
+                
                 <div className="text-center">
                   <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
                     Share this QR code for easy mobile access
@@ -363,21 +345,19 @@ export default function InviteModal({
                   <div className="text-xs text-gray-600 dark:text-gray-400">Total Invites</div>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
-                  <div className="text-2xl font-bold text-green-600">{userStats.totalUses}</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400">Total Uses</div>
+                  <div className="text-2xl font-bold text-green-600">{userStats.totalClicks}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Total Clicks</div>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
-                  <div className="text-2xl font-bold text-blue-600">{userStats.activeInvites}</div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400">Active Codes</div>
+                  <div className="text-2xl font-bold text-blue-600">{userStats.totalConversions}</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Conversions</div>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 text-center">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {userStats.platformInvites + userStats.chamaInvites}
-                  </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-400">All Types</div>
+                  <div className="text-2xl font-bold text-purple-600">{userStats.avgConversionRate}%</div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Conv. Rate</div>
                 </div>
               </div>
-
+              
               {inviteCode && (
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                   <h4 className="text-sm font-semibold mb-2">Current Invite Code</h4>
@@ -402,39 +382,28 @@ export default function InviteModal({
             </TabsContent>
           </Tabs>
 
-          {/* Requirements */}
-          {type === 'chama' && (
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Requirements to Join:
-              </h4>
-              <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
-                <li>• Connect a Bitcoin wallet</li>
-                <li>• Deposit required security amount</li>
-                <li>• Commit to regular contributions</li>
-                <li>• Follow chama rules and schedule</li>
-              </ul>
-            </div>
-          )}
-
           {/* Information Alert */}
           <Alert className="border-bitcoin/20 bg-bitcoin/5">
             <QrCode className="h-4 w-4 text-bitcoin" />
             <AlertDescription className="text-sm">
-              {type === 'chama' ? (
-                <>
-                  Share this link with friends to invite them to your savings circle.
-                  They'll need to connect their wallet and deposit collateral to join.
-                </>
-              ) : (
-                <>
-                  Share this link to invite friends to Sacco & Chama. They can explore
-                  both DeFi lending and community savings features.
-                </>
-              )}
+              Share this link with friends to invite them to your savings circle. 
+              They'll need to connect their wallet and deposit collateral to join.
             </AlertDescription>
           </Alert>
+
+          {/* Requirements */}
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Requirements to Join:
+            </h4>
+            <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+              <li>• Connect a Bitcoin wallet</li>
+              <li>• Deposit required security amount</li>
+              <li>• Commit to regular contributions</li>
+              <li>• Follow chama rules and schedule</li>
+            </ul>
+          </div>
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-2">
