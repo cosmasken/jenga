@@ -65,6 +65,11 @@ export interface RoscaHook {
     isActive: boolean;
     creator: Address;
   }>;
+  
+  /* membership */
+  isMember: (chamaAddress: Address, userAddress: Address) => Promise<boolean>;
+  hasContributed: (chamaAddress: Address, userAddress: Address, round: number) => Promise<boolean>;
+  
   /* state */
   isLoading: boolean;
   error: string | null;
@@ -447,6 +452,31 @@ const createChama: RoscaHook['createChama'] = async (
   };
 
 /* ------------------------------------------------------------------ */
+/*  MEMBERSHIP CHECKS                                                 */
+/* ------------------------------------------------------------------ */
+const isMember = async (chamaAddress: Address, userAddress: Address): Promise<boolean> => {
+  try {
+    const chama = getChama(chamaAddress);
+    const result = await chama.read.isMember([userAddress]);
+    return result as boolean;
+  } catch (error) {
+    console.error('Error checking membership:', error);
+    return false;
+  }
+};
+
+const hasContributed = async (chamaAddress: Address, userAddress: Address, round: number): Promise<boolean> => {
+  try {
+    const chama = getChama(chamaAddress);
+    const result = await chama.read.contributed([BigInt(round), userAddress]);
+    return result as boolean;
+  } catch (error) {
+    console.error('Error checking contribution:', error);
+    return false;
+  }
+};
+
+/* ------------------------------------------------------------------ */
 /*  JOIN                                                              */
 /* ------------------------------------------------------------------ */
 const join = async (chama: Address): Promise<Hash | undefined> => {
@@ -737,6 +767,8 @@ const leave = async (chama: Address): Promise<Hash | undefined> => {
     address,
     leave,
     getChamaInfo,
+    isMember,
+    hasContributed,
     isLoading,
     error,
     isConnected,
