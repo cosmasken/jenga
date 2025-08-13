@@ -12,8 +12,11 @@ import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, Loader2, Users } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { AlertCircle, Loader2, Users, Gift, Sparkles } from 'lucide-react';
 import { type Address, isAddress } from 'viem';
+import { InviteCodeGenerator } from '@/utils/inviteCodeGenerator';
 
 export default function JoinChamaPage() {
   const [, navigate] = useLocation();
@@ -22,9 +25,35 @@ export default function JoinChamaPage() {
   const [isJoining, setIsJoining] = useState(false);
   const [chamaAddress, setChamaAddress] = useState('');
   const [error, setError] = useState('');
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [hasInviteBonus, setHasInviteBonus] = useState(false);
 
   const roscaHook = useRosca(FACTORY_ADDRESS);
-  const { addChama } = useDashboardData(); // Add this to update dashboard when chama is joined
+  const { addChama } = useDashboardData();
+
+  // Check for invite parameters in URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const chamaParam = urlParams.get('chama');
+    const inviteParam = urlParams.get('invite');
+
+    if (chamaParam && isAddress(chamaParam)) {
+      setChamaAddress(chamaParam);
+    }
+
+    if (inviteParam) {
+      const isValidCode = InviteCodeGenerator.isValidCodeFormat(inviteParam);
+      if (isValidCode) {
+        setInviteCode(inviteParam);
+        setHasInviteBonus(true);
+        
+        toast({
+          title: '🎉 Invite Code Applied!',
+          description: 'You\'ll receive a bonus for joining via invite!',
+        });
+      }
+    }
+  }, []);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -62,11 +91,16 @@ export default function JoinChamaPage() {
       if (hash) {
         toast({
           title: '🎉 Successfully joined chama!',
-          description: 'You are now a member of this savings circle.'
+          description: hasInviteBonus 
+            ? 'You are now a member and earned an invite bonus!'
+            : 'You are now a member of this savings circle.'
         });
         
         // Add the chama to the dashboard
         addChama(chamaAddress as Address);
+        
+        // Clear URL parameters
+        window.history.replaceState({}, document.title, '/join');
         
         setTimeout(() => navigate('/dashboard'), 2000);
       }
@@ -100,6 +134,28 @@ export default function JoinChamaPage() {
             onClose={handleCancel}
           >
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Invite Bonus Alert */}
+              {hasInviteBonus && (
+                <Alert className="border-bitcoin/20 bg-bitcoin/5">
+                  <Gift className="h-4 w-4 text-bitcoin" />
+                  <AlertDescription className="text-sm">
+                    <div className="flex items-center justify-between">
+                      <span>
+                        🎉 Invite bonus active! You'll get a discount on your security deposit.
+                      </span>
+                      <Sparkles className="w-4 h-4 text-bitcoin" />
+                    </div>
+                    {inviteCode && (
+                      <div className="mt-2">
+                        <Badge variant="secondary" className="text-xs">
+                          Code: {inviteCode.slice(-6)}
+                        </Badge>
+                      </div>
+                    )}
+                  </AlertDescription>
+                </Alert>
+              )}
+
               {/* Info Card */}
               <div className="glassmorphism p-4 rounded-lg border border-electric/30 mb-6">
                 <h4 className="font-orbitron text-sm font-bold text-electric mb-3">
@@ -110,6 +166,9 @@ export default function JoinChamaPage() {
                   <p>• You'll need to pay a security deposit to join</p>
                   <p>• Make sure you can commit to regular contributions</p>
                   <p>• Review the chama terms before joining</p>
+                  {hasInviteBonus && (
+                    <p className="text-bitcoin">• 🎁 Invite bonus: 10% discount on security deposit</p>
+                  )}
                 </div>
               </div>
 
@@ -164,7 +223,7 @@ export default function JoinChamaPage() {
                   ) : (
                     <>
                       <Users className="w-4 h-4 mr-2" />
-                      Join Chama
+                      {hasInviteBonus ? 'Join with Bonus' : 'Join Chama'}
                     </>
                   )}
                 </Button>

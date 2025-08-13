@@ -20,6 +20,7 @@ import { citreaTestnet } from '@/config';
 import { handleUSDCApproval } from '@/utils/tokenApproval';
 import { NETWORK_CONFIG } from '@/config';
 import FACTORY_ABI from '../abi/ChamaFactory.json';
+import CIRCLE_ABI from '../abi/ChamaCircle.json';
 import { FACTORY_ADDRESS } from '@/utils/constants';
 
 /* === CONFIG === */
@@ -64,6 +65,11 @@ export interface RoscaHook {
     isActive: boolean;
     creator: Address;
   }>;
+  
+  /* membership */
+  isMember: (chamaAddress: Address, userAddress: Address) => Promise<boolean>;
+  hasContributed: (chamaAddress: Address, userAddress: Address, round: number) => Promise<boolean>;
+  
   /* state */
   isLoading: boolean;
   error: string | null;
@@ -160,7 +166,7 @@ export function useRosca(
     (chamaAddress: Address) =>
       getContract({
         address: chamaAddress,
-        abi: FACTORY_ABI,
+        abi: CIRCLE_ABI,
         client: publicClient
       }),
     [publicClient]
@@ -360,18 +366,25 @@ const createChama: RoscaHook['createChama'] = async (
 
   /* --- get chama info --- */
   const getChamaInfo = async (chamaAddress: Address) => {
+    console.log('🔍 Getting chama info for:', chamaAddress);
+    console.log('🌐 Network config:', NETWORK_CONFIG.RPC_URL);
+    console.log('🔗 Public client:', publicClient);
+    
     const chama = getChama(chamaAddress);
+    console.log('📄 Chama contract instance created');
     
     try {
-      // Try to get core required fields first
+      // Get core data that definitely exists on the contract
+      console.log('📡 Fetching core chama data...');
       const coreData = await Promise.all([
-        chama.read.contribution().catch(() => 0n),
-        chama.read.securityDeposit().catch(() => 0n),
-        chama.read.currentRound().catch(() => 1n),
-        chama.read.memberCount().catch(() => 0n),
-        chama.read.memberTarget().catch(() => 8n),
-        chama.read.creator().catch(() => '0x0000000000000000000000000000000000000000' as Address),
-        chama.read.isActive().catch(() => true),
+        chama.read.contribution(),
+        chama.read.securityDeposit(), 
+        chama.read.currentRound(),
+        chama.read.memberCount(),
+        chama.read.memberTarget(),
+        chama.read.roundDuration(),
+        chama.read.token(),
+        chama.read.factory(),
       ]);
 
       const [
@@ -380,35 +393,88 @@ const createChama: RoscaHook['createChama'] = async (
         currentRound,
         memberCount,
         memberTarget,
-        creator,
-        isActive
+        roundDuration,
+        token,
+        factory
       ] = coreData;
 
-      // Try to get optional fields with fallbacks
-      let roundDuration = 7 * 24 * 60 * 60; // Default 7 days
+      console.log('✅ Core chama data loaded:', {
+        contribution: contribution.toString(),
+        securityDeposit: securityDeposit.toString(),
+        currentRound: Number(currentRound),
+        memberCount: Number(memberCount),
+        memberTarget: Number(memberTarget),
+        roundDuration: Number(roundDuration),
+        token,
+        factory
+      });
+
+      // For creator, we need to get the first member (creator auto-joins)
+      let creator: Address = '0x0000000000000000000000000000000000000000' as Address;
       try {
-        const duration = await chama.read.roundDuration();
-        roundDuration = Number(duration);
+        if (Number(memberCount) > 0) {
+          console.log('👤 Getting creator (first member)...');
+          creator = await chama.read.members([0n]); // First member is the creator
+          console.log('✅ Creator found:', creator);
+        }
       } catch (error) {
-        console.warn('roundDuration function not available, using default');
+        console.warn('⚠️ Could not get creator (first member):', error);
       }
 
-      return {
-        token: null, // Assume native token since token() function is not available
+      // Determine if chama is active (has members and hasn't finished all rounds)
+      const isActive = Number(memberCount) > 0 && Number(currentRound) <= Number(memberTarget);
+
+      const result = {
+        token: token as Address | null,
         contribution: contribution as bigint,
         securityDeposit: securityDeposit as bigint,
-        roundDuration,
+        roundDuration: Number(roundDuration),
         memberTarget: Number(memberTarget),
         currentRound: Number(currentRound),
         totalMembers: Number(memberCount),
-        isActive: isActive as boolean,
-        creator: creator as Address
+        isActive,
+        creator
       };
+
+      console.log('✅ Final chama info:', result);
+      return result;
+
     } catch (error) {
-      console.error('Error getting chama info:', error);
+      console.error('❌ Error getting chama info:', error);
+      console.error('❌ Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        chamaAddress,
+        networkRPC: NETWORK_CONFIG.RPC_URL
+      });
       throw new Error(`Failed to get chama info: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
+
+/* ------------------------------------------------------------------ */
+/*  MEMBERSHIP CHECKS                                                 */
+/* ------------------------------------------------------------------ */
+const isMember = async (chamaAddress: Address, userAddress: Address): Promise<boolean> => {
+  try {
+    const chama = getChama(chamaAddress);
+    const result = await chama.read.isMember([userAddress]);
+    return result as boolean;
+  } catch (error) {
+    console.error('Error checking membership:', error);
+    return false;
+  }
+};
+
+const hasContributed = async (chamaAddress: Address, userAddress: Address, round: number): Promise<boolean> => {
+  try {
+    const chama = getChama(chamaAddress);
+    const result = await chama.read.contributed([BigInt(round), userAddress]);
+    return result as boolean;
+  } catch (error) {
+    console.error('Error checking contribution:', error);
+    return false;
+  }
+};
 
 /* ------------------------------------------------------------------ */
 /*  JOIN                                                              */
@@ -464,12 +530,12 @@ const join = async (chama: Address): Promise<Hash | undefined> => {
     const [security, token] = await Promise.all([
       publicClient.readContract({
         address: chama,
-        abi: FACTORY_ABI,
+        abi: CIRCLE_ABI,
         functionName: 'securityDeposit',
       }),
       publicClient.readContract({
         address: chama,
-        abi: FACTORY_ABI,
+        abi: CIRCLE_ABI,
         functionName: 'token',
       })
     ]);
@@ -491,7 +557,7 @@ const join = async (chama: Address): Promise<Hash | undefined> => {
       console.log('✅ USDC approval completed, joining chama...');
       const hash = await client.writeContract({
         address: chama,
-        abi: FACTORY_ABI,
+        abi: CIRCLE_ABI,
         functionName: 'join',
       });
 
@@ -509,7 +575,7 @@ const join = async (chama: Address): Promise<Hash | undefined> => {
     console.log('🪙 Joining native cBTC chama...');
     const hash = await client.writeContract({
       address: chama,
-      abi: FACTORY_ABI,
+      abi: CIRCLE_ABI,
       functionName: 'join',
       value: security,
     });
@@ -577,12 +643,12 @@ const contribute = async (chama: Address): Promise<Hash | undefined> => {
     const [contributionAmount, token] = await Promise.all([
       publicClient.readContract({
         address: chama,
-        abi: FACTORY_ABI,
+        abi: CIRCLE_ABI,
         functionName: 'contribution',
       }),
       publicClient.readContract({
         address: chama,
-        abi: FACTORY_ABI,
+        abi: CIRCLE_ABI,
         functionName: 'token',
       })
     ]);
@@ -602,7 +668,7 @@ const contribute = async (chama: Address): Promise<Hash | undefined> => {
       console.log('✅ USDC approval completed, contributing to chama...');
       const hash = await client.writeContract({
         address: chama,
-        abi: FACTORY_ABI,
+        abi: CIRCLE_ABI,
         functionName: 'contribute',
       });
 
@@ -620,7 +686,7 @@ const contribute = async (chama: Address): Promise<Hash | undefined> => {
     console.log('🪙 Contributing to native cBTC chama...');
     const hash = await client.writeContract({
       address: chama,
-      abi: FACTORY_ABI,
+      abi: CIRCLE_ABI,
       functionName: 'contribute',
       value: contributionAmount,
     });
@@ -671,7 +737,7 @@ const leave = async (chama: Address): Promise<Hash | undefined> => {
 
     const hash = await client.writeContract({
       address: chama,
-      abi: FACTORY_ABI,
+      abi: CIRCLE_ABI,
       functionName: 'leave',
     });
 
@@ -701,6 +767,8 @@ const leave = async (chama: Address): Promise<Hash | undefined> => {
     address,
     leave,
     getChamaInfo,
+    isMember,
+    hasContributed,
     isLoading,
     error,
     isConnected,
