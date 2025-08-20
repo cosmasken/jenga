@@ -11,4 +11,6 @@ vite.config.ts.*
 /dist
 /.next
 
+/contract/artifacts/
+/contracts/cache/
 WARP.md

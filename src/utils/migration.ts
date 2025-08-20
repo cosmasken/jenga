@@ -138,7 +138,8 @@ function showMigrationNotification() {
 export function isLikelyOldContract(address: Address): boolean {
   // List of known old contract addresses that should be ignored
   const oldContractAddresses = [
-    '0xEa353D5A300966f8598161F05f0945b570d8B499', // The problematic address from the logs
+    '0xEa353D5A300966f8598161F05f0945b570d8B499', // Old address from previous logs
+    '0xa0658c1b2c8b57ef2696f253ff9aef8a9bfaf043', // Current problematic address from LOGS.md
     // Add more old addresses here if needed
   ];
   

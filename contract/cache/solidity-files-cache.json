@@ -1,46 +1,10 @@
 {
   "_format": "hh-sol-cache-2",
   "files": {
-    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/contracts/MockUSDC.sol": {
-      "lastModificationDate": 1755695608213,
-      "contentHash": "1c1474745c301ceaf52764d631ef45c4",
-      "sourceName": "contracts/MockUSDC.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "MockUSDC"
-      ]
-    },
-    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/contracts/ROSCA.sol": {
-      "lastModificationDate": 1755701121506,
-      "contentHash": "08954f7e8bb3abe32062392e81b4d94a",
-      "sourceName": "contracts/ROSCA.sol",
+    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/contracts/MicroSacco.sol": {
+      "lastModificationDate": 1755703943849,
+      "contentHash": "1c2d8941002f69e43420873a88df839e",
+      "sourceName": "contracts/MicroSacco.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
@@ -66,14 +30,14 @@
         }
       },
       "imports": [
-        "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
-        "@openzeppelin/contracts/access/Ownable.sol"
+        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/utils/ReentrancyGuard.sol"
       ],
       "versionPragmas": [
-        "^0.8.20"
+        "^0.8.19"
       ],
       "artifacts": [
-        "ROSCA"
+        "MicroSacco"
       ]
     },
     "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/utils/ReentrancyGuard.sol": {
@@ -112,44 +76,6 @@
         "ReentrancyGuard"
       ]
     },
-    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/access/Ownable.sol": {
-      "lastModificationDate": 1755695564857,
-      "contentHash": "d3c790edc9ccf808a17c5a6cd13614fd",
-      "sourceName": "@openzeppelin/contracts/access/Ownable.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../utils/Context.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "Ownable"
-      ]
-    },
     "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
       "lastModificationDate": 1755695564849,
       "contentHash": "9261adf6457863de3e9892f51317ec89",
@@ -184,228 +110,6 @@
       ],
       "artifacts": [
         "IERC20"
-      ]
-    },
-    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol": {
-      "lastModificationDate": 1755695564862,
-      "contentHash": "1fb9edee1d763745a62d0b1954998792",
-      "sourceName": "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../IERC20.sol",
-        "../../../interfaces/IERC1363.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "SafeERC20"
-      ]
-    },
-    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/utils/Context.sol": {
-      "lastModificationDate": 1755695564757,
-      "contentHash": "67bfbc07588eb8683b3fd8f6f909563e",
-      "sourceName": "@openzeppelin/contracts/utils/Context.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "Context"
-      ]
-    },
-    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/interfaces/IERC1363.sol": {
-      "lastModificationDate": 1755695564847,
-      "contentHash": "a7fd0f05e36b0d0a21c75340c9c639ec",
-      "sourceName": "@openzeppelin/contracts/interfaces/IERC1363.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./IERC20.sol",
-        "./IERC165.sol"
-      ],
-      "versionPragmas": [
-        ">=0.6.2"
-      ],
-      "artifacts": [
-        "IERC1363"
-      ]
-    },
-    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/interfaces/IERC165.sol": {
-      "lastModificationDate": 1755695564847,
-      "contentHash": "947853028399b7de34bcc3704ee06e99",
-      "sourceName": "@openzeppelin/contracts/interfaces/IERC165.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../utils/introspection/IERC165.sol"
-      ],
-      "versionPragmas": [
-        ">=0.4.16"
-      ],
-      "artifacts": []
-    },
-    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/interfaces/IERC20.sol": {
-      "lastModificationDate": 1755695564849,
-      "contentHash": "68620db2da7583d9a4919096ac77f577",
-      "sourceName": "@openzeppelin/contracts/interfaces/IERC20.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "../token/ERC20/IERC20.sol"
-      ],
-      "versionPragmas": [
-        ">=0.4.16"
-      ],
-      "artifacts": []
-    },
-    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol": {
-      "lastModificationDate": 1755695564848,
-      "contentHash": "7074c93b1ea0a122063f26ddd1db1032",
-      "sourceName": "@openzeppelin/contracts/utils/introspection/IERC165.sol",
-      "solcConfig": {
-        "version": "0.8.20",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.4.16"
-      ],
-      "artifacts": [
-        "IERC165"
       ]
     },
     "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/contracts/ROSCAFactory.sol": {
@@ -448,10 +152,10 @@
         "ROSCAFactory"
       ]
     },
-    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/proxy/Clones.sol": {
-      "lastModificationDate": 1755695564754,
-      "contentHash": "1dd02316d75b8147282bef56d72f21f0",
-      "sourceName": "@openzeppelin/contracts/proxy/Clones.sol",
+    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/contracts/ROSCA.sol": {
+      "lastModificationDate": 1755705238860,
+      "contentHash": "ad687d9ae8a3aa1f9e7bb29a4a67238c",
+      "sourceName": "contracts/ROSCA.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
@@ -477,20 +181,20 @@
         }
       },
       "imports": [
-        "../utils/Create2.sol",
-        "../utils/Errors.sol"
+        "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
+        "@openzeppelin/contracts/access/Ownable.sol"
       ],
       "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-        "Clones"
+        "ROSCA"
       ]
     },
-    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/utils/Create2.sol": {
-      "lastModificationDate": 1755695564758,
-      "contentHash": "841323ddbb94316c3f9ae8a19ce080ff",
-      "sourceName": "@openzeppelin/contracts/utils/Create2.sol",
+    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/access/Ownable.sol": {
+      "lastModificationDate": 1755695564857,
+      "contentHash": "d3c790edc9ccf808a17c5a6cd13614fd",
+      "sourceName": "@openzeppelin/contracts/access/Ownable.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
@@ -516,19 +220,19 @@
         }
       },
       "imports": [
-        "./Errors.sol"
+        "../utils/Context.sol"
       ],
       "versionPragmas": [
         "^0.8.20"
       ],
       "artifacts": [
-        "Create2"
+        "Ownable"
       ]
     },
-    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/utils/Errors.sol": {
-      "lastModificationDate": 1755695564827,
-      "contentHash": "6b5eac2b85500c3012977849cfd633d8",
-      "sourceName": "@openzeppelin/contracts/utils/Errors.sol",
+    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/node_modules/@openzeppelin/contracts/utils/Context.sol": {
+      "lastModificationDate": 1755695564757,
+      "contentHash": "67bfbc07588eb8683b3fd8f6f909563e",
+      "sourceName": "@openzeppelin/contracts/utils/Context.sol",
       "solcConfig": {
         "version": "0.8.20",
         "settings": {
@@ -558,7 +262,43 @@
         "^0.8.20"
       ],
       "artifacts": [
-        "Errors"
+        "Context"
+      ]
+    },
+    "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/contracts/MockUSDC.sol": {
+      "lastModificationDate": 1755695608213,
+      "contentHash": "1c1474745c301ceaf52764d631ef45c4",
+      "sourceName": "contracts/MockUSDC.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "MockUSDC"
       ]
     }
   }

@@ -93,16 +93,17 @@ contract ROSCA is ReentrancyGuard, Ownable {
         require(_maxMembers >= 2, "Need at least 2 members");
         require(_contributionAmount > 0, "Contribution must be > 0");
         require(_roundDuration >= 1 days, "Round too short");
+        require(_creator != address(0), "Creator cannot be zero address");
         
         contributionAmount = _contributionAmount;
         roundDuration = _roundDuration;
         maxMembers = _maxMembers;
         totalRounds = _maxMembers;
         
-        if (_creator != address(0) && _maxMembers > 0) {
-            _addMember(_creator);
-            _initialized = true;
-        }
+        // Always add creator as the first member
+        _addMember(_creator);
+        // Creator's deposit will be handled when they call joinROSCA or set during factory deployment
+        _initialized = true;
     }
     
 
@@ -110,14 +111,19 @@ contract ROSCA is ReentrancyGuard, Ownable {
      * @dev Join ROSCA with required security deposit
      */
     function joinROSCA() external payable nonReentrant whenStatus(ROSCAStatus.RECRUITING) {
-        require(totalMembers < maxMembers, "ROSCA is full");
-        require(!members[msg.sender].isActive, "Already a member");
-        
         uint256 requiredDeposit = contributionAmount * depositMultiplier;
         require(msg.value == requiredDeposit, "Incorrect deposit amount");
         
-        _addMember(msg.sender);
-        members[msg.sender].depositAmount = requiredDeposit;
+        if (members[msg.sender].isActive) {
+            // Creator paying their deposit
+            require(members[msg.sender].depositAmount == 0, "Deposit already paid");
+            members[msg.sender].depositAmount = requiredDeposit;
+        } else {
+            // New member joining
+            require(totalMembers < maxMembers, "ROSCA is full");
+            _addMember(msg.sender);
+            members[msg.sender].depositAmount = requiredDeposit;
+        }
         
         emit MemberJoined(msg.sender, block.timestamp, requiredDeposit);
         

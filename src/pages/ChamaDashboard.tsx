@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useDynamicContext, useIsLoggedIn } from '@dynamic-labs/sdk-react-core';
 import { useRosca } from '@/hooks/useRosca';
@@ -81,8 +81,8 @@ export default function ChamaDashboard() {
   // Use the Rosca hook
   const roscaHook = useRosca(FACTORY_ADDRESS);
 
-  // Check user membership status
-  const checkUserMembership = async () => {
+  // Check user membership status - memoized to prevent infinite loops
+  const checkUserMembership = useCallback(async () => {
     if (!primaryWallet?.address || !chamaInfo) {
       setUserMembershipStatus({
         isMember: false,
@@ -140,7 +140,7 @@ export default function ChamaDashboard() {
         hasContributed: false
       });
     }
-  };
+  }, [primaryWallet?.address, chamaInfo, roscaHook, chamaAddress]);
 
 
   // Calculate user role and permissions based on membership status
@@ -221,7 +221,7 @@ export default function ChamaDashboard() {
         hasContributed: false
       });
     }
-  }, [chamaInfo, isLoggedIn, primaryWallet?.address]);
+  }, [chamaInfo, isLoggedIn, primaryWallet?.address, checkUserMembership]);
 
   // Debug logging
   useEffect(() => {
@@ -272,6 +272,29 @@ export default function ChamaDashboard() {
     } catch (err: any) {
       toast({
         title: "❌ Contribution failed",
+        description: err.message || "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!chamaInfo || !isLoggedIn) return;
+
+    setIsActionLoading(true);
+    try {
+      // Note: Leave functionality is not available in the enhanced ROSCA
+      // This is just a placeholder for UI consistency
+      toast({
+        title: "⚠️ Leave not available",
+        description: "Leave functionality is not implemented in the enhanced ROSCA system",
+        variant: "destructive",
+      });
+    } catch (err: any) {
+      toast({
+        title: "❌ Leave failed",
         description: err.message || "Please try again",
         variant: "destructive",
       });
@@ -434,8 +457,8 @@ export default function ChamaDashboard() {
           </Alert>
         )}
 
-        {/* Non-member Badge */}
-        {isLoggedIn && !userRole.isMember && (
+        {/* Non-member Badge - only show if user is neither creator nor member */}
+        {isLoggedIn && !userRole.isMember && !userRole.isCreator && (
           <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950">
             <UserPlus className="h-4 w-4 text-orange-600" />
             <AlertDescription className="text-orange-800 dark:text-orange-200">
