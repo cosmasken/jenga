@@ -17,9 +17,13 @@ import {
 import { citreaTestnet, CONTRACT_ADDRESSES, NETWORK_CONFIG } from '@/config';
 
 // Import the new enhanced contract ABIs
-import ROSCA_ABI from '../abi/ROSCA.json';
-import FACTORY_ABI from '../abi/ROSCAFactory.json';
-import USDC_ABI from '../abi/MockUSDC.json';
+import ROSCA_ABI_JSON from '../abi/ROSCA.json';
+import FACTORY_ABI_JSON from '../abi/ROSCAFactory.json';
+import USDC_ABI_JSON from '../abi/MockUSDC.json';
+
+const ROSCA_ABI = ROSCA_ABI_JSON.abi;
+const FACTORY_ABI = FACTORY_ABI_JSON.abi;
+const USDC_ABI = USDC_ABI_JSON.abi;
 
 /* === TYPES === */
 export enum ROSCAStatus {
@@ -195,7 +199,7 @@ export function useRosca(
   const factoryContract = useMemo(() => {
     return getContract({
       address: CONTRACT_ADDRESSES.ROSCA_FACTORY,
-      abi: FACTORY_ABI.abi,
+      abi: FACTORY_ABI,
       client: publicClient
     });
   }, [publicClient]);
@@ -203,7 +207,7 @@ export function useRosca(
   const getROSCAContract = useCallback((roscaAddress: Address) => {
     return getContract({
       address: roscaAddress,
-      abi: ROSCA_ABI.abi,
+      abi: ROSCA_ABI,
       client: publicClient
     });
   }, [publicClient]);
@@ -211,7 +215,7 @@ export function useRosca(
   const usdcContract = useMemo(() => {
     return getContract({
       address: CONTRACT_ADDRESSES.USDC,
-      abi: USDC_ABI.abi,
+      abi: USDC_ABI,
       client: publicClient
     });
   }, [publicClient]);
@@ -291,20 +295,18 @@ export function useRosca(
     if (!client) return;
     
     return executeTransaction(async () => {
-      // Determine decimals based on token
-      const isNativeToken = token === '0x0000000000000000000000000000000000000000';
-      const decimals = isNativeToken ? 18 : 6; // cBTC has 18 decimals, USDC has 6
-      const contributionWei = parseUnits(contributionAmount, decimals);
+      // Factory only supports native ETH ROSCAs - token parameter is ignored
+      const contributionWei = parseUnits(contributionAmount, 18); // Native ETH has 18 decimals
       const creationFee = parseEther('0.001'); // 0.001 ETH creation fee
       
       const factoryWithWallet = getContract({
         address: CONTRACT_ADDRESSES.ROSCA_FACTORY,
-        abi: FACTORY_ABI.abi,
+        abi: FACTORY_ABI,
         client: client
       });
       
+      // Factory createROSCA expects only 3 parameters: contributionAmount, roundDuration, maxMembers
       return await factoryWithWallet.write.createROSCA([
-        token,
         contributionWei,
         BigInt(roundDuration),
         BigInt(maxMembers)
@@ -354,47 +356,19 @@ export function useRosca(
     }
   }, [publicClient]);
   
-  // Utility function to discover ROSCAs created by a user from factory events
+  // Utility function to discover ROSCAs created by a user
+  // Note: Disabled automatic blockchain scanning due to RPC limitations on Citrea testnet
   const getUserCreatedROSCAs = useCallback(async (userAddress: Address): Promise<Address[]> => {
-    try {
-      // Get recent blocks to search for events
-      const currentBlock = await publicClient.getBlockNumber();
-      const fromBlock = currentBlock - 10000n; // Search last ~10k blocks
-      
-      const logs = await publicClient.getLogs({
-        address: CONTRACT_ADDRESSES.ROSCA_FACTORY,
-        event: {
-          type: 'event',
-          name: 'ROSCACreated',
-          inputs: [
-            { name: 'roscaId', type: 'uint256', indexed: true },
-            { name: 'creator', type: 'address', indexed: true },
-            { name: 'roscaAddress', type: 'address', indexed: true },
-            { name: 'name', type: 'string', indexed: false },
-            { name: 'token', type: 'address', indexed: false },
-            { name: 'contributionAmount', type: 'uint256', indexed: false },
-            { name: 'maxMembers', type: 'uint256', indexed: false }
-          ]
-        },
-        args: {
-          creator: userAddress
-        },
-        fromBlock,
-        toBlock: 'latest'
-      });
-      
-      // Extract ROSCA addresses from the logs
-      const roscaAddresses = logs
-        .filter(log => log.topics[2]) // Make sure we have the roscaAddress topic
-        .map(log => `0x${log.topics[2]!.slice(-40)}` as Address);
-      
-      console.log(`🔍 Found ${roscaAddresses.length} ROSCAs created by user ${userAddress}`);
-      return roscaAddresses;
-    } catch (error) {
-      console.error('❌ Failed to get user created ROSCAs:', error);
-      return [];
-    }
-  }, [publicClient]);
+    console.log('🔍 ROSCA discovery requested for user:', userAddress);
+    console.log('⚠️ Automatic blockchain scanning is disabled due to Citrea testnet RPC limitations.');
+    console.log('💡 Please use manual ROSCA address management:');
+    console.log('   - When you create a ROSCA, note down its address');
+    console.log('   - Use the "Add ROSCA" function in the dashboard to track existing ROSCAs');
+    console.log('   - ROSCAs will be stored locally for future sessions');
+    
+    // Return empty array - relying on manual management and localStorage
+    return [];
+  }, []);
   
   const getFactoryStats = useCallback(async (): Promise<FactoryStats | null> => {
     try {
@@ -419,45 +393,18 @@ export function useRosca(
     return executeTransaction(async () => {
       const roscaContract = getROSCAContract(roscaAddress);
       
-      // First get the token type used by this ROSCA
-      const tokenAddress = await roscaContract.read.token();
-      const isNativeToken = tokenAddress === '0x0000000000000000000000000000000000000000';
-      
-      // If it's USDC, check and handle approval
-      if (!isNativeToken) {
-        const requiredDeposit = await roscaContract.read.getRequiredDeposit();
-        const currentAllowance = await usdcContract.read.allowance([address!, roscaAddress]);
-        
-        if (currentAllowance < requiredDeposit) {
-          console.log('⚠️ Insufficient USDC allowance, approving first...');
-          const usdcWithWallet = getContract({
-            address: CONTRACT_ADDRESSES.USDC,
-            abi: USDC_ABI.abi,
-            client: client
-          });
-          
-          const approveTx = await usdcWithWallet.write.approve([roscaAddress, requiredDeposit]);
-          await publicClient.waitForTransactionReceipt({ hash: approveTx });
-          console.log('✅ USDC approval confirmed');
-        }
-      }
-      
-      // Now join the ROSCA
+      // New factory ROSCAs are native ETH only - no token approval needed
+      // Just get the required deposit and send ETH with the transaction
       const roscaWithWallet = getContract({
         address: roscaAddress,
-        abi: ROSCA_ABI.abi,
+        abi: ROSCA_ABI,
         client: client
       });
       
-      // For native token, we need to send value with the transaction
-      if (isNativeToken) {
-        const requiredDeposit = await roscaContract.read.getRequiredDeposit();
-        return await roscaWithWallet.write.joinROSCA({ value: requiredDeposit });
-      } else {
-        return await roscaWithWallet.write.joinROSCA();
-      }
+      const requiredDeposit = await roscaContract.read.getRequiredDeposit();
+      return await roscaWithWallet.write.joinROSCA({ value: requiredDeposit });
     });
-  }, [executeTransaction, getWalletClient, getROSCAContract, usdcContract, publicClient, address]);
+  }, [executeTransaction, getWalletClient, getROSCAContract]);
   
   const contribute = useCallback(async (roscaAddress: Address): Promise<Hash | undefined> => {
     const client = await getWalletClient();
@@ -466,46 +413,20 @@ export function useRosca(
     return executeTransaction(async () => {
       const roscaContract = getROSCAContract(roscaAddress);
       
-      // First get the token type and contribution amount
-      const [tokenAddress, contributionAmount] = await Promise.all([
-        roscaContract.read.token(),
-        roscaContract.read.contributionAmount()
-      ]);
-      const isNativeToken = tokenAddress === '0x0000000000000000000000000000000000000000';
+      // New factory ROSCAs are native ETH only
+      // Just get the contribution amount and send ETH with the transaction
+      const contributionAmount = await roscaContract.read.contributionAmount();
       
-      // If it's USDC, check and handle approval
-      if (!isNativeToken) {
-        const currentAllowance = await usdcContract.read.allowance([address!, roscaAddress]);
-        
-        if (currentAllowance < contributionAmount) {
-          console.log('⚠️ Insufficient USDC allowance for contribution, approving...');
-          const usdcWithWallet = getContract({
-            address: CONTRACT_ADDRESSES.USDC,
-            abi: USDC_ABI.abi,
-            client: client
-          });
-          
-          const approveTx = await usdcWithWallet.write.approve([roscaAddress, contributionAmount]);
-          await publicClient.waitForTransactionReceipt({ hash: approveTx });
-          console.log('✅ USDC approval confirmed');
-        }
-      }
-      
-      // Now contribute
       const roscaWithWallet = getContract({
         address: roscaAddress,
-        abi: ROSCA_ABI.abi,
+        abi: ROSCA_ABI,
         client: client
       });
       
-      // For native token, we need to send value with the transaction
-      if (isNativeToken) {
-        return await roscaWithWallet.write.contribute({ value: contributionAmount });
-      } else {
-        return await roscaWithWallet.write.contribute();
-      }
+      // Send ETH with the contribution transaction
+      return await roscaWithWallet.write.contribute({ value: contributionAmount });
     });
-  }, [executeTransaction, getWalletClient, getROSCAContract, usdcContract, publicClient, address]);
+  }, [executeTransaction, getWalletClient, getROSCAContract]);
   
   const startROSCA = useCallback(async (roscaAddress: Address): Promise<Hash | undefined> => {
     const client = await getWalletClient();
@@ -514,7 +435,7 @@ export function useRosca(
     return executeTransaction(async () => {
       const roscaWithWallet = getContract({
         address: roscaAddress,
-        abi: ROSCA_ABI.abi,
+        abi: ROSCA_ABI,
         client: client
       });
       
@@ -529,7 +450,7 @@ export function useRosca(
     return executeTransaction(async () => {
       const roscaWithWallet = getContract({
         address: roscaAddress,
-        abi: ROSCA_ABI.abi,
+        abi: ROSCA_ABI,
         client: client
       });
       
@@ -544,7 +465,7 @@ export function useRosca(
     return executeTransaction(async () => {
       const roscaWithWallet = getContract({
         address: roscaAddress,
-        abi: ROSCA_ABI.abi,
+        abi: ROSCA_ABI,
         client: client
       });
       
@@ -567,8 +488,8 @@ export function useRosca(
         return null;
       }
       
+      // Native ETH ROSCAs don't have a token function - they are native ETH only
       const [
-        token,
         contributionAmount,
         roundDuration,
         maxMembers,
@@ -579,7 +500,6 @@ export function useRosca(
         recruitmentCompleteTime,
         nextPayoutIndex
       ] = await Promise.all([
-        contract.read.token(),
         contract.read.contributionAmount(),
         contract.read.roundDuration(),
         contract.read.maxMembers(),
@@ -592,7 +512,7 @@ export function useRosca(
       ]);
       
       return {
-        token,
+        token: '0x0000000000000000000000000000000000000000', // Native ETH address
         contributionAmount,
         roundDuration: Number(roundDuration),
         maxMembers: Number(maxMembers),
@@ -615,15 +535,15 @@ export function useRosca(
   ): Promise<MemberInfo | null> => {
     try {
       const contract = getROSCAContract(roscaAddress);
-      const info = await contract.read.getMemberInfo([memberAddress]);
+      const memberInfo = await contract.read.members([memberAddress]);
       
       return {
-        isActive: info[0],
-        totalContributions: info[1],
-        roundsPaid: Number(info[2]),
-        missedRounds: Number(info[3]),
-        hasReceivedPayout: info[4],
-        payoutRound: Number(info[5])
+        isActive: memberInfo[0],
+        totalContributions: memberInfo[3], // totalContributions is at index 3
+        roundsPaid: Number(memberInfo[4]), // roundsPaid is at index 4
+        missedRounds: Number(memberInfo[5]), // missedRounds is at index 5
+        hasReceivedPayout: memberInfo[6], // hasReceivedPayout is at index 6
+        payoutRound: Number(memberInfo[7]) // payoutRound is at index 7
       };
     } catch (err) {
       console.error('Failed to get member info:', err);
@@ -656,7 +576,20 @@ export function useRosca(
   const getMembers = useCallback(async (roscaAddress: Address): Promise<Address[]> => {
     try {
       const contract = getROSCAContract(roscaAddress);
-      return await contract.read.getMembers();
+      const totalMembers = await contract.read.totalMembers();
+      const members: Address[] = [];
+      
+      // Get each member address from the membersList array
+      for (let i = 0; i < Number(totalMembers); i++) {
+        try {
+          const memberAddress = await contract.read.membersList([BigInt(i)]);
+          members.push(memberAddress);
+        } catch (error) {
+          console.warn(`Failed to get member at index ${i}:`, error);
+        }
+      }
+      
+      return members;
     } catch (err) {
       console.error('Failed to get members:', err);
       return [];
@@ -700,13 +633,48 @@ export function useRosca(
     memberAddress: Address
   ): Promise<boolean> => {
     try {
+      // Since there's no direct function in the ABI, we'll check the member's
+      // contribution status by looking at recent ContributionMade events
       const contract = getROSCAContract(roscaAddress);
-      return await contract.read.hasContributedThisRound([memberAddress]);
+      const currentRound = await contract.read.currentRound();
+      
+      // Get recent blocks to search for contribution events
+      const currentBlock = await publicClient.getBlockNumber();
+      const fromBlock = currentBlock - 1000n; // Search last ~1k blocks
+      
+      try {
+        const logs = await publicClient.getLogs({
+          address: roscaAddress,
+          event: {
+            type: 'event',
+            name: 'ContributionMade',
+            inputs: [
+              { name: 'member', type: 'address', indexed: true },
+              { name: 'roundNumber', type: 'uint256', indexed: true },
+              { name: 'amount', type: 'uint256', indexed: false }
+            ]
+          },
+          args: {
+            member: memberAddress,
+            roundNumber: currentRound
+          },
+          fromBlock,
+          toBlock: 'latest'
+        });
+        
+        return logs.length > 0;
+      } catch (eventError) {
+        // If event querying fails, fall back to checking if roundsPaid >= currentRound
+        // This is less accurate but provides a reasonable approximation
+        const memberInfo = await contract.read.members([memberAddress]);
+        const roundsPaid = Number(memberInfo[4]); // roundsPaid is at index 4
+        return roundsPaid >= Number(currentRound);
+      }
     } catch (err) {
       console.error('Failed to check contribution status:', err);
       return false;
     }
-  }, [getROSCAContract]);
+  }, [getROSCAContract, publicClient]);
   
   // Token Functions
   const getUSDCBalance = useCallback(async (userAddress: Address): Promise<bigint | null> => {
@@ -742,7 +710,7 @@ export function useRosca(
       
       const usdcWithWallet = getContract({
         address: CONTRACT_ADDRESSES.USDC,
-        abi: USDC_ABI.abi,
+        abi: USDC_ABI,
         client: client
       });
       
@@ -759,7 +727,7 @@ export function useRosca(
       
       const usdcWithWallet = getContract({
         address: CONTRACT_ADDRESSES.USDC,
-        abi: USDC_ABI.abi,
+        abi: USDC_ABI,
         client: client
       });
       
@@ -814,15 +782,24 @@ export function useRosca(
         throw new Error('Failed to get ROSCA info');
       }
       
-      // Get the first member as creator (if any)
+      // Get the actual owner/creator from the contract
       let creator: Address = '0x0000000000000000000000000000000000000000';
       try {
-        const members = await getMembers(chamaAddress);
-        if (members.length > 0) {
-          creator = members[0]; // First member is typically the creator
-        }
+        const contract = getROSCAContract(chamaAddress);
+        creator = await contract.read.owner();
+        console.log('✅ Retrieved actual creator/owner from contract:', creator);
       } catch (err) {
-        console.warn('Could not fetch members to determine creator');
+        console.warn('Could not fetch owner from contract:', err);
+        // Fallback: try to get first member as creator (legacy behavior)
+        try {
+          const members = await getMembers(chamaAddress);
+          if (members.length > 0) {
+            creator = members[0]; // Fallback: First member
+            console.log('⚠️ Fallback: Using first member as creator:', creator);
+          }
+        } catch (memberErr) {
+          console.warn('Could not fetch members either:', memberErr);
+        }
       }
       
       // Map to legacy format
