@@ -137,8 +137,10 @@ export const DYNAMIC_NETWORK_CONFIG = [
  * Deployed on 2025-08-20 with enhanced features: deposits, grace periods, penalties
  */
 export const CONTRACT_ADDRESSES = {
-  ROSCA_FACTORY: (import.meta.env.VITE_ROSCA_FACTORY_ADDRESS || '0x3c8079F8aee1D6Bc4D2A1Fc6Bdc557CD3151813D') as Address,
-  // Native ETH ROSCA - no token implementation needed
+  ROSCA_FACTORY: (import.meta.env.VITE_ROSCA_FACTORY_ADDRESS || '0x0f84E3eB4B8a212942D717d8487C6Db1FBe8f17f') as Address,
+  MICRO_SACCO: (import.meta.env.VITE_MICRO_SACCO_ADDRESS || '0xCb31b92eE34e6bD7bb683Db495B8afE7ebd64d59') as Address,
+  USDC: (import.meta.env.VITE_USDC_ADDRESS || '0x78642728e4Ab7C12546f1A5B829ca471df5234a8') as Address,
+  // Native ETH ROSCA - no token implementation needed for ROSCA system
 } as const;
 
 /**
@@ -147,10 +149,10 @@ export const CONTRACT_ADDRESSES = {
 export const DEPLOYMENT_INFO = {
   network: 'citrea-testnet',
   chainId: 5115,
-  timestamp: '2025-08-08T11:53:13.212Z', // Updated by deployment script
+  timestamp: '2025-08-20T15:59:27Z', // Updated by deployment script
   deployer: '0x09aB514B6974601967E7b379478EFf4073cceD06', // Updated by deployment script
-  version: '2.0.0', // Overcollateralized loan system
-  phase: 'Phase 1 - Core Implementation'
+  version: '3.0.0', // Enhanced ROSCA with MicroSacco integration
+  phase: 'Phase 2 - Enhanced ROSCA + MicroSacco'
 } as const;
 
 /**
@@ -159,6 +161,8 @@ export const DEPLOYMENT_INFO = {
  */
 export const CONTRACT_URLS = {
   ROSCA_FACTORY: `${NETWORK_CONFIG.EXPLORER_URL}/address/${CONTRACT_ADDRESSES.ROSCA_FACTORY}`,
+  MICRO_SACCO: `${NETWORK_CONFIG.EXPLORER_URL}/address/${CONTRACT_ADDRESSES.MICRO_SACCO}`,
+  USDC: `${NETWORK_CONFIG.EXPLORER_URL}/address/${CONTRACT_ADDRESSES.USDC}`,
 } as const;
 
 // =============================================================================
