@@ -6,10 +6,14 @@ import {
   getContract,
   type Address,
   type Hash,
+  type PublicClient,
+  type WalletClient,
 } from 'viem';
 import { useState, useCallback, useMemo } from 'react';
 import { useBlockchainBase, createDataFetcher } from './useBlockchainBase';
-import SACCO_ABI from '../abi/MicroSacco.json';
+import SACCO_ABI_JSON from '../abi/MicroSacco.json';
+
+const SACCO_ABI = SACCO_ABI_JSON.abi;
 
 /* === CONFIG === */
 export const USDC_DECIMALS = 6;
