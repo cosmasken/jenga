@@ -239,12 +239,14 @@ export default function ChamaDashboard() {
 
     setIsActionLoading(true);
     try {
-      await roscaHook.join(chamaAddress);
-      toast({
-        title: "🎉 Joined successfully!",
-        description: "Welcome to the savings circle",
-      });
-      await loadChamaData(); // Refresh data
+      const txHash = await roscaHook.joinROSCA(chamaAddress);
+      if (txHash) {
+        toast({
+          title: "🎉 Joined successfully!",
+          description: "Welcome to the savings circle. Deposit paid!",
+        });
+        await loadChamaData(); // Refresh data
+      }
     } catch (err: any) {
       toast({
         title: "❌ Failed to join",
