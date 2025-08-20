@@ -69,7 +69,9 @@ export const NETWORK_CONFIG = {
   // Primary network (Citrea)
   CHAIN_ID: 5115,
   CHAIN_ID_HEX: '0x13FB', // 5115 in hex
-  RPC_URL: `https://citrea-testnet.blastapi.io/${import.meta.env.VITE_BLAST_API_PROJECT_ID}`,
+  RPC_URL: import.meta.env.VITE_BLAST_API_PROJECT_ID 
+    ? `https://citrea-testnet.blastapi.io/${import.meta.env.VITE_BLAST_API_PROJECT_ID}`
+    : 'https://rpc.testnet.citrea.xyz', // Fallback RPC URL
   EXPLORER_URL: 'https://explorer.testnet.citrea.xyz',
   FAUCET_URL: 'https://citrea.xyz/faucet',
   CURRENCY_SYMBOL: 'cBTC',
@@ -131,13 +133,14 @@ export const DYNAMIC_NETWORK_CONFIG = [
  * Updated automatically by deployment script
  */
 /**
- * Smart Contract Addresses - Latest Deployment
+ * Smart Contract Addresses - Enhanced ROSCA dApp Deployment (Citrea Testnet)
+ * Deployed on 2025-08-20 with enhanced features: deposits, grace periods, penalties
  */
 export const CONTRACT_ADDRESSES = {
-  CHAMA_FACTORY: (import.meta.env.VITE_CHAMA_FACTORY_ADDRESS || '0x19E81d61c409bdC791e67bDd234Fe00590622341') as Address,
-  MICRO_SACCO: (import.meta.env.VITE_SACCO_FACTORY_ADDRESS || '0x646E31916CF92E0bdE7A01b312f366A833Bbe2EF') as Address,
-  // Single USDC contract for all stablecoin operations (loans, chama contributions, etc.)
-  USDC: '0xF969efA16C2489a44b0276d6D7D6BF675BBD6f6f' as Address,
+  ROSCA_FACTORY: (import.meta.env.VITE_ROSCA_FACTORY_ADDRESS || '0x3c8079F8aee1D6Bc4D2A1Fc6Bdc557CD3151813D') as Address,
+  ROSCA_IMPLEMENTATION: '0x3F1182E0Fae5A44082115eb3bc58831a47992f29' as Address,
+  // Mock USDC contract for testing ROSCA contributions  
+  USDC: '0xc5bB358516f8B3901Bd1FB4e2410d21efFffFe7e' as Address,
 } as const;
 
 /**
@@ -157,7 +160,7 @@ export const DEPLOYMENT_INFO = {
  * Generated dynamically from deployed contract addresses
  */
 export const CONTRACT_URLS = {
-  SACCO: `${NETWORK_CONFIG.EXPLORER_URL}/address/${CONTRACT_ADDRESSES.MICRO_SACCO}`,
+  ROSCA_FACTORY: `${NETWORK_CONFIG.EXPLORER_URL}/address/${CONTRACT_ADDRESSES.ROSCA_FACTORY}`,
   USDC: `${NETWORK_CONFIG.EXPLORER_URL}/address/${CONTRACT_ADDRESSES.USDC}`,
 } as const;
 
@@ -479,15 +482,17 @@ export type SupportedToken = typeof SUPPORTED_TOKENS[number];
 
 
 /**
- * Chama Configuration
+ * ROSCA Configuration
  */
-export const CHAMA_CONFIG = {
-  MIN_CONTRIBUTION_AMOUNT: '0.001', // 0.001 cBTC
-  MAX_MEMBER_TARGET: 15,
-  MIN_MEMBER_TARGET: 3,
-  DEFAULT_ROUND_DURATION_DAYS: 7,
-  DEFAULT_LATE_WINDOW_HOURS: 2,
-  DEFAULT_LATE_PENALTY_PERCENT: 10,
+export const ROSCA_CONFIG = {
+  MIN_CONTRIBUTION_AMOUNT: '0.001', // 0.001 cBTC minimum
+  MAX_CONTRIBUTION_AMOUNT: '10.0',  // 10 cBTC maximum
+  MIN_MEMBERS: 2,
+  MAX_MEMBERS: 20,
+  MIN_ROUND_DURATION_DAYS: 1,  // 1 day minimum
+  MAX_ROUND_DURATION_DAYS: 30, // 30 days maximum
+  DEFAULT_ROUND_DURATION_DAYS: 7, // 1 week default
+  FACTORY_CREATION_FEE: '0.001', // 0.001 cBTC to create ROSCA
 } as const;
 
 
@@ -577,5 +582,5 @@ export function formatCurrency(amount: number, currency: 'USD' | 'cBTC' = 'USD')
 // TYPE EXPORTS
 // =============================================================================
 
-export type ChamaConfig = typeof CHAMA_CONFIG;
+export type ROSCAConfig = typeof ROSCA_CONFIG;
 export type PricingConfig = typeof PRICING_CONFIG;

@@ -84,14 +84,14 @@ export default function CreatePage() {
     if (!primaryWallet?.address) return;
     setIsApproving(true);
     try {
-      const client = await roscaHook.getWalletClient();
-      if (!client) throw new Error('no wallet');
-      const { requestMaxApproval } = await import('@/utils/tokenApproval');
-      const res = await requestMaxApproval(client, roscaHook.publicClient, TOKENS.USDC.address, FACTORY_ADDRESS);
-      if (res.success) {
-        toast({ title: '✅ Approved' });
+      // Use the enhanced ROSCA hook's approveUSDC method
+      const hash = await roscaHook.approveUSDC(FACTORY_ADDRESS, '1000000'); // Approve max amount
+      if (hash) {
+        toast({ title: '✅ USDC Approved' });
         setApprovalNeeded(false);
-      } else throw new Error(res.error);
+      } else {
+        throw new Error('Approval transaction failed');
+      }
     } catch (e: any) {
       toast({ title: '❌ Approval failed', description: e.message, variant: 'destructive' });
     } finally {
@@ -143,28 +143,27 @@ export default function CreatePage() {
 
     setIsCreating(true);
     try {
-      const token = formData.token === 'cBTC' ? null : TOKENS.USDC.address;
+      const tokenAddress = formData.token === 'cBTC' ? TOKENS.NATIVE.address : TOKENS.USDC.address;
 
-      const chamaAddress = await roscaHook.createChama(
-        token,
-        formData.contribution,                        // string: 0.0001
-        formData.securityDeposit,                     // string: 5
-        parseInt(formData.roundDuration) * 86400,     // seconds
-        2 * 86400,                                    // lateWindow
-        '0.1',                                        // latePenalty
-        formData.memberTarget
+      // Use the new enhanced createROSCA method
+      const txHash = await roscaHook.createROSCA(
+        tokenAddress,
+        formData.contribution,                        // contribution amount
+        parseInt(formData.roundDuration) * 86400,     // round duration in seconds
+        formData.memberTarget                         // max members
       );
 
-      if (chamaAddress) {
+      if (txHash) {
         toast({ 
-          title: '🎉 Chama created!', 
-          description: 'Your savings circle has been created successfully.' 
+          title: '🎉 ROSCA created!', 
+          description: 'Your savings circle has been created successfully. Transaction hash: ' + txHash.slice(0, 10) + '...' 
         });
         
-        // Add the chama to the dashboard
-        addChama(chamaAddress);
+        // Note: The new createROSCA returns a transaction hash, not the ROSCA address
+        // We need to extract the address from the transaction receipt/events
+        // For now, just navigate to dashboard
         
-        // First go to main dashboard, then optionally to the specific chama
+        // First go to main dashboard
         setTimeout(() => navigate('/dashboard'), 1500);
       }
     } catch (e: any) {

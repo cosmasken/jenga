@@ -1,0 +1,10 @@
+{
+  "network": "citrea_testnet",
+  "deployer": "0x09aB514B6974601967E7b379478EFf4073cceD06",
+  "timestamp": "2025-08-20T13:42:11.584Z",
+  "contracts": {
+    "mockUSDC": "0xc5bB358516f8B3901Bd1FB4e2410d21efFffFe7e",
+    "roscaImplementation": "0x3F1182E0Fae5A44082115eb3bc58831a47992f29",
+    "roscaFactory": "0x3c8079F8aee1D6Bc4D2A1Fc6Bdc557CD3151813D"
+  }
+}

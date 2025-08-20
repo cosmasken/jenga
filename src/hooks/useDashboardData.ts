@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useBlockchainBase, createLocalStorageManager } from './useBlockchainBase';
 import { useRosca } from '@/hooks/useRosca';
 import { FACTORY_ADDRESS } from '@/utils/constants';
+import { migrationSafeStorage } from '@/utils/migration';
 import { formatUnits, type Address } from 'viem';
 
 export interface ChamaData {
@@ -50,24 +51,29 @@ export function useDashboardData() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [chamaList, setChamaList] = useState<Address[]>([]);
 
-  // Load chamas from localStorage when user address changes
+  // Load chamas from localStorage when user address changes (with migration safety)
   useEffect(() => {
     if (!base.address) {
       setChamaList([]);
       return;
     }
     
-    const chamas = chamaStorage.load(base.address) || [];
+    // Use migration-safe storage to get clean chama list
+    const chamas = migrationSafeStorage.getUserChamas(base.address);
     setChamaList(chamas);
-  }, [base.address, chamaStorage]);
+    
+    console.log(`📋 Loaded ${chamas.length} chamas for user ${base.address.slice(0, 6)}...${base.address.slice(-4)}`);
+  }, [base.address]);
 
-  // Save chamas to localStorage
+  // Save chamas to localStorage (with migration safety)
   const saveChamas = useCallback((chamas: Address[]) => {
     if (!base.address) return;
     
-    chamaStorage.save(base.address, chamas);
+    migrationSafeStorage.setUserChamas(base.address, chamas);
     setChamaList(chamas);
-  }, [base.address, chamaStorage]);
+    
+    console.log(`💾 Saved ${chamas.length} chamas for user`);
+  }, [base.address]);
 
   const fetchChamaData = useCallback(async (chamaAddress: Address): Promise<ChamaData | null> => {
     try {
