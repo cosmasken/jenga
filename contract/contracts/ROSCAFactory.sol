@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./ROSCA.sol";
 
 /**
  * @title ROSCAFactory
- * @dev Factory contract for creating ROSCA contracts using the Clone pattern
+ * @dev Factory contract for creating native ETH ROSCA contracts
  */
 contract ROSCAFactory is Ownable, ReentrancyGuard {
-    using Clones for address;
 
     /* ============================================================================
                                     STRUCTS & EVENTS
@@ -22,7 +20,6 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
         address creator;
         uint256 creationTime;
         string name;
-        address token;
         uint256 contributionAmount;
         uint256 maxMembers;
         bool isActive;
@@ -31,8 +28,6 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
     /* ============================================================================
                                     STATE VARIABLES
     ============================================================================ */
-    
-    address public immutable roscaImplementation;
     
     uint256 public totalROSCAsCreated;
     mapping(uint256 => DeployedROSCA) public deployedROSCAs;
@@ -62,9 +57,7 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
                                     CONSTRUCTOR
     ============================================================================ */
     
-    constructor(address _implementation) Ownable(msg.sender) {
-        require(_implementation != address(0), "Invalid implementation address");
-        roscaImplementation = _implementation;
+    constructor() Ownable(msg.sender) {
         feeCollector = msg.sender; // Set deployer as initial fee collector
     }
 
@@ -73,7 +66,6 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
     ============================================================================ */
     
     function createROSCA(
-        address _token,
         uint256 _contributionAmount,
         uint256 _roundDuration,
         uint256 _maxMembers
@@ -83,17 +75,15 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
         require(_roundDuration >= 1 days, "Round duration too short");
         require(_contributionAmount > 0, "Contribution amount must be > 0");
         
-        // Create new ROSCA contract using Clone pattern
-        address roscaAddress = roscaImplementation.clone();
-        
-        // Initialize the ROSCA
-        ROSCA(payable(roscaAddress)).initialize(
-            _token,
+        // Create new ROSCA contract directly (no clones for simplicity)
+        ROSCA roscaContract = new ROSCA(
             _contributionAmount,
             _roundDuration,
             _maxMembers,
             msg.sender
         );
+        
+        address roscaAddress = address(roscaContract);
         
         // Record the deployment
         uint256 roscaId = totalROSCAsCreated++;
@@ -104,7 +94,6 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
             creator: msg.sender,
             creationTime: block.timestamp,
             name: roscaName,
-            token: _token,
             contributionAmount: _contributionAmount,
             maxMembers: _maxMembers,
             isActive: true
@@ -123,7 +112,7 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
             msg.sender,
             roscaAddress,
             roscaName,
-            _token,
+            address(0), // Native ETH - no token address
             _contributionAmount,
             _maxMembers
         );
@@ -185,7 +174,6 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
         address creator,
         uint256 creationTime,
         string memory name,
-        address token,
         uint256 contributionAmount,
         uint256 maxMembers,
         bool isActive
@@ -196,7 +184,6 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
             rosca.creator,
             rosca.creationTime,
             rosca.name,
-            rosca.token,
             rosca.contributionAmount,
             rosca.maxMembers,
             rosca.isActive
@@ -216,14 +203,12 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
     function getFactoryStats() external view returns (
         uint256 totalCreated,
         uint256 activeCount,
-        uint256 creationFeeAmount,
-        address implementationAddress
+        uint256 creationFeeAmount
     ) {
         return (
             totalROSCAsCreated,
             getActiveROSCACount(),
-            creationFee,
-            roscaImplementation
+            creationFee
         );
     }
     

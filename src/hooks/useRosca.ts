@@ -312,6 +312,90 @@ export function useRosca(
     });
   }, [executeTransaction, getWalletClient]);
   
+  // Helper method for creating native ETH ROSCAs
+  const createNativeROSCA = useCallback(async (
+    contributionAmount: string,
+    roundDuration: number,
+    maxMembers: number
+  ): Promise<Hash | undefined> => {
+    return createROSCA(
+      '0x0000000000000000000000000000000000000000', // Native ETH token address
+      contributionAmount,
+      roundDuration,
+      maxMembers
+    );
+  }, [createROSCA]);
+  
+  // Utility function to extract ROSCA address from transaction receipt
+  const extractROSCAAddressFromReceipt = useCallback(async (txHash: Hash): Promise<Address | null> => {
+    try {
+      const receipt = await publicClient.getTransactionReceipt({ hash: txHash });
+      
+      // ROSCACreated event signature: 0x1b1b671cffa95fbc16baba6325184278f6c7cf89547ade16bfed77418756cfc2
+      const roscaCreatedEventSignature = '0x1b1b671cffa95fbc16baba6325184278f6c7cf89547ade16bfed77418756cfc2';
+      
+      const roscaCreatedLog = receipt.logs.find(log => 
+        log.topics.length >= 4 && log.topics[0] === roscaCreatedEventSignature
+      );
+      
+      if (roscaCreatedLog && roscaCreatedLog.topics[3]) {
+        // Extract ROSCA address from the third indexed topic (topics[3] = roscaAddress)
+        const roscaAddress = `0x${roscaCreatedLog.topics[3].slice(-40)}` as Address;
+        console.log('✅ Extracted ROSCA address from receipt:', roscaAddress);
+        return roscaAddress;
+      }
+      
+      console.warn('⚠️ ROSCACreated event not found in transaction logs');
+      console.log('📋 Available logs:', receipt.logs.map(log => ({ topics: log.topics, address: log.address })));
+      return null;
+    } catch (error) {
+      console.error('❌ Failed to extract ROSCA address from receipt:', error);
+      return null;
+    }
+  }, [publicClient]);
+  
+  // Utility function to discover ROSCAs created by a user from factory events
+  const getUserCreatedROSCAs = useCallback(async (userAddress: Address): Promise<Address[]> => {
+    try {
+      // Get recent blocks to search for events
+      const currentBlock = await publicClient.getBlockNumber();
+      const fromBlock = currentBlock - 10000n; // Search last ~10k blocks
+      
+      const logs = await publicClient.getLogs({
+        address: CONTRACT_ADDRESSES.ROSCA_FACTORY,
+        event: {
+          type: 'event',
+          name: 'ROSCACreated',
+          inputs: [
+            { name: 'roscaId', type: 'uint256', indexed: true },
+            { name: 'creator', type: 'address', indexed: true },
+            { name: 'roscaAddress', type: 'address', indexed: true },
+            { name: 'name', type: 'string', indexed: false },
+            { name: 'token', type: 'address', indexed: false },
+            { name: 'contributionAmount', type: 'uint256', indexed: false },
+            { name: 'maxMembers', type: 'uint256', indexed: false }
+          ]
+        },
+        args: {
+          creator: userAddress
+        },
+        fromBlock,
+        toBlock: 'latest'
+      });
+      
+      // Extract ROSCA addresses from the logs
+      const roscaAddresses = logs
+        .filter(log => log.topics[2]) // Make sure we have the roscaAddress topic
+        .map(log => `0x${log.topics[2]!.slice(-40)}` as Address);
+      
+      console.log(`🔍 Found ${roscaAddresses.length} ROSCAs created by user ${userAddress}`);
+      return roscaAddresses;
+    } catch (error) {
+      console.error('❌ Failed to get user created ROSCAs:', error);
+      return [];
+    }
+  }, [publicClient]);
+  
   const getFactoryStats = useCallback(async (): Promise<FactoryStats | null> => {
     try {
       const stats = await factoryContract.read.getFactoryStats();
@@ -771,6 +855,7 @@ export function useRosca(
   return {
     // Factory functions
     createROSCA,
+    createNativeROSCA, // Helper for native ETH ROSCAs
     getFactoryStats,
     
     // ROSCA functions
@@ -808,6 +893,10 @@ export function useRosca(
     clearError,
     formatAmount,
     parseAmount,
+    
+    // Utility functions
+    extractROSCAAddressFromReceipt,
+    getUserCreatedROSCAs,
     
     // Legacy compatibility
     isWalletReady: isConnected,

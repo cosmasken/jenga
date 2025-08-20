@@ -38,8 +38,8 @@
       ]
     },
     "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/contracts/ROSCA.sol": {
-      "lastModificationDate": 1755697039725,
-      "contentHash": "db9cfe806e15d0bd013190c046aa2fde",
+      "lastModificationDate": 1755701121506,
+      "contentHash": "08954f7e8bb3abe32062392e81b4d94a",
       "sourceName": "contracts/ROSCA.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -66,8 +66,6 @@
         }
       },
       "imports": [
-        "@openzeppelin/contracts/token/ERC20/IERC20.sol",
-        "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
         "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
         "@openzeppelin/contracts/access/Ownable.sol"
       ],
@@ -411,8 +409,8 @@
       ]
     },
     "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/contracts/ROSCAFactory.sol": {
-      "lastModificationDate": 1755695978632,
-      "contentHash": "75db4a623e9eac752a37e2ba63a5ab2f",
+      "lastModificationDate": 1755701179888,
+      "contentHash": "3a109dcc45940e166e489cf15a8e43e1",
       "sourceName": "contracts/ROSCAFactory.sol",
       "solcConfig": {
         "version": "0.8.20",
@@ -439,7 +437,6 @@
         }
       },
       "imports": [
-        "@openzeppelin/contracts/proxy/Clones.sol",
         "@openzeppelin/contracts/access/Ownable.sol",
         "@openzeppelin/contracts/utils/ReentrancyGuard.sol",
         "./ROSCA.sol"
