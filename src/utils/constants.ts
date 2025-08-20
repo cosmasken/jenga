@@ -1,7 +1,7 @@
 import { CONTRACT_ADDRESSES, PRICING_CONFIG } from '@/config';
 
 // Factory contract address
-export const FACTORY_ADDRESS = CONTRACT_ADDRESSES.CHAMA_FACTORY;
+export const FACTORY_ADDRESS = CONTRACT_ADDRESSES.ROSCA_FACTORY;
 
 // Bitcoin price for USD calculations (since Citrea is Bitcoin Layer 2)
 export const BITCOIN_PRICE_USD = PRICING_CONFIG.BITCOIN_PRICE_USD;

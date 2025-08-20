@@ -98,7 +98,7 @@ export const useUserStore = create<UserState>()(
       },
 
       setFirstTimeUser: (isFirstTime: boolean) => {
-        set({ isFirstTimeUser });
+        set({ isFirstTimeUser: isFirstTime });
       },
 
       updateLastVisitedSacco: () => {
@@ -125,65 +125,4 @@ export const useUserStore = create<UserState>()(
     }
   )
 );
-      // },
-      
-      // disconnect: () => {
-      //   set(initialState);
-      // },
-      
-      setMemberStatus: (isMember: boolean) => {
-        set({ isMember });
-      },
-      
-      completeOnboarding: () => {
-        set({ 
-          hasCompletedOnboarding: true,
-          isMember: true,
-          ethDeposited: "",
-          maxBorrowAmount: "1200.00"
-        });
-      },
-      
-      markGuideAsSeen: (guideType: 'welcome' | 'dashboard') => {
-        if (guideType === 'welcome') {
-          set({ hasSeenWelcomeGuide: true });
-        } else if (guideType === 'dashboard') {
-          set({ hasSeenDashboardTour: true });
-        }
-      },
-      
-      dismissWarning: (warningId: string) => {
-        const { dismissedWarnings } = get();
-        if (!dismissedWarnings.includes(warningId)) {
-          set({ 
-            dismissedWarnings: [...dismissedWarnings, warningId] 
-          });
-        }
-      },
-      
-      updateFinancials: (data) => {
-        set((state) => ({
-          ...state,
-          ...data
-        }));
-      },
-      
-      resetUserData: () => {
-        set(initialState);
-      },
-    }),
-    {
-      name: 'sacco-user-store',
-      partialize: (state) => ({
-        hasSeenWelcomeGuide: state.hasSeenWelcomeGuide,
-        hasSeenDashboardTour: state.hasSeenDashboardTour,
-        dismissedWarnings: state.dismissedWarnings,
-        hasCompletedOnboarding: state.hasCompletedOnboarding,
-        isMember: state.isMember,
-        ethDeposited: state.ethDeposited,
-        usdcBorrowed: state.usdcBorrowed,
-        maxBorrowAmount: state.maxBorrowAmount,
-      }),
-    }
-  )
-);
+     

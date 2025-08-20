@@ -64,6 +64,7 @@ import { EthereumWalletConnectors } from '@dynamic-labs/ethereum';
 import { DynamicContextProvider } from '@dynamic-labs/sdk-react-core';
 
 import { DYNAMIC_NETWORK_CONFIG, API_CONFIG, getDynamicEnvironmentId, isDynamicConfigured, validateConfig } from './config';
+import { runMigration } from './utils/migration';
 
 // Validate environment configuration on startup
 console.log('🔧 Environment Configuration Check:');
@@ -78,10 +79,13 @@ if (!hasValidBlastApi) {
   console.log('💡 For better performance, add your Blast API project ID to .env');
 }
 
-console.log('VITE_CHAMA_FACTORY_ADDRESS:', import.meta.env.VITE_CHAMA_FACTORY_ADDRESS ? '✅ Set' : '⚠️ Using default');
+console.log('VITE_ROSCA_FACTORY_ADDRESS:', import.meta.env.VITE_ROSCA_FACTORY_ADDRESS ? '✅ Set' : '⚠️ Using default');
 
 // Run full validation
 validateConfig();
+
+// Run migration check to clean up old contract data
+runMigration();
 
 if (!isDynamicConfigured()) {
   console.warn('⚠️ Dynamic Labs is not properly configured. Some wallet features may not work.');

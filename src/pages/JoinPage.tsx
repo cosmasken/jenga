@@ -63,20 +63,29 @@ export default function JoinPage() {
     
     setIsLoadingInfo(true);
     try {
-      // Use the real rosca hook to get chama info
-      const info = await roscaHook.getChamaInfo(chamaAddr as Address);
+      // Use the enhanced ROSCA hook to get info
+      const info = await roscaHook.getROSCAInfo(chamaAddr as Address);
+      if (!info) throw new Error('Failed to fetch ROSCA info');
+      
+      // Get deposit info
+      const deposit = await roscaHook.getRequiredDeposit(chamaAddr as Address);
       
       // Convert blockchain data to display format
+      const isUSDC = info.token.toLowerCase() === '0xc5bb358516f8b3901bd1fb4e2410d21effffffe7e'.toLowerCase();
+      const decimals = isUSDC ? 6 : 18;
+      const divisor = isUSDC ? 1e6 : 1e18;
+      
       const displayInfo = {
-        token: info.token ? 'USDC' : 'ETH',
-        contributionAmount: (Number(info.contribution) / 1e18).toString(),
-        securityDeposit: (Number(info.securityDeposit) / 1e18).toString(),
-        memberTarget: info.memberTarget,
+        token: isUSDC ? 'USDC' : 'cBTC',
+        contributionAmount: (Number(info.contributionAmount) / divisor).toString(),
+        securityDeposit: deposit ? (Number(deposit) / divisor).toString() : '0',
+        memberTarget: info.maxMembers,
         currentMembers: info.totalMembers,
         roundDuration: Math.floor(info.roundDuration / (24 * 60 * 60)), // Convert seconds to days
-        creator: '0x1234...5678', // TODO: Get from contract
-        isActive: info.isActive,
-        totalRounds: info.memberTarget, // Assuming total rounds = member target
+        creator: '0x...', // Not available in enhanced version
+        isActive: info.status === 0 || info.status === 1 || info.status === 2, // RECRUITING, WAITING, or ACTIVE
+        totalRounds: info.maxMembers,
+        status: info.status,
       };
       
       setChamaInfo(displayInfo);
@@ -124,8 +133,8 @@ export default function JoinPage() {
     if (!validateAddress(chamaAddress) || !primaryWallet?.address) return;
     
     try {
-      // Use the real rosca hook to join
-      await roscaHook.join(chamaAddress as Address);
+      // Use the enhanced ROSCA hook to join
+      const txHash = await roscaHook.joinROSCA(chamaAddress as Address);
       
       // Update state manager with the join action
       await chamaStateManager.handleActionResult('join', chamaAddress as Address, primaryWallet.address as Address, roscaHook);

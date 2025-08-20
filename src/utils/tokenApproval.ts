@@ -7,7 +7,6 @@ import {
   formatUnits,
 } from 'viem';
 import { citreaTestnet, TOKENS } from '@/config';
-import { useRosca } from '@/hooks/useRosca';
 
 const ERC20_ABI = [
   {

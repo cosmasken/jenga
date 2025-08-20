@@ -2,10 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { isEthereumWallet } from '@dynamic-labs/ethereum';
 import {
-  formatEther,
-  parseEther,
-  decodeEventLog,
-  encodeEventTopics,
   formatUnits,
   parseUnits,
   createPublicClient,
@@ -14,31 +10,115 @@ import {
   type Address,
   type Hash,
   type PublicClient,
-  type WalletClient
+  type WalletClient,
+  formatEther,
+  parseEther
 } from 'viem';
-import { citreaTestnet } from '@/config';
-import { handleUSDCApproval } from '@/utils/tokenApproval';
-import { NETWORK_CONFIG } from '@/config';
-import FACTORY_ABI from '../abi/ChamaFactory.json';
-import CIRCLE_ABI from '../abi/ChamaCircle.json';
-import { FACTORY_ADDRESS } from '@/utils/constants';
+import { citreaTestnet, CONTRACT_ADDRESSES, NETWORK_CONFIG } from '@/config';
 
-/* === CONFIG === */
-export const USDC_DECIMALS = 6;
-export const NATIVE_DECIMALS = 18;
+// Import the new enhanced contract ABIs
+import ROSCA_ABI from '../abi/ROSCA.json';
+import FACTORY_ABI from '../abi/ROSCAFactory.json';
+import USDC_ABI from '../abi/MockUSDC.json';
 
-/* === HOOK === */
+/* === TYPES === */
+export enum ROSCAStatus {
+  RECRUITING = 0,
+  WAITING = 1,
+  ACTIVE = 2,
+  COMPLETED = 3,
+  CANCELLED = 4
+}
+
+export interface ROSCAInfo {
+  token: Address;
+  contributionAmount: bigint;
+  roundDuration: number;
+  maxMembers: number;
+  status: ROSCAStatus;
+  currentRound: number;
+  totalMembers: number;
+  totalRounds: number;
+  recruitmentCompleteTime: number;
+  nextPayoutIndex: number;
+}
+
+export interface MemberInfo {
+  isActive: boolean;
+  totalContributions: bigint;
+  roundsPaid: number;
+  missedRounds: number;
+  hasReceivedPayout: boolean;
+  payoutRound: number;
+}
+
+export interface RoundInfo {
+  startTime: number;
+  deadline: number;
+  winner: Address;
+  totalPot: bigint;
+  contributionsReceived: number;
+  isCompleted: boolean;
+}
+
+export interface FactoryStats {
+  totalCreated: number;
+  activeCount: number;
+  creationFeeAmount: bigint;
+  implementationAddress: Address;
+}
+
+/* === HOOK INTERFACE === */
 export interface RoscaHook {
-  /* factory */
-  // createChama: (
-  //   token: Address | null,               // null = native
-  //   contribution: string,                // human readable
-  //   securityDeposit: string,             // human readable
-  //   roundDuration: string,               // human readable
-  //   lateWindow: string,
-  //   latePenalty: string,
-  //   memberTarget: string
-  // ) => Promise<Address>;                 // returns new chama address
+  // Factory functions
+  createROSCA: (
+    token: Address,
+    contributionAmount: string,
+    roundDuration: number,
+    maxMembers: number
+  ) => Promise<Hash | undefined>;
+  getFactoryStats: () => Promise<FactoryStats | null>;
+  
+  // ROSCA functions
+  joinROSCA: (roscaAddress: Address) => Promise<Hash | undefined>;
+  contribute: (roscaAddress: Address) => Promise<Hash | undefined>;
+  startROSCA: (roscaAddress: Address) => Promise<Hash | undefined>;
+  forceStart: (roscaAddress: Address) => Promise<Hash | undefined>;
+  completeRound: (roscaAddress: Address) => Promise<Hash | undefined>;
+  
+  // View functions
+  getROSCAInfo: (roscaAddress: Address) => Promise<ROSCAInfo | null>;
+  getMemberInfo: (roscaAddress: Address, memberAddress: Address) => Promise<MemberInfo | null>;
+  getRoundInfo: (roscaAddress: Address, roundNumber: number) => Promise<RoundInfo | null>;
+  getMembers: (roscaAddress: Address) => Promise<Address[]>;
+  getRequiredDeposit: (roscaAddress: Address) => Promise<bigint | null>;
+  getTimeUntilStart: (roscaAddress: Address) => Promise<number | null>;
+  getTimeUntilRoundEnd: (roscaAddress: Address) => Promise<number | null>;
+  hasContributedThisRound: (roscaAddress: Address, memberAddress: Address) => Promise<boolean>;
+  
+  // Token functions
+  getUSDCBalance: (userAddress: Address) => Promise<bigint | null>;
+  getUSDCAllowance: (owner: Address, spender: Address) => Promise<bigint | null>;
+  approveUSDC: (spender: Address, amount: string) => Promise<Hash | undefined>;
+  mintUSDC: (amount: string) => Promise<Hash | undefined>; // For testing only
+  
+  // State
+  isLoading: boolean;
+  error: string | null;
+  isConnected: boolean;
+  address: Address | null;
+  publicClient: PublicClient;
+  getWalletClient: () => Promise<WalletClient | null>;
+  
+  // Utils
+  clearError: () => void;
+  formatAmount: (amount: bigint, decimals: number) => string;
+  parseAmount: (amount: string, decimals: number) => bigint;
+
+  // Legacy compatibility properties
+  isWalletReady: boolean;
+
+  // Legacy compatibility methods (mapped to new methods)
   createChama: (
     token: Address | null,
     contribution: string,
@@ -48,11 +128,7 @@ export interface RoscaHook {
     latePenalty: string,
     memberTarget: number
   ) => Promise<Address | undefined>;
-  address: Address | null;
-  // refreshData: () => Promise<void>;
-  /* circle (single chama) */
   join: (chamaAddress: Address) => Promise<Hash | undefined>;
-  contribute: (chamaAddress: Address) => Promise<Hash | undefined>;
   leave: (chamaAddress: Address) => Promise<Hash | undefined>;
   getChamaInfo: (chamaAddress: Address) => Promise<{
     token: Address | null;
@@ -65,59 +141,29 @@ export interface RoscaHook {
     isActive: boolean;
     creator: Address;
   }>;
-  
-  /* membership */
   isMember: (chamaAddress: Address, userAddress: Address) => Promise<boolean>;
   hasContributed: (chamaAddress: Address, userAddress: Address, round: number) => Promise<boolean>;
-  
-  /* state */
-  isLoading: boolean;
-  error: string | null;
-  isConnected: boolean;
-  isWalletReady: boolean;
-  publicClient: PublicClient;
-  getWalletClient: () => Promise<WalletClient | null>;
-  
 }
 
+/* === HOOK IMPLEMENTATION === */
 export function useRosca(
-  factoryAddress: Address
+  factoryAddress?: Address // Made optional for backward compatibility
 ): RoscaHook {
   const { primaryWallet } = useDynamicContext();
-
-  // USDC Contract ABI for approval
-  const ERC20_ABI = [
-    {
-      type: 'function',
-      name: 'approve',
-      stateMutability: 'nonpayable',
-      inputs: [
-        { name: 'spender', type: 'address' },
-        { name: 'amount', type: 'uint256' }
-      ],
-      outputs: [{ name: '', type: 'bool' }]
-    },
-    {
-      type: 'function',
-      name: 'allowance',
-      stateMutability: 'view',
-      inputs: [
-        { name: 'owner', type: 'address' },
-        { name: 'spender', type: 'address' }
-      ],
-      outputs: [{ name: '', type: 'uint256' }]
-    }
-  ] as const;
-
-
-    /* --- clients --- */
+  
+  // State
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Clients
   const publicClient = useMemo(() => {
     return createPublicClient({
-      chain : citreaTestnet,
+      chain: citreaTestnet,
       transport: http(NETWORK_CONFIG.RPC_URL)
     });
   }, []);
-  const getWalletClient = useCallback(async () => {
+  
+  const getWalletClient = useCallback(async (): Promise<WalletClient | null> => {
     if (!primaryWallet || !isEthereumWallet(primaryWallet)) {
       console.error('No primary wallet or not Ethereum wallet');
       return null;
@@ -144,636 +190,632 @@ export function useRosca(
       }
     }
   }, [primaryWallet]);
-
-  const contract = useMemo(() => {
-    if (!factoryAddress) return null;
+  
+  // Contract instances
+  const factoryContract = useMemo(() => {
     return getContract({
-      address: factoryAddress,
-      abi: FACTORY_ABI,
+      address: CONTRACT_ADDRESSES.ROSCA_FACTORY,
+      abi: FACTORY_ABI.abi,
       client: publicClient
     });
-  }, [factoryAddress, publicClient]);
-
+  }, [publicClient]);
   
-  /* --- state --- */
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-
- 
-
-  const getChama = useCallback(
-    (chamaAddress: Address) =>
-      getContract({
-        address: chamaAddress,
-        abi: CIRCLE_ABI,
-        client: publicClient
-      }),
-    [publicClient]
-  );
-   /* --- helpers --- */
+  const getROSCAContract = useCallback((roscaAddress: Address) => {
+    return getContract({
+      address: roscaAddress,
+      abi: ROSCA_ABI.abi,
+      client: publicClient
+    });
+  }, [publicClient]);
+  
+  const usdcContract = useMemo(() => {
+    return getContract({
+      address: CONTRACT_ADDRESSES.USDC,
+      abi: USDC_ABI.abi,
+      client: publicClient
+    });
+  }, [publicClient]);
+  
+  // Helpers
   const isConnected = Boolean(primaryWallet && isEthereumWallet(primaryWallet));
-  const address = primaryWallet?.address as Address | null;
-
-     /* --- transaction wrapper --- */
-      const executeTransaction = async (
-        txFunction: () => Promise<Hash>
-      ): Promise<Hash | undefined> => {
-        if (!isConnected) {
-          setError('Wallet not connected');
-          return;
-        }
-    
-        if (!factoryAddress) {
-          setError('Contract not available');
-          return;
-        }
-    
-        const client = await getWalletClient();
-        if (!client) {
-          setError('Wallet client not available');
-          return;
-        }
-    
-        setIsLoading(true);
-        setError(null);
-    
-        try {
-          const hash = await txFunction();
-          
-          // Wait for transaction confirmation
-          await publicClient.waitForTransactionReceipt({ hash });
-          
-          // Refresh data after successful transaction
-          // await refreshData();
-          
-          return hash;
-        } catch (err: any) {
-          console.error('Transaction failed:', err);
-          setError(err?.shortMessage || err?.message || 'Transaction failed');
-          return undefined;
-        } finally {
-          setIsLoading(false);
-        }
-      };
-
-
-  /* --- factory create --- */
-const createChama: RoscaHook['createChama'] = async (
-  token,
-  contribution,
-  securityDeposit,
-  roundDuration,
-  lateWindow,
-  latePenalty,
-  memberTarget
-) => {
-  const decimals = token === null ? NATIVE_DECIMALS : USDC_DECIMALS;
-  const contrib  = parseUnits(contribution, decimals);
-  const security = parseUnits(securityDeposit, decimals);
-  const penalty  = parseUnits(latePenalty, decimals);
-
-  if (!isConnected) {
-    setError('Wallet not connected');
-    return;
-  }
-
-  if (!factoryAddress) {
-    setError('Contract not available');
-    return;
-  }
-
-  const client = await getWalletClient();
-  if (!client) {
-    setError('Wallet client not available');
-    return;
-  }
-
-  setIsLoading(true);
-  setError(null);
-
-  try {
-    // Handle token approval for ERC20 tokens
-    if (token !== null) {
-      console.log('🔐 Checking token approval for USDC...');
-      
-      // Calculate total amount needed (security deposit + first contribution)
-      const totalAmountNeeded = (parseFloat(securityDeposit) + parseFloat(contribution)).toString();
-      
-      console.log(`💰 Total USDC needed: ${totalAmountNeeded} (${securityDeposit} deposit + ${contribution} contribution)`);
-      
-      // Check current allowance
-      const allowance = await publicClient.readContract({
-        address: token as Address,
-        abi: ERC20_ABI,
-        functionName: 'allowance',
-        args: [address!, FACTORY_ADDRESS]
-      });
-
-      const neededAmount = parseUnits(totalAmountNeeded, USDC_DECIMALS);
-      
-      if (allowance < neededAmount) {
-        console.log('🔓 Approving USDC for factory...');
-        const approveHash = await client.writeContract({
-          address: token as Address,
-          abi: ERC20_ABI,
-          functionName: 'approve',
-          args: [FACTORY_ADDRESS, neededAmount]
-        });
-        
-        await publicClient.waitForTransactionReceipt({ hash: approveHash });
-        console.log('✅ USDC approval successful:', approveHash);
-      }
-
-      console.log('✅ USDC approval verified');
-    }
-
-    console.log('🚀 Creating chama with factory...');
-    const hash = await client.writeContract({
-      address: FACTORY_ADDRESS,
-      abi: FACTORY_ABI,
-      functionName: 'createChama',
-      args: [
-        token ?? '0x0000000000000000000000000000000000000000',
-        contrib,
-        security,
-        BigInt(roundDuration),
-        BigInt(lateWindow),
-        penalty,
-        BigInt(memberTarget)
-      ],
-      value: token === null ? security : 0n
-    });
-
-    console.log('⏳ Waiting for chama creation confirmation...', hash);
-    
-    // Wait for transaction receipt with better error handling
-    let receipt;
-    try {
-      receipt = await publicClient.waitForTransactionReceipt({ 
-        hash,
-        timeout: 60000 // 60 second timeout
-      });
-      console.log('✅ Transaction confirmed:', receipt.transactionHash);
-    } catch (receiptError: any) {
-      console.error('❌ Failed to get transaction receipt:', receiptError);
-      // If we can't get the receipt but the transaction was sent, 
-      // we should still try to continue or at least give a better error
-      throw new Error(`Transaction was sent but confirmation failed. Hash: ${hash}. Please check the transaction manually.`);
+  const address = (primaryWallet?.address as Address) || null;
+  
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+  
+  const formatAmount = useCallback((amount: bigint, decimals: number): string => {
+    return formatUnits(amount, decimals);
+  }, []);
+  
+  const parseAmount = useCallback((amount: string, decimals: number): bigint => {
+    return parseUnits(amount, decimals);
+  }, []);
+  
+  // Transaction wrapper
+  const executeTransaction = async (
+    txFunction: () => Promise<Hash>
+  ): Promise<Hash | undefined> => {
+    if (!isConnected) {
+      setError('Wallet not connected');
+      return;
     }
     
-    // Parse the ChamaCreated event
-    const logs = receipt.logs;
-    const topics = encodeEventTopics({
-      abi: FACTORY_ABI,
-      eventName: 'ChamaCreated'
-    });
-    
-    const chamaLog = logs.find(log => 
-      log.topics[0] === topics[0] && 
-      log.address.toLowerCase() === factoryAddress.toLowerCase()
-    );
-    
-    if (!chamaLog) {
-      console.error('❌ ChamaCreated event not found in logs:', logs);
-      throw new Error('ChamaCreated event not found in transaction receipt');
+    const client = await getWalletClient();
+    if (!client) {
+      setError('Wallet client not available');
+      return;
     }
     
-    const decodedLog = decodeEventLog({
-      abi: FACTORY_ABI,
-      data: chamaLog.data,
-      topics: chamaLog.topics
-    });
-
-    if (decodedLog.eventName !== 'ChamaCreated') {
-      throw new Error('Unexpected event type');
-    }
-
-    // Type-cast to avoid "possibly undefined"
-    const chamaAddress = (decodedLog.args as any).chama as Address;
-    console.log('🎉 Chama created successfully:', chamaAddress);
-    
-    return chamaAddress;
-    
-  } catch (err: any) {
-    console.error('❌ Chama creation failed:', err);
-    setError(err?.shortMessage || err?.message || 'Chama creation failed');
-    return undefined;
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-  /* --- get chama info --- */
-  const getChamaInfo = async (chamaAddress: Address) => {
-    console.log('🔍 Getting chama info for:', chamaAddress);
-    console.log('🌐 Network config:', NETWORK_CONFIG.RPC_URL);
-    console.log('🔗 Public client:', publicClient);
-    
-    const chama = getChama(chamaAddress);
-    console.log('📄 Chama contract instance created');
+    setIsLoading(true);
+    setError(null);
     
     try {
-      // Get core data that definitely exists on the contract
-      console.log('📡 Fetching core chama data...');
-      const coreData = await Promise.all([
-        chama.read.contribution(),
-        chama.read.securityDeposit(), 
-        chama.read.currentRound(),
-        chama.read.memberCount(),
-        chama.read.memberTarget(),
-        chama.read.roundDuration(),
-        chama.read.token(),
-        chama.read.factory(),
-      ]);
-
-      const [
-        contribution,
-        securityDeposit,
-        currentRound,
-        memberCount,
-        memberTarget,
-        roundDuration,
-        token,
-        factory
-      ] = coreData;
-
-      console.log('✅ Core chama data loaded:', {
-        contribution: contribution.toString(),
-        securityDeposit: securityDeposit.toString(),
-        currentRound: Number(currentRound),
-        memberCount: Number(memberCount),
-        memberTarget: Number(memberTarget),
-        roundDuration: Number(roundDuration),
-        token,
-        factory
-      });
-
-      // For creator, we need to get the first member (creator auto-joins)
-      let creator: Address = '0x0000000000000000000000000000000000000000' as Address;
-      try {
-        if (Number(memberCount) > 0) {
-          console.log('👤 Getting creator (first member)...');
-          creator = await chama.read.members([0n]); // First member is the creator
-          console.log('✅ Creator found:', creator);
-        }
-      } catch (error) {
-        console.warn('⚠️ Could not get creator (first member):', error);
+      const hash = await txFunction();
+      console.log('✅ Transaction submitted:', hash);
+      
+      // Wait for transaction confirmation
+      console.log('⏳ Waiting for transaction confirmation...');
+      await publicClient.waitForTransactionReceipt({ hash });
+      console.log('✅ Transaction confirmed:', hash);
+      
+      return hash;
+    } catch (err: any) {
+      console.error('❌ Transaction failed:', err);
+      
+      // Parse error message
+      let errorMessage = 'Transaction failed';
+      if (err.message?.includes('User rejected')) {
+        errorMessage = 'Transaction was rejected by user';
+      } else if (err.message?.includes('insufficient funds')) {
+        errorMessage = 'Insufficient funds for transaction';
+      } else if (err.shortMessage) {
+        errorMessage = err.shortMessage;
       }
-
-      // Determine if chama is active (has members and hasn't finished all rounds)
-      const isActive = Number(memberCount) > 0 && Number(currentRound) <= Number(memberTarget);
-
-      const result = {
-        token: token as Address | null,
-        contribution: contribution as bigint,
-        securityDeposit: securityDeposit as bigint,
-        roundDuration: Number(roundDuration),
-        memberTarget: Number(memberTarget),
-        currentRound: Number(currentRound),
-        totalMembers: Number(memberCount),
-        isActive,
-        creator
-      };
-
-      console.log('✅ Final chama info:', result);
-      return result;
-
-    } catch (error) {
-      console.error('❌ Error getting chama info:', error);
-      console.error('❌ Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        chamaAddress,
-        networkRPC: NETWORK_CONFIG.RPC_URL
-      });
-      throw new Error(`Failed to get chama info: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      setError(errorMessage);
+      return;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-/* ------------------------------------------------------------------ */
-/*  MEMBERSHIP CHECKS                                                 */
-/* ------------------------------------------------------------------ */
-const isMember = async (chamaAddress: Address, userAddress: Address): Promise<boolean> => {
-  try {
-    const chama = getChama(chamaAddress);
-    const result = await chama.read.isMember([userAddress]);
-    return result as boolean;
-  } catch (error) {
-    console.error('Error checking membership:', error);
-    return false;
-  }
-};
-
-const hasContributed = async (chamaAddress: Address, userAddress: Address, round: number): Promise<boolean> => {
-  try {
-    const chama = getChama(chamaAddress);
-    const result = await chama.read.contributed([BigInt(round), userAddress]);
-    return result as boolean;
-  } catch (error) {
-    console.error('Error checking contribution:', error);
-    return false;
-  }
-};
-
-/* ------------------------------------------------------------------ */
-/*  JOIN                                                              */
-/* ------------------------------------------------------------------ */
-const join = async (chama: Address): Promise<Hash | undefined> => {
-  if (!isConnected) {
-    setError('Wallet not connected');
-    return;
-  }
-
-  if (!factoryAddress) {
-    setError('Contract not available');
-    return;
-  }
-
-  if (!primaryWallet) {
-    setError('No wallet found');
-    return;
-  }
-
-  console.log('🔗 Starting join process for chama:', chama);
-  console.log('🔗 Wallet connected:', !!primaryWallet);
-  console.log('🔗 Is Ethereum wallet:', isEthereumWallet(primaryWallet));
-
-  setIsLoading(true);
-  setError(null);
-
-  try {
-    console.log('🔗 Getting wallet client directly...');
-    
-    // Get wallet client directly like in createChama - don't use the shared getWalletClient function
+  // Factory Functions
+  const createROSCA = useCallback(async (
+    token: Address,
+    contributionAmount: string,
+    roundDuration: number,
+    maxMembers: number
+  ): Promise<Hash | undefined> => {
     const client = await getWalletClient();
-  // if (!client) {
-  //   setError('Wallet client not available');
-  //   return;
-  // }
-  //   try {
-  //     client = await primaryWallet.getWalletClient();
-  //     console.log('✅ Wallet client obtained successfully');
-  //   } catch (walletError: any) {
-  //     console.error('❌ Failed to get wallet client:', walletError);
-  //     throw new Error('Unable to connect to wallet. Please ensure your wallet is connected and try again.');
-  //   }
-
-    if (!client) {
-      throw new Error('Wallet client is null. Please reconnect your wallet.');
-    }
-
-    console.log('🔗 Joining chama:', chama);
-
-    // Get security deposit and token info from contract
-    console.log('📋 Fetching chama details...');
-    const [security, token] = await Promise.all([
-      publicClient.readContract({
-        address: chama,
-        abi: CIRCLE_ABI,
-        functionName: 'securityDeposit',
-      }),
-      publicClient.readContract({
-        address: chama,
-        abi: CIRCLE_ABI,
-        functionName: 'token',
-      })
-    ]);
-
-    console.log('💰 Security deposit required:', formatUnits(security, token !== '0x0000000000000000000000000000000000000000' ? USDC_DECIMALS : NATIVE_DECIMALS));
-
-    // Handle ERC-20 chama (USDC)
-    if (token !== '0x0000000000000000000000000000000000000000') {
-      console.log('🔐 Handling USDC approval for join...');
+    if (!client) return;
+    
+    return executeTransaction(async () => {
+      // Determine decimals based on token
+      const isNativeToken = token === '0x0000000000000000000000000000000000000000';
+      const decimals = isNativeToken ? 18 : 6; // cBTC has 18 decimals, USDC has 6
+      const contributionWei = parseUnits(contributionAmount, decimals);
+      const creationFee = parseEther('0.001'); // 0.001 ETH creation fee
       
-      await handleUSDCApproval(
-        client,
-        publicClient,
-        address!,
-        chama,
-        formatUnits(security, USDC_DECIMALS)
-      );
-
-      console.log('✅ USDC approval completed, joining chama...');
-      const hash = await client.writeContract({
-        address: chama,
-        abi: CIRCLE_ABI,
-        functionName: 'join',
-      });
-
-      console.log('⏳ Waiting for join transaction confirmation...', hash);
-      await publicClient.waitForTransactionReceipt({ 
-        hash,
-        timeout: 60000 
+      const factoryWithWallet = getContract({
+        address: CONTRACT_ADDRESSES.ROSCA_FACTORY,
+        abi: FACTORY_ABI.abi,
+        client: client
       });
       
-      console.log('🎉 Successfully joined USDC chama!');
-      return hash;
-    }
-
-    // Handle native chama (cBTC)
-    console.log('🪙 Joining native cBTC chama...');
-    const hash = await client.writeContract({
-      address: chama,
-      abi: CIRCLE_ABI,
-      functionName: 'join',
-      value: security,
+      return await factoryWithWallet.write.createROSCA([
+        token,
+        contributionWei,
+        BigInt(roundDuration),
+        BigInt(maxMembers)
+      ], { value: creationFee });
     });
-
-    console.log('⏳ Waiting for join transaction confirmation...', hash);
-    await publicClient.waitForTransactionReceipt({ 
-      hash,
-      timeout: 60000 
-    });
-    
-    console.log('🎉 Successfully joined cBTC chama!');
-    return hash;
-
-  } catch (err: any) {
-    console.error('❌ Join failed:', err);
-    
-    // Provide more specific error messages
-    let errorMessage = 'Failed to join chama';
-    if (err.message?.includes('Unable to retrieve WalletClient')) {
-      errorMessage = 'Wallet connection issue. Please disconnect and reconnect your wallet, then try again.';
-    } else if (err.message?.includes('User rejected')) {
-      errorMessage = 'Transaction was rejected by user.';
-    } else if (err.message?.includes('insufficient funds')) {
-      errorMessage = 'Insufficient funds to join this chama.';
-    } else if (err.shortMessage) {
-      errorMessage = err.shortMessage;
-    } else if (err.message) {
-      errorMessage = err.message;
+  }, [executeTransaction, getWalletClient]);
+  
+  const getFactoryStats = useCallback(async (): Promise<FactoryStats | null> => {
+    try {
+      const stats = await factoryContract.read.getFactoryStats();
+      return {
+        totalCreated: Number(stats[0]),
+        activeCount: Number(stats[1]),
+        creationFeeAmount: stats[2],
+        implementationAddress: stats[3]
+      };
+    } catch (err) {
+      console.error('Failed to get factory stats:', err);
+      return null;
     }
+  }, [factoryContract]);
+  
+  // ROSCA Functions
+  const joinROSCA = useCallback(async (roscaAddress: Address): Promise<Hash | undefined> => {
+    const client = await getWalletClient();
+    if (!client) return;
     
-    setError(errorMessage);
+    return executeTransaction(async () => {
+      const roscaContract = getROSCAContract(roscaAddress);
+      
+      // First get the token type used by this ROSCA
+      const tokenAddress = await roscaContract.read.token();
+      const isNativeToken = tokenAddress === '0x0000000000000000000000000000000000000000';
+      
+      // If it's USDC, check and handle approval
+      if (!isNativeToken) {
+        const requiredDeposit = await roscaContract.read.getRequiredDeposit();
+        const currentAllowance = await usdcContract.read.allowance([address!, roscaAddress]);
+        
+        if (currentAllowance < requiredDeposit) {
+          console.log('⚠️ Insufficient USDC allowance, approving first...');
+          const usdcWithWallet = getContract({
+            address: CONTRACT_ADDRESSES.USDC,
+            abi: USDC_ABI.abi,
+            client: client
+          });
+          
+          const approveTx = await usdcWithWallet.write.approve([roscaAddress, requiredDeposit]);
+          await publicClient.waitForTransactionReceipt({ hash: approveTx });
+          console.log('✅ USDC approval confirmed');
+        }
+      }
+      
+      // Now join the ROSCA
+      const roscaWithWallet = getContract({
+        address: roscaAddress,
+        abi: ROSCA_ABI.abi,
+        client: client
+      });
+      
+      // For native token, we need to send value with the transaction
+      if (isNativeToken) {
+        const requiredDeposit = await roscaContract.read.getRequiredDeposit();
+        return await roscaWithWallet.write.joinROSCA({ value: requiredDeposit });
+      } else {
+        return await roscaWithWallet.write.joinROSCA();
+      }
+    });
+  }, [executeTransaction, getWalletClient, getROSCAContract, usdcContract, publicClient, address]);
+  
+  const contribute = useCallback(async (roscaAddress: Address): Promise<Hash | undefined> => {
+    const client = await getWalletClient();
+    if (!client) return;
+    
+    return executeTransaction(async () => {
+      const roscaContract = getROSCAContract(roscaAddress);
+      
+      // First get the token type and contribution amount
+      const [tokenAddress, contributionAmount] = await Promise.all([
+        roscaContract.read.token(),
+        roscaContract.read.contributionAmount()
+      ]);
+      const isNativeToken = tokenAddress === '0x0000000000000000000000000000000000000000';
+      
+      // If it's USDC, check and handle approval
+      if (!isNativeToken) {
+        const currentAllowance = await usdcContract.read.allowance([address!, roscaAddress]);
+        
+        if (currentAllowance < contributionAmount) {
+          console.log('⚠️ Insufficient USDC allowance for contribution, approving...');
+          const usdcWithWallet = getContract({
+            address: CONTRACT_ADDRESSES.USDC,
+            abi: USDC_ABI.abi,
+            client: client
+          });
+          
+          const approveTx = await usdcWithWallet.write.approve([roscaAddress, contributionAmount]);
+          await publicClient.waitForTransactionReceipt({ hash: approveTx });
+          console.log('✅ USDC approval confirmed');
+        }
+      }
+      
+      // Now contribute
+      const roscaWithWallet = getContract({
+        address: roscaAddress,
+        abi: ROSCA_ABI.abi,
+        client: client
+      });
+      
+      // For native token, we need to send value with the transaction
+      if (isNativeToken) {
+        return await roscaWithWallet.write.contribute({ value: contributionAmount });
+      } else {
+        return await roscaWithWallet.write.contribute();
+      }
+    });
+  }, [executeTransaction, getWalletClient, getROSCAContract, usdcContract, publicClient, address]);
+  
+  const startROSCA = useCallback(async (roscaAddress: Address): Promise<Hash | undefined> => {
+    const client = await getWalletClient();
+    if (!client) return;
+    
+    return executeTransaction(async () => {
+      const roscaWithWallet = getContract({
+        address: roscaAddress,
+        abi: ROSCA_ABI.abi,
+        client: client
+      });
+      
+      return await roscaWithWallet.write.startROSCA();
+    });
+  }, [executeTransaction, getWalletClient]);
+  
+  const forceStart = useCallback(async (roscaAddress: Address): Promise<Hash | undefined> => {
+    const client = await getWalletClient();
+    if (!client) return;
+    
+    return executeTransaction(async () => {
+      const roscaWithWallet = getContract({
+        address: roscaAddress,
+        abi: ROSCA_ABI.abi,
+        client: client
+      });
+      
+      return await roscaWithWallet.write.forceStart();
+    });
+  }, [executeTransaction, getWalletClient]);
+  
+  const completeRound = useCallback(async (roscaAddress: Address): Promise<Hash | undefined> => {
+    const client = await getWalletClient();
+    if (!client) return;
+    
+    return executeTransaction(async () => {
+      const roscaWithWallet = getContract({
+        address: roscaAddress,
+        abi: ROSCA_ABI.abi,
+        client: client
+      });
+      
+      return await roscaWithWallet.write.completeRound();
+    });
+  }, [executeTransaction, getWalletClient]);
+  
+  // View Functions
+  const getROSCAInfo = useCallback(async (roscaAddress: Address): Promise<ROSCAInfo | null> => {
+    try {
+      const contract = getROSCAContract(roscaAddress);
+      
+      // First check if this is a valid enhanced ROSCA contract by testing if it has the new functions
+      try {
+        // Test call to verify this is an enhanced ROSCA contract
+        await contract.read.status();
+      } catch (statusError: any) {
+        console.warn(`⚠️ Contract at ${roscaAddress} appears to be an old ROSCA contract without enhanced features. Skipping.`);
+        console.warn('This is likely an old contract from before the migration to enhanced ROSCA system.');
+        return null;
+      }
+      
+      const [
+        token,
+        contributionAmount,
+        roundDuration,
+        maxMembers,
+        status,
+        currentRound,
+        totalMembers,
+        totalRounds,
+        recruitmentCompleteTime,
+        nextPayoutIndex
+      ] = await Promise.all([
+        contract.read.token(),
+        contract.read.contributionAmount(),
+        contract.read.roundDuration(),
+        contract.read.maxMembers(),
+        contract.read.status(),
+        contract.read.currentRound(),
+        contract.read.totalMembers(),
+        contract.read.totalRounds(),
+        contract.read.recruitmentCompleteTime(),
+        contract.read.nextPayoutIndex()
+      ]);
+      
+      return {
+        token,
+        contributionAmount,
+        roundDuration: Number(roundDuration),
+        maxMembers: Number(maxMembers),
+        status: Number(status) as ROSCAStatus,
+        currentRound: Number(currentRound),
+        totalMembers: Number(totalMembers),
+        totalRounds: Number(totalRounds),
+        recruitmentCompleteTime: Number(recruitmentCompleteTime),
+        nextPayoutIndex: Number(nextPayoutIndex)
+      };
+    } catch (err) {
+      console.error('Failed to get ROSCA info:', err);
+      return null;
+    }
+  }, [getROSCAContract]);
+  
+  const getMemberInfo = useCallback(async (
+    roscaAddress: Address, 
+    memberAddress: Address
+  ): Promise<MemberInfo | null> => {
+    try {
+      const contract = getROSCAContract(roscaAddress);
+      const info = await contract.read.getMemberInfo([memberAddress]);
+      
+      return {
+        isActive: info[0],
+        totalContributions: info[1],
+        roundsPaid: Number(info[2]),
+        missedRounds: Number(info[3]),
+        hasReceivedPayout: info[4],
+        payoutRound: Number(info[5])
+      };
+    } catch (err) {
+      console.error('Failed to get member info:', err);
+      return null;
+    }
+  }, [getROSCAContract]);
+  
+  const getRoundInfo = useCallback(async (
+    roscaAddress: Address, 
+    roundNumber: number
+  ): Promise<RoundInfo | null> => {
+    try {
+      const contract = getROSCAContract(roscaAddress);
+      const info = await contract.read.getRoundInfo([BigInt(roundNumber)]);
+      
+      return {
+        startTime: Number(info[0]),
+        deadline: Number(info[1]),
+        winner: info[2],
+        totalPot: info[3],
+        contributionsReceived: Number(info[4]),
+        isCompleted: info[5]
+      };
+    } catch (err) {
+      console.error('Failed to get round info:', err);
+      return null;
+    }
+  }, [getROSCAContract]);
+  
+  const getMembers = useCallback(async (roscaAddress: Address): Promise<Address[]> => {
+    try {
+      const contract = getROSCAContract(roscaAddress);
+      return await contract.read.getMembers();
+    } catch (err) {
+      console.error('Failed to get members:', err);
+      return [];
+    }
+  }, [getROSCAContract]);
+  
+  const getRequiredDeposit = useCallback(async (roscaAddress: Address): Promise<bigint | null> => {
+    try {
+      const contract = getROSCAContract(roscaAddress);
+      return await contract.read.getRequiredDeposit();
+    } catch (err) {
+      console.error('Failed to get required deposit:', err);
+      return null;
+    }
+  }, [getROSCAContract]);
+  
+  const getTimeUntilStart = useCallback(async (roscaAddress: Address): Promise<number | null> => {
+    try {
+      const contract = getROSCAContract(roscaAddress);
+      const time = await contract.read.getTimeUntilStart();
+      return Number(time);
+    } catch (err) {
+      console.error('Failed to get time until start:', err);
+      return null;
+    }
+  }, [getROSCAContract]);
+  
+  const getTimeUntilRoundEnd = useCallback(async (roscaAddress: Address): Promise<number | null> => {
+    try {
+      const contract = getROSCAContract(roscaAddress);
+      const time = await contract.read.getTimeUntilRoundEnd();
+      return Number(time);
+    } catch (err) {
+      console.error('Failed to get time until round end:', err);
+      return null;
+    }
+  }, [getROSCAContract]);
+  
+  const hasContributedThisRound = useCallback(async (
+    roscaAddress: Address, 
+    memberAddress: Address
+  ): Promise<boolean> => {
+    try {
+      const contract = getROSCAContract(roscaAddress);
+      return await contract.read.hasContributedThisRound([memberAddress]);
+    } catch (err) {
+      console.error('Failed to check contribution status:', err);
+      return false;
+    }
+  }, [getROSCAContract]);
+  
+  // Token Functions
+  const getUSDCBalance = useCallback(async (userAddress: Address): Promise<bigint | null> => {
+    try {
+      return await usdcContract.read.balanceOf([userAddress]);
+    } catch (err) {
+      console.error('Failed to get USDC balance:', err);
+      return null;
+    }
+  }, [usdcContract]);
+  
+  const getUSDCAllowance = useCallback(async (
+    owner: Address, 
+    spender: Address
+  ): Promise<bigint | null> => {
+    try {
+      return await usdcContract.read.allowance([owner, spender]);
+    } catch (err) {
+      console.error('Failed to get USDC allowance:', err);
+      return null;
+    }
+  }, [usdcContract]);
+  
+  const approveUSDC = useCallback(async (
+    spender: Address, 
+    amount: string
+  ): Promise<Hash | undefined> => {
+    const client = await getWalletClient();
+    if (!client) return;
+    
+    return executeTransaction(async () => {
+      const amountWei = parseUnits(amount, 6); // USDC has 6 decimals
+      
+      const usdcWithWallet = getContract({
+        address: CONTRACT_ADDRESSES.USDC,
+        abi: USDC_ABI.abi,
+        client: client
+      });
+      
+      return await usdcWithWallet.write.approve([spender, amountWei]);
+    });
+  }, [executeTransaction, getWalletClient]);
+  
+  const mintUSDC = useCallback(async (amount: string): Promise<Hash | undefined> => {
+    const client = await getWalletClient();
+    if (!client) return;
+    
+    return executeTransaction(async () => {
+      const amountWei = parseUnits(amount, 6); // USDC has 6 decimals
+      
+      const usdcWithWallet = getContract({
+        address: CONTRACT_ADDRESSES.USDC,
+        abi: USDC_ABI.abi,
+        client: client
+      });
+      
+      return await usdcWithWallet.write.mint([address!, amountWei]);
+    });
+  }, [executeTransaction, getWalletClient, address]);
+
+  // Legacy compatibility methods (mapped to new methods)
+  const createChama: RoscaHook['createChama'] = useCallback(async (
+    token: Address | null,
+    contribution: string,
+    securityDeposit: string, // Ignored in new system
+    roundDuration: number,
+    lateWindow: number, // Ignored in new system
+    latePenalty: string, // Ignored in new system
+    memberTarget: number
+  ): Promise<Address | undefined> => {
+    console.warn('⚠️ Using legacy createChama - some parameters are ignored in enhanced ROSCA');
+    
+    // Use USDC by default if token is null (legacy behavior)
+    const tokenAddress = token || CONTRACT_ADDRESSES.USDC;
+    
+    const hash = await createROSCA(
+      tokenAddress,
+      contribution,
+      roundDuration,
+      memberTarget
+    );
+    
+    if (!hash) return undefined;
+    
+    // TODO: Extract address from transaction receipt/logs
+    // For now, we return undefined and let the caller handle this
+    console.warn('⚠️ Legacy createChama does not return ROSCA address - please use createROSCA instead');
     return undefined;
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-/* ------------------------------------------------------------------ */
-/*  CONTRIBUTE                                                        */
-/* ------------------------------------------------------------------ */
-const contribute = async (chama: Address): Promise<Hash | undefined> => {
-  if (!isConnected) {
-    setError('Wallet not connected');
-    return;
-  }
-
-  if (!factoryAddress) {
-    setError('Contract not available');
-    return;
-  }
-
-  const client = await getWalletClient();
-  if (!client) {
-    setError('Wallet client not available');
-    return;
-  }
-
-  setIsLoading(true);
-  setError(null);
-
-  try {
-    console.log('💰 Contributing to chama:', chama);
-
-    // Get contribution amount and token info from contract
-    const [contributionAmount, token] = await Promise.all([
-      publicClient.readContract({
-        address: chama,
-        abi: CIRCLE_ABI,
-        functionName: 'contribution',
-      }),
-      publicClient.readContract({
-        address: chama,
-        abi: CIRCLE_ABI,
-        functionName: 'token',
-      })
-    ]);
-
-    const isNative = token === '0x0000000000000000000000000000000000000000';
-    const decimals = isNative ? NATIVE_DECIMALS : USDC_DECIMALS;
-    const amount = formatUnits(contributionAmount, decimals);
-
-    console.log('💰 Contribution amount:', amount, isNative ? 'cBTC' : 'USDC');
-
-    // Handle ERC-20 chama (USDC)
-    if (!isNative) {
-      console.log('🔐 Handling USDC approval for contribution...');
+  }, [createROSCA]);
+  
+  const join = useCallback((chamaAddress: Address) => {
+    return joinROSCA(chamaAddress);
+  }, [joinROSCA]);
+  
+  const leave = useCallback(async (chamaAddress: Address): Promise<Hash | undefined> => {
+    console.warn('⚠️ Leave functionality not available in enhanced ROSCA');
+    return undefined;
+  }, []);
+  
+  const getChamaInfo = useCallback(async (chamaAddress: Address) => {
+    try {
+      const info = await getROSCAInfo(chamaAddress);
+      if (!info) {
+        console.error('Failed to get ROSCA info for:', chamaAddress);
+        throw new Error('Failed to get ROSCA info');
+      }
       
-      await handleUSDCApproval(client, publicClient, address!, chama, amount);
-
-      console.log('✅ USDC approval completed, contributing to chama...');
-      const hash = await client.writeContract({
-        address: chama,
-        abi: CIRCLE_ABI,
-        functionName: 'contribute',
-      });
-
-      console.log('⏳ Waiting for contribution transaction confirmation...', hash);
-      await publicClient.waitForTransactionReceipt({ 
-        hash,
-        timeout: 60000 
-      });
+      // Get the first member as creator (if any)
+      let creator: Address = '0x0000000000000000000000000000000000000000';
+      try {
+        const members = await getMembers(chamaAddress);
+        if (members.length > 0) {
+          creator = members[0]; // First member is typically the creator
+        }
+      } catch (err) {
+        console.warn('Could not fetch members to determine creator');
+      }
       
-      console.log('🎉 Successfully contributed to USDC chama!');
-      return hash;
+      // Map to legacy format
+      return {
+        token: info.token,
+        contribution: info.contributionAmount,
+        securityDeposit: info.contributionAmount * 2n, // Deposit is 2x contribution
+        roundDuration: info.roundDuration,
+        memberTarget: info.maxMembers,
+        currentRound: info.currentRound,
+        totalMembers: info.totalMembers,
+        isActive: info.status === ROSCAStatus.ACTIVE || info.status === ROSCAStatus.RECRUITING,
+        creator
+      };
+    } catch (err) {
+      console.error('Failed to get chama info:', err);
+      throw new Error('Failed to get ROSCA info');
     }
-
-    // Handle native chama (cBTC)
-    console.log('🪙 Contributing to native cBTC chama...');
-    const hash = await client.writeContract({
-      address: chama,
-      abi: CIRCLE_ABI,
-      functionName: 'contribute',
-      value: contributionAmount,
-    });
-
-    console.log('⏳ Waiting for contribution transaction confirmation...', hash);
-    await publicClient.waitForTransactionReceipt({ 
-      hash,
-      timeout: 60000 
-    });
-    
-    console.log('🎉 Successfully contributed to cBTC chama!');
-    return hash;
-
-  } catch (err: any) {
-    console.error('❌ Contribution failed:', err);
-    setError(err?.shortMessage || err?.message || 'Failed to contribute to chama');
-    return undefined;
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-/* ------------------------------------------------------------------ */
-/*  LEAVE                                                             */
-/* ------------------------------------------------------------------ */
-const leave = async (chama: Address): Promise<Hash | undefined> => {
-  if (!isConnected) {
-    setError('Wallet not connected');
-    return;
-  }
-
-  if (!factoryAddress) {
-    setError('Contract not available');
-    return;
-  }
-
-  const client = await getWalletClient();
-  if (!client) {
-    setError('Wallet client not available');
-    return;
-  }
-
-  setIsLoading(true);
-  setError(null);
-
-  try {
-    console.log('🚪 Leaving chama:', chama);
-
-    const hash = await client.writeContract({
-      address: chama,
-      abi: CIRCLE_ABI,
-      functionName: 'leave',
-    });
-
-    console.log('⏳ Waiting for leave transaction confirmation...', hash);
-    await publicClient.waitForTransactionReceipt({ 
-      hash,
-      timeout: 60000 
-    });
-    
-    console.log('👋 Successfully left chama!');
-    return hash;
-
-  } catch (err: any) {
-    console.error('❌ Leave failed:', err);
-    setError(err?.shortMessage || err?.message || 'Failed to leave chama');
-    return undefined;
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-  /* --- return object --- */
+  }, [getROSCAInfo, getMembers]);
+  
+  const isMember = useCallback(async (chamaAddress: Address, userAddress: Address): Promise<boolean> => {
+    const memberInfo = await getMemberInfo(chamaAddress, userAddress);
+    return memberInfo?.isActive || false;
+  }, [getMemberInfo]);
+  
+  const hasContributed = useCallback(async (chamaAddress: Address, userAddress: Address, round: number): Promise<boolean> => {
+    return hasContributedThisRound(chamaAddress, userAddress);
+  }, [hasContributedThisRound]);
+  
   return {
-    createChama,
-    join,
+    // Factory functions
+    createROSCA,
+    getFactoryStats,
+    
+    // ROSCA functions
+    joinROSCA,
     contribute,
-    address,
-    leave,
-    getChamaInfo,
-    isMember,
-    hasContributed,
+    startROSCA,
+    forceStart,
+    completeRound,
+    
+    // View functions
+    getROSCAInfo,
+    getMemberInfo,
+    getRoundInfo,
+    getMembers,
+    getRequiredDeposit,
+    getTimeUntilStart,
+    getTimeUntilRoundEnd,
+    hasContributedThisRound,
+    
+    // Token functions
+    getUSDCBalance,
+    getUSDCAllowance,
+    approveUSDC,
+    mintUSDC,
+    
+    // State
     isLoading,
     error,
     isConnected,
-    isWalletReady: isConnected,
+    address,
     publicClient,
-    getWalletClient
+    getWalletClient,
+    
+    // Utils
+    clearError,
+    formatAmount,
+    parseAmount,
+    
+    // Legacy compatibility
+    isWalletReady: isConnected,
+    createChama,
+    join,
+    leave,
+    getChamaInfo,
+    isMember,
+    hasContributed
   };
 }
