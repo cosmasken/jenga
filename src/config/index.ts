@@ -138,9 +138,7 @@ export const DYNAMIC_NETWORK_CONFIG = [
  */
 export const CONTRACT_ADDRESSES = {
   ROSCA_FACTORY: (import.meta.env.VITE_ROSCA_FACTORY_ADDRESS || '0x3c8079F8aee1D6Bc4D2A1Fc6Bdc557CD3151813D') as Address,
-  ROSCA_IMPLEMENTATION: '0x3F1182E0Fae5A44082115eb3bc58831a47992f29' as Address,
-  // Mock USDC contract for testing ROSCA contributions  
-  USDC: '0xc5bB358516f8B3901Bd1FB4e2410d21efFffFe7e' as Address,
+  // Native ETH ROSCA - no token implementation needed
 } as const;
 
 /**
@@ -161,7 +159,6 @@ export const DEPLOYMENT_INFO = {
  */
 export const CONTRACT_URLS = {
   ROSCA_FACTORY: `${NETWORK_CONFIG.EXPLORER_URL}/address/${CONTRACT_ADDRESSES.ROSCA_FACTORY}`,
-  USDC: `${NETWORK_CONFIG.EXPLORER_URL}/address/${CONTRACT_ADDRESSES.USDC}`,
 } as const;
 
 // =============================================================================
@@ -258,22 +255,9 @@ export const SUPPORTED_TOKENS = [
 ] as const;
 
 /**
- * Loan Assets Configuration (What users can borrow)
- * Using single USDC contract for all stablecoin operations
+ * Native ETH ROSCA - No loan assets needed for simple native token ROSCAs
  */
-export const LOAN_ASSETS = [
-  {
-    address: CONTRACT_ADDRESSES.USDC,
-    symbol: 'USDC',
-    name: 'Mock USD Coin',
-    displayName: 'USD Coin (Test)',
-    decimals: 6,
-    logo: '/tokens/usdc.png',
-    description: 'Primary stablecoin for loans and chama contributions',
-    color: '#2775CA',
-    isLoanAsset: true,
-  },
-] as const;
+export const LOAN_ASSETS = [] as const;
 
 
 /**
@@ -532,22 +516,10 @@ export const NATIVE_TOKEN = {
 } as const;
 
 /**
- * USDC Token Configuration
- */
-export const USDC_TOKEN = {
-  address: CONTRACT_ADDRESSES.USDC,
-  symbol: 'USDC',
-  name: 'USD Coin',
-  decimals: 6,
-  isNative: false,
-} as const;
-
-/**
- * All supported tokens for easy access
+ * All supported tokens for easy access (Native ETH only)
  */
 export const TOKENS = {
   NATIVE: NATIVE_TOKEN,
-  USDC: USDC_TOKEN,
 } as const;
 
 // =============================================================================

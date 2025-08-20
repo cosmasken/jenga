@@ -70,13 +70,12 @@ export default function JoinPage() {
       // Get deposit info
       const deposit = await roscaHook.getRequiredDeposit(chamaAddr as Address);
       
-      // Convert blockchain data to display format
-      const isUSDC = info.token.toLowerCase() === '0xc5bb358516f8b3901bd1fb4e2410d21effffffe7e'.toLowerCase();
-      const decimals = isUSDC ? 6 : 18;
-      const divisor = isUSDC ? 1e6 : 1e18;
+      // Convert blockchain data to display format (native ETH only)
+      const decimals = 18;
+      const divisor = 1e18;
       
       const displayInfo = {
-        token: isUSDC ? 'USDC' : 'cBTC',
+        token: 'cBTC',
         contributionAmount: (Number(info.contributionAmount) / divisor).toString(),
         securityDeposit: deposit ? (Number(deposit) / divisor).toString() : '0',
         memberTarget: info.maxMembers,
