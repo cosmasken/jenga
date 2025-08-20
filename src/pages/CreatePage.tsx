@@ -183,13 +183,13 @@ export default function CreatePage() {
   const estimatedAPY = Math.round((12 / formData.memberTarget) * 100);
   const totalRequired = parseFloat(formData.contribution || '0') + parseFloat(formData.securityDeposit || '0');
 
-  // Redirect to home if not logged in (but not during creation process)
+  // Redirect to home if not logged in - run only when login status actually changes
   useEffect(() => {
     if (!isLoggedIn && !isCreating) {
       console.log('User not logged in, redirecting to home');
       navigate('/');
     }
-  }, [isLoggedIn, navigate]); // Removed isCreating from dependencies to prevent unwanted re-renders
+  }, [isLoggedIn]); // Only depend on login status, not navigation function
 
   /* ---------- UI ---------- */
   return (

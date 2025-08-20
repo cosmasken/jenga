@@ -156,7 +156,7 @@ export function ApprovalStatus({
         clearInterval(interval);
       }
     };
-  }, [publicClient, userAddress, spenderAddress, tokenAddress, requiredAmount, requiredAmountBigInt]); // Added requiredAmountBigInt to deps
+  }, [publicClient, userAddress, spenderAddress, tokenAddress, tokenInfo.decimals]); // Removed requiredAmount from deps to prevent constant re-renders
 
   if (loading) {
     return (

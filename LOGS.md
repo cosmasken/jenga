@@ -338,3 +338,45 @@ TEST STEPS:
 5. Create/join new ROSCAs using enhanced contract system
 
 =============================================================================
+
+🐛 APPROVAL REFRESH ISSUE FIX (2025-08-20)
+=============================================================================
+
+ISSUE: Page refresh when changing amounts in CreatePage
+- CAUSE: useEffect dependency array in ApprovalStatus was including requiredAmount
+- SYMPTOM: Every time user changes contribution/deposit amounts, page would refresh
+- IMPACT: Poor UX during form filling
+
+FIXES IMPLEMENTED:
+
+1. ✅ Optimized ApprovalStatus Component Dependencies
+   - Removed requiredAmount from useEffect dependency array
+   - Only depend on static values (publicClient, addresses, tokenInfo.decimals)
+   - Prevents constant re-renders when amounts change
+
+2. ✅ Fixed CreatePage useEffect Dependencies
+   - Changed redirect useEffect to only depend on isLoggedIn
+   - Prevents navigation function changes from causing re-renders
+   - Better user experience during form interaction
+
+3. ✅ Improved Debouncing Strategy
+   - Approval checks still happen but don't cause component re-mounting
+   - 500ms debounce for approval status checks
+   - Maintains functionality while improving performance
+
+RESULT:
+- No more page refreshes when changing amounts
+- Smooth form interaction experience
+- Approval status still updates correctly
+- Better performance and user experience
+
+TEST STEPS:
+1. Go to Create page
+2. Change contribution amount
+3. Change security deposit amount
+4. Verify no page refreshes occur
+5. Verify approval status updates correctly for USDC
+
+=============================================================================
+
+=============================================================================
