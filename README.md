@@ -1,100 +1,235 @@
-# Sacco (ROSCA) – Citrea Testnet dApp
+# Jenga - Bitcoin Chama dApp
 
-A React + TypeScript decentralized application for managing ROSCAs (rotating savings and credit associations) on the Citrea testnet. This app lets users create, join, and contribute to native-ETH ROSCAs deployed via a factory contract. It integrates Dynamic Labs for wallet onboarding and uses viem for on-chain reads/writes.
+A modern React-based decentralized application for creating and managing Bitcoin savings circles (Chamas) on the Citrea testnet, built with viem and Dynamic Labs for wallet onboarding.
 
-## Key Features
-- Create ROSCAs using a factory contract (native ETH only)
-- Join and contribute with native ETH (no ERC20 approvals needed)
-- View ROSCA status, rounds, members, and contributions
-- Wallet onboarding and session management via Dynamic Labs
-- Citrea testnet RPC support with optional Blast API fallback
+## 🚀 Features
 
-## Project Structure
-- Frontend: React + Vite + TypeScript in this repository
-- Contracts: Hardhat project under `contract/`
-  - Factory + ROSCA implementation
-  - Deployment scripts and example networks
-- ABIs: Committed in `src/abi/`
-- Hooks and logic: `src/hooks/` (notably `useRosca.ts`)
+- **Modern Web3 Stack**: Built with viem for type-safe EVM interactions
+- **Wallet Onboarding**: Dynamic Labs integration for seamless, multi-wallet onboarding (social + non-custodial)
+- **Smart Contract Integration**: Direct interaction with Jenga/ROSCA smart contracts
+- **Real-time Data**: Live balance and contract state updates
+- **Type Safety**: Full TypeScript support with contract ABI types
+- **Responsive Design**: Mobile-first UI with Tailwind CSS
 
-## Prerequisites
-- Node.js 18+ and npm (or pnpm/yarn)
-- A Citrea testnet wallet with test ETH
-- Dynamic Labs environment configured
+## 🛠 Tech Stack
 
-## Environment Variables
-Create a `.env` file in the project root (same directory as package.json). The app reads variables via Vite (prefix VITE_):
+- **Frontend**: React 18, TypeScript, Tailwind CSS
+- **Web3**: viem, Dynamic Labs
+- **State Management**: React Query (TanStack Query)
+- **UI Components**: Radix UI primitives
+- **Build Tool**: Vite
 
-- VITE_DYNAMIC_ENVIRONMENT_ID: Your Dynamic Labs environment ID
-- VITE_BLAST_API_PROJECT_ID: Optional; if unset, the app uses the default Citrea RPC
-- VITE_ROSCA_FACTORY_ADDRESS: Optional; defaults are provided for Citrea testnet
+## 📋 Prerequisites
 
-Example `.env`:
-VITE_DYNAMIC_ENVIRONMENT_ID=your_dynamic_env_id
-VITE_BLAST_API_PROJECT_ID=your_blast_project_id_optional
-VITE_ROSCA_FACTORY_ADDRESS=0xFactoryAddressOnCitrea
+- Node.js 18+ and npm
+- Dynamic Labs Environment ID
+- Access to Citrea testnet
 
-Tip: Never commit real secrets. `.env` is already gitignored.
+## 🔧 Installation
 
-## Install and Run (Frontend)
-- Install dependencies
-  npm install
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd jenga-base
+   ```
 
-- Start the dev server
-  npm run dev
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-- Build for production
-  npm run build
+3. **Environment Setup**
+   
+   Create `.env` in the project root and add:
+   ```env
+   VITE_DYNAMIC_ENVIRONMENT_ID=your_dynamic_env_id
+   # Optional, for higher RPC limits (fallback used if missing)
+   VITE_BLAST_API_PROJECT_ID=your_blast_project_id
+   # Optional, defaults provided for Citrea testnet
+   VITE_ROSCA_FACTORY_ADDRESS=0xYourFactoryAddress
+   ```
 
-- Preview the production build
-  npm run preview
+## 🔑 Getting Dynamic Labs Environment ID
 
-The dev server prints a local URL. Open it in the browser and connect your wallet via the Dynamic widget.
+1. Visit the Dynamic Labs dashboard
+2. Create a new project/environment
+3. Configure your allowed domains:
+   - **Development**: `http://localhost:5173`
+   - **Production**: your deployed domain
+4. Copy the Environment ID into `VITE_DYNAMIC_ENVIRONMENT_ID`
 
-## Contracts (Hardhat)
-The contracts live under `contract/` and are configured for Citrea testnet.
+## 🌐 Network Configuration
 
-- Install dependencies
-  cd contract
-  npm install
+The app is configured for **Citrea Testnet**:
+- **Chain ID**: 5115
+- **RPC URL**: https://rpc.testnet.citrea.xyz
+- **Explorer**: https://explorer.testnet.citrea.xyz
+- **Currency**: cBTC (Citrea Bitcoin)
 
-- Compile
-  npx hardhat compile
+### Getting Testnet Funds
 
-- Test (if tests are added)
-  npx hardhat test
+Visit the [Citrea Faucet](https://faucet.testnet.citrea.xyz) to get testnet cBTC for testing.
 
-- Deploy to Citrea testnet (example consolidated script)
-  node scripts/deploy-all.js
+## 🚀 Development
 
-Deployment outputs are written to `contract/deployments/`. Update `VITE_ROSCA_FACTORY_ADDRESS` with the factory address if you deploy a new one.
+Start the development server:
+```bash
+npm run dev
+```
 
-Note: `contract/artifacts/` and `contract/cache/` are ignored by git.
+The app will be available at `http://localhost:5173`
 
-## How It Works (High-Level)
-- Factory creates a ROSCA instance with contribution amount, round duration, and max members.
-- App treats all ROSCAs as native ETH (no token() ABI calls). Functions that send ETH (join, contribute) include the required value.
-- The UI fetches ROSCA info via view functions (status, rounds, members) and displays progress.
+## 📱 Usage
 
-## Common Tasks
-- Create a ROSCA: Use the Create flow in the app; the factory emits the new address. Store that address in the dashboard.
-- Join a ROSCA: Provide the required deposit; the app sends ETH in the transaction.
-- Contribute: Sends the contribution amount in ETH for the current round.
+### Connecting Your Wallet
 
-## Troubleshooting
-- AbiFunctionNotFoundError: We removed all calls to `token()` for native-ETH ROSCAs. If you see ABI errors, ensure you’re pointing at the correct, updated ABIs in `src/abi/` and using the factory-deployed contracts.
-- Wallet not detected: Ensure your browser wallet supports the Citrea testnet and that Dynamic Labs is configured.
-- RPC rate limits: If you see RPC failures, set `VITE_BLAST_API_PROJECT_ID` or try again later.
-- Local storage ROSCAs list: The dashboard stores added ROSCA addresses locally for convenience.
+1. **Dynamic Labs (Recommended)**: Use the Dynamic widget to sign in with social or non-custodial wallets
+2. **Injected Wallets**: Connect with MetaMask or other browser wallets (via Dynamic)
+3. (Optional) WalletConnect if enabled in your Dynamic configuration
 
-## Scripts and Utilities
-- `scripts/deploy-factory.js` (root): Example automation for deployment flows
-- `contract/scripts/deploy-all.js`: Deploys contracts to Citrea testnet
+### Creating a Chama
 
-## Contributing
-- Use feature branches and open PRs.
-- Keep ABIs in sync with deployed contracts.
-- Avoid committing large artifacts or secrets.
+1. Connect your wallet
+2. Click "Create Chama" on the dashboard
+3. Fill in the chama details:
+   - Name
+   - Monthly contribution amount (in cBTC)
+   - Cycle duration (3-12 months)
+   - Maximum members (3-10)
+4. Confirm the transaction in your wallet
 
-## License
-MIT (or project-specific license).
+### Contract Interactions
+
+The app uses wagmi hooks for all contract interactions:
+
+```typescript
+// Reading contract data
+const { data: userChamas } = useGetUserChamas(address);
+const { data: userScore } = useGetUserScore(address);
+
+// Writing to contract
+const { createChama, isPending, isConfirmed } = useCreateChama();
+```
+
+## 🏗 Architecture
+
+### Dynamic Labs Integration
+The app uses Dynamic Labs for authentication and wallet connection. See `src/config/index.ts` for network configuration and `src/hooks/useRosca.ts` for all on-chain interactions using viem.
+
+### Contract Hooks (`src/hooks/useRosca.ts`)
+
+Key functions exposed by the ROSCA hook:
+- `createROSCA(token, contributionAmount, roundDuration, maxMembers)`
+- `joinROSCA(roscaAddress)`
+- `contribute(roscaAddress)`
+- `getROSCAInfo(roscaAddress)`
+- `getMemberInfo(roscaAddress, member)`
+- `getRoundInfo(roscaAddress, roundNumber)`
+- `getMembers(roscaAddress)`
+
+### Smart Contract Configuration
+
+```typescript
+export const JENGA_CONTRACT = {
+  address: '0xbCd9c60030c34dF782eec0249b931851BD941235',
+  abi: JengaABI,
+} as const;
+```
+
+## 🔒 Security Features
+
+- **Type Safety**: Full TypeScript coverage with contract ABI types
+- **Transaction Validation**: Pre-flight checks before contract calls
+- **Error Handling**: Comprehensive error states and user feedback
+- **Secure Storage**: Wagmi's secure storage for wallet connections
+
+## 🧪 Testing
+
+Run the test suite:
+```bash
+npm run test
+```
+
+## 🏗 Building
+
+Build for production:
+```bash
+npm run build
+```
+
+Build for development:
+```bash
+npm run build:dev
+```
+
+## 📦 Deployment
+
+The app can be deployed to any static hosting service:
+
+1. **Vercel** (Recommended)
+   ```bash
+   npm run build
+   # Then deploy the dist/ folder with Vercel or your platform of choice
+   ```
+
+2. **Netlify**
+   ```bash
+   npm run build
+   # Upload dist/ folder
+   ```
+
+3. **GitHub Pages**
+   ```bash
+   npm run build
+   # Deploy dist/ folder
+   ```
+
+### Environment Variables for Production
+
+Make sure to set these in your deployment platform:
+- `VITE_DYNAMIC_ENVIRONMENT_ID`
+- `VITE_BLAST_API_PROJECT_ID` (optional)
+- `VITE_ROSCA_FACTORY_ADDRESS` (optional if defaults are fine)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m 'Add amazing feature'`
+4. Push to the branch: `git push origin feature/amazing-feature`
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+1. **Dynamic Labs Connection Issues**
+   - Verify your Environment ID is correct
+   - Check allowed domains in the Dynamic dashboard
+   - Ensure you are on the Citrea testnet configuration
+
+2. **Contract Call Failures**
+   - Ensure you have sufficient cBTC for gas fees
+   - Verify contract address is correct
+   - Check if you're connected to Citrea testnet
+
+3. **Build Errors**
+   - Clear node_modules and reinstall: `rm -rf node_modules package-lock.json && npm install`
+   - Check Node.js version (18+ required)
+
+### Getting Help
+
+- Check the [Issues](https://github.com/your-repo/issues) page
+- Join our [Discord](https://discord.gg/your-discord) community
+- Read the [wagmi documentation](https://wagmi.sh)
+
+## 🔗 Links
+
+- [Citrea Testnet](https://citrea.xyz)
+- Dynamic Labs: https://www.dynamic.xyz/
+- viem: https://viem.sh
+- Radix UI: https://radix-ui.com
