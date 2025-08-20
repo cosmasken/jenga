@@ -160,12 +160,12 @@ export default function JoinChamaPage() {
               <div className="glassmorphism p-4 rounded-lg border border-electric/30 mb-6">
                 <h4 className="font-orbitron text-sm font-bold text-electric mb-3">
                   <Users className="inline w-4 h-4 mr-2" />
-                  JOINING A CHAMA
+                  JOINING A NATIVE ETH CHAMA
                 </h4>
                 <div className="text-sm text-gray-300 space-y-2">
-                  <p>• You'll need to pay a security deposit to join</p>
+                  <p>• You'll pay a security deposit in native cBTC</p>
+                  <p>• No token approvals needed - direct ETH transfer</p>
                   <p>• Make sure you can commit to regular contributions</p>
-                  <p>• Review the chama terms before joining</p>
                   {hasInviteBonus && (
                     <p className="text-bitcoin">• 🎁 Invite bonus: 10% discount on security deposit</p>
                   )}

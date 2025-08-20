@@ -1,17 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title ROSCA
- * @dev Enhanced ROSCA with deposits, better round management, and penalties
+ * @dev Enhanced ROSCA with deposits, better round management, and penalties - Native Token Only
  */
 contract ROSCA is ReentrancyGuard, Ownable {
-    using SafeERC20 for IERC20;
 
     enum ROSCAStatus { 
         RECRUITING,     // Accepting new members
@@ -43,8 +40,7 @@ contract ROSCA is ReentrancyGuard, Ownable {
         mapping(address => bool) hasContributed;
     }
 
-    // Configuration
-    IERC20 public token;
+    // Configuration (Native Token Only)
     uint256 public contributionAmount;
     uint256 public roundDuration;
     uint256 public maxMembers;
@@ -89,7 +85,6 @@ contract ROSCA is ReentrancyGuard, Ownable {
     }
 
     constructor(
-        address _token,
         uint256 _contributionAmount,
         uint256 _roundDuration,
         uint256 _maxMembers,
@@ -99,7 +94,6 @@ contract ROSCA is ReentrancyGuard, Ownable {
         require(_contributionAmount > 0, "Contribution must be > 0");
         require(_roundDuration >= 1 days, "Round too short");
         
-        token = IERC20(_token);
         contributionAmount = _contributionAmount;
         roundDuration = _roundDuration;
         maxMembers = _maxMembers;
@@ -111,28 +105,6 @@ contract ROSCA is ReentrancyGuard, Ownable {
         }
     }
     
-    function initialize(
-        address _token,
-        uint256 _contributionAmount,
-        uint256 _roundDuration,
-        uint256 _maxMembers,
-        address _creator
-    ) external {
-        require(!_initialized, "Already initialized");
-        require(_maxMembers >= 2, "Need at least 2 members");
-        require(_contributionAmount > 0, "Contribution must be > 0");
-        require(_roundDuration >= 1 days, "Round too short");
-        
-        token = IERC20(_token);
-        contributionAmount = _contributionAmount;
-        roundDuration = _roundDuration;
-        maxMembers = _maxMembers;
-        totalRounds = _maxMembers;
-        
-        _transferOwnership(_creator);
-        // Creator gets added but must pay deposit when joining like everyone else
-        _initialized = true;
-    }
 
     /**
      * @dev Join ROSCA with required security deposit
@@ -142,13 +114,7 @@ contract ROSCA is ReentrancyGuard, Ownable {
         require(!members[msg.sender].isActive, "Already a member");
         
         uint256 requiredDeposit = contributionAmount * depositMultiplier;
-        
-        // Handle deposit payment
-        if (address(token) == address(0)) {
-            require(msg.value == requiredDeposit, "Incorrect deposit amount");
-        } else {
-            token.safeTransferFrom(msg.sender, address(this), requiredDeposit);
-        }
+        require(msg.value == requiredDeposit, "Incorrect deposit amount");
         
         _addMember(msg.sender);
         members[msg.sender].depositAmount = requiredDeposit;
@@ -225,12 +191,7 @@ contract ROSCA is ReentrancyGuard, Ownable {
         require(!round.hasContributed[msg.sender], "Already contributed this round");
         require(block.timestamp <= round.deadline, "Round deadline passed");
         
-        // Handle payment
-        if (address(token) == address(0)) {
-            require(msg.value == contributionAmount, "Incorrect payment amount");
-        } else {
-            token.safeTransferFrom(msg.sender, address(this), contributionAmount);
-        }
+        require(msg.value == contributionAmount, "Incorrect payment amount");
         
         // Update state
         round.hasContributed[msg.sender] = true;
@@ -288,13 +249,9 @@ contract ROSCA is ReentrancyGuard, Ownable {
         address winner = round.winner;
         uint256 payout = round.totalPot;
         
-        // Pay out winner
-        if (address(token) == address(0)) {
-            (bool success,) = winner.call{value: payout}("");
-            require(success, "Payout failed");
-        } else {
-            token.safeTransfer(winner, payout);
-        }
+        // Pay out winner (Native ETH)
+        (bool success,) = winner.call{value: payout}("");
+        require(success, "Payout failed");
         
         members[winner].hasReceivedPayout = true;
         members[winner].payoutRound = currentRound;
@@ -314,19 +271,15 @@ contract ROSCA is ReentrancyGuard, Ownable {
     function _completeROSCA() private {
         status = ROSCAStatus.COMPLETED;
         
-        // Refund remaining deposits to active members
+        // Refund remaining deposits to active members (Native ETH)
         for (uint256 i = 0; i < membersList.length; i++) {
             address member = membersList[i];
             if (members[member].isActive && members[member].depositAmount > 0) {
                 uint256 refund = members[member].depositAmount;
                 members[member].depositAmount = 0;
                 
-                if (address(token) == address(0)) {
-                    (bool success,) = member.call{value: refund}("");
-                    require(success, "Refund failed");
-                } else {
-                    token.safeTransfer(member, refund);
-                }
+                (bool success,) = member.call{value: refund}("");
+                require(success, "Refund failed");
             }
         }
         

@@ -1,15 +1,12 @@
 // src/pages/CreatePage.tsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { useDynamicContext, useIsLoggedIn } from '@dynamic-labs/sdk-react-core';
 import { useRosca } from '@/hooks/useRosca';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { FACTORY_ADDRESS } from '@/utils/constants';
-import { TOKENS } from '@/config';
-import { checkSufficientBalance } from '@/utils/walletUtils';
-import { checkApprovalNeeded } from '@/utils/tokenApproval';
+import { ROSCA_CONFIG } from '@/config';
 import InputModal from '@/components/InputModal';
-import ApprovalStatus from '@/components/ApprovalStatus';
 import Header from '@/components/Header';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -17,157 +14,129 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
-import { AlertCircle, Coins, Users, Clock, Shield, Loader2 } from 'lucide-react';
-import { type Address, parseUnits } from 'viem';
+import { AlertCircle, Coins, Users, Clock, Shield, Loader2, Bitcoin } from 'lucide-react';
+import { type Address } from 'viem';
 
 export default function CreatePage() {
   const [, navigate] = useLocation();
   const isLoggedIn = useIsLoggedIn();
   const { primaryWallet } = useDynamicContext();
-  const [isApproving, setIsApproving] = useState(false);
-  const [approvalNeeded, setApprovalNeeded] = useState<boolean | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isCreating, setIsCreating] = useState(false);
 
   const roscaHook = useRosca(FACTORY_ADDRESS);
-  const { addChama } = useDashboardData(); // Add this to update dashboard when chama is created
+  const { addChama } = useDashboardData();
 
   const [formData, setFormData] = useState({
-    token: 'cBTC' as 'cBTC' | 'USDC',
     contribution: '',
-    securityDeposit: '5',
     roundDuration: '7',
     memberTarget: 5
   });
 
-  // Token decimals
-  const tokenDecimals = formData.token === 'cBTC' ? 18 : 6;
-  const minAmount = 1 / 10 ** tokenDecimals; // 0.000001 for cBTC, 0.000001 for USDC
+  // Native ETH configuration (memoized to prevent recalculation)
+  const { minAmount, maxAmount, minMembers, maxMembers } = useMemo(() => ({
+    minAmount: parseFloat(ROSCA_CONFIG.MIN_CONTRIBUTION_AMOUNT),
+    maxAmount: parseFloat(ROSCA_CONFIG.MAX_CONTRIBUTION_AMOUNT),
+    minMembers: ROSCA_CONFIG.MIN_MEMBERS,
+    maxMembers: ROSCA_CONFIG.MAX_MEMBERS
+  }), []);
 
-  // Amount needed for approval (USDC only)
-  const totalAmountNeeded = useMemo(() => {
-    if (formData.token !== 'USDC') return '0';
-    const contribution = parseFloat(formData.contribution) || 0;
-    const deposit = parseFloat(formData.securityDeposit) || 0;
-    return (contribution + deposit).toString();
-  }, [formData.token, formData.contribution, formData.securityDeposit]);
-
-  // Approval status check (debounced)
-  const checkApprovalStatus = useMemo(() => {
-    let timeout: NodeJS.Timeout;
-    return () => {
-      clearTimeout(timeout);
-      timeout = setTimeout(async () => {
-        if (!primaryWallet?.address || !roscaHook.publicClient || formData.token !== 'USDC') {
-          setApprovalNeeded(null); return;
-        }
-        try {
-          const check = await checkApprovalNeeded(
-            roscaHook.publicClient,
-            TOKENS.USDC.address,
-            primaryWallet.address as Address,
-            FACTORY_ADDRESS,
-            totalAmountNeeded,
-            6
-          );
-          setApprovalNeeded(check.needsApproval);
-        } catch {
-          setApprovalNeeded(null);
-        }
-      }, 500);
-    };
-  }, [totalAmountNeeded, formData.token, primaryWallet?.address, roscaHook.publicClient]);
-
-  useEffect(() => checkApprovalStatus(), [checkApprovalStatus]);
-
-  const handleApproval = async () => {
-    if (!primaryWallet?.address) return;
-    setIsApproving(true);
-    try {
-      // Use the enhanced ROSCA hook's approveUSDC method
-      const hash = await roscaHook.approveUSDC(FACTORY_ADDRESS, '1000000'); // Approve max amount
-      if (hash) {
-        toast({ title: '✅ USDC Approved' });
-        setApprovalNeeded(false);
-      } else {
-        throw new Error('Approval transaction failed');
-      }
-    } catch (e: any) {
-      toast({ title: '❌ Approval failed', description: e.message, variant: 'destructive' });
-    } finally {
-      setIsApproving(false);
-    }
-  };
-
-  const validateForm = async () => {
+  // Memoized validation function to prevent unnecessary re-renders
+  const validateForm = useCallback(async () => {
     const errs: Record<string, string> = {};
-
     const contrib = parseFloat(formData.contribution);
-    const deposit = parseFloat(formData.securityDeposit);
 
+    // Basic validation (no API calls to prevent refresh)
     if (!formData.contribution || contrib < minAmount) {
-      errs.contribution = `Contribution must be ≥ ${minAmount} ${formData.token}`;
+      errs.contribution = `Contribution must be ≥ ${minAmount} cBTC`;
     }
-    if (!formData.securityDeposit || deposit < minAmount) {
-      errs.securityDeposit = `Security deposit must be ≥ ${minAmount} ${formData.token}`;
+    if (contrib > maxAmount) {
+      errs.contribution = `Contribution must be ≤ ${maxAmount} cBTC`;
     }
-    if (formData.memberTarget < 3 || formData.memberTarget > 15) {
-      errs.memberTarget = 'Members must be 3-15';
-    }
-
-    // Balance check
-    if (primaryWallet?.address && roscaHook.publicClient) {
-      const total = contrib + deposit;
-      const tokenAddr = formData.token === 'cBTC' ? null : TOKENS.USDC.address;
-      try {
-        const balance = await checkSufficientBalance(roscaHook.publicClient, primaryWallet.address as Address, tokenAddr, total.toString());
-        if (!balance.sufficient && !balance.balanceCheckFailed) {
-          errs.balance = `Insufficient ${formData.token} balance`;
-        }
-      } catch { }
+    if (formData.memberTarget < minMembers || formData.memberTarget > maxMembers) {
+      errs.memberTarget = `Members must be between ${minMembers}-${maxMembers}`;
     }
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
-  };
+  }, [formData.contribution, formData.memberTarget, minAmount, maxAmount, minMembers, maxMembers]);
+
+  // Separate balance check (only on submit)
+  const checkBalance = useCallback(async (): Promise<string | null> => {
+    if (!primaryWallet?.address || !roscaHook.publicClient) {
+      return null;
+    }
+    
+    try {
+      const balance = await roscaHook.publicClient.getBalance({
+        address: primaryWallet.address as Address
+      });
+      const balanceInEth = parseFloat((Number(balance) / 1e18).toFixed(6));
+      const contrib = parseFloat(formData.contribution);
+      const requiredAmount = contrib + parseFloat(ROSCA_CONFIG.FACTORY_CREATION_FEE);
+      
+      if (balanceInEth < requiredAmount) {
+        return `Insufficient cBTC balance. Required: ${requiredAmount.toFixed(4)}, Available: ${balanceInEth.toFixed(4)}`;
+      }
+    } catch (error) {
+      console.warn('Balance check failed:', error);
+    }
+    
+    return null;
+  }, [primaryWallet?.address, roscaHook.publicClient, formData.contribution]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!(await validateForm()) || !primaryWallet?.address) return;
 
-    // USDC path – ensure approval
-    if (formData.token === 'USDC' && approvalNeeded) {
-      toast({ title: '⚠️ USDC Approval Required', variant: 'destructive' });
+    // Check balance separately before creating
+    const balanceError = await checkBalance();
+    if (balanceError) {
+      setErrors(prev => ({ ...prev, balance: balanceError }));
       return;
     }
+    
+    // Clear balance error if it passes
+    setErrors(prev => ({ ...prev, balance: '' }));
 
     setIsCreating(true);
     try {
-      const tokenAddress = formData.token === 'cBTC' ? TOKENS.NATIVE.address : TOKENS.USDC.address;
-
-      // Use the new enhanced createROSCA method
-      const txHash = await roscaHook.createROSCA(
-        tokenAddress,
+      // Use the native ETH helper method for cleaner code
+      const txHash = await roscaHook.createNativeROSCA(
         formData.contribution,                        // contribution amount
         parseInt(formData.roundDuration) * 86400,     // round duration in seconds
         formData.memberTarget                         // max members
       );
 
       if (txHash) {
-        toast({ 
-          title: '🎉 ROSCA created!', 
-          description: 'Your savings circle has been created successfully. Transaction hash: ' + txHash.slice(0, 10) + '...' 
-        });
+        // Extract ROSCA address from transaction receipt using the utility function
+        const roscaAddress = await roscaHook.extractROSCAAddressFromReceipt(txHash);
         
-        // Note: The new createROSCA returns a transaction hash, not the ROSCA address
-        // We need to extract the address from the transaction receipt/events
-        // For now, just navigate to dashboard
+        if (roscaAddress) {
+          // Add to user's chama list
+          addChama(roscaAddress);
+          
+          toast({ 
+            title: '🎉 ROSCA created!', 
+            description: `Your savings circle has been created successfully!\nAddress: ${roscaAddress.slice(0, 6)}...${roscaAddress.slice(-4)}` 
+          });
+        } else {
+          console.warn('⚠️ Could not extract ROSCA address from transaction');
+          toast({ 
+            title: '🎉 ROSCA created!', 
+            description: 'Your savings circle has been created successfully. Please refresh to see it.' 
+          });
+        }
         
-        // First go to main dashboard
+        // Navigate to dashboard after a short delay
         setTimeout(() => navigate('/dashboard'), 1500);
       }
     } catch (e: any) {
-      toast({ title: '❌ Creation failed', description: e.message, variant: 'destructive' });
+      toast({ 
+        title: '❌ Creation failed', 
+        description: e.message || 'Failed to create ROSCA. Please try again.', 
+        variant: 'destructive' 
+      });
     } finally {
       setIsCreating(false);
     }
@@ -180,18 +149,18 @@ export default function CreatePage() {
       navigate('/');
     }
   };
-  const estimatedAPY = Math.round((12 / formData.memberTarget) * 100);
-  const totalRequired = parseFloat(formData.contribution || '0') + parseFloat(formData.securityDeposit || '0');
 
-  // Redirect to home if not logged in - run only when login status actually changes
+  // Memoized calculated values to prevent unnecessary recalculation
+  const estimatedAPY = useMemo(() => Math.round((12 / formData.memberTarget) * 100), [formData.memberTarget]);
+  const totalRequired = useMemo(() => parseFloat(formData.contribution || '0') + parseFloat(ROSCA_CONFIG.FACTORY_CREATION_FEE), [formData.contribution]);
+
+  // Redirect to home if not logged in
   useEffect(() => {
     if (!isLoggedIn && !isCreating) {
-      console.log('User not logged in, redirecting to home');
       navigate('/');
     }
-  }, [isLoggedIn]); // Only depend on login status, not navigation function
+  }, [isLoggedIn, navigate, isCreating]);
 
-  /* ---------- UI ---------- */
   return (
     <div className="min-h-screen bg-gradient-to-br from-dark-bg via-dark-gray to-dark-bg">
       <Header title="Create New Chama" />
@@ -199,82 +168,87 @@ export default function CreatePage() {
         <div className="max-w-2xl mx-auto">
           <InputModal
             title="Create Your Chama"
-            description="Set up a new savings circle with your parameters"
+            description="Set up a new native ETH savings circle"
             isOpen
             onClose={handleCancel}
           >
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Summary Card */}
               <div className="glassmorphism p-4 rounded-lg border border-bitcoin/30 mb-6">
-                <h4 className="font-orbitron text-sm font-bold text-bitcoin mb-3">CIRCLE SUMMARY</h4>
+                <h4 className="font-orbitron text-sm font-bold text-bitcoin mb-3 flex items-center gap-2">
+                  <Bitcoin className="w-4 h-4" />
+                  NATIVE ETH CIRCLE
+                </h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2"><Coins className="w-4 h-4 text-electric" /><span className="text-gray-300">Est. APY:</span><span className="text-white font-bold">{estimatedAPY}%</span></div>
-                  <div className="flex items-center gap-2"><Users className="w-4 h-4 text-neon-green" /><span className="text-gray-300">Members:</span><span className="text-white font-bold">{formData.memberTarget}</span></div>
-                  <div className="flex items-center gap-2"><Clock className="w-4 h-4 text-yellow-400" /><span className="text-gray-300">Duration:</span><span className="text-white font-bold">{formData.roundDuration}d</span></div>
-                  <div className="flex items-center gap-2"><Shield className="w-4 h-4 text-purple-400" /><span className="text-gray-300">Total Cost:</span><span className="text-white font-bold">{totalRequired} {formData.token}</span></div>
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-electric" />
+                    <span className="text-gray-300">Est. APY:</span>
+                    <span className="text-white font-bold">{estimatedAPY}%</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-neon-green" />
+                    <span className="text-gray-300">Members:</span>
+                    <span className="text-white font-bold">{formData.memberTarget}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-yellow-400" />
+                    <span className="text-gray-300">Duration:</span>
+                    <span className="text-white font-bold">{formData.roundDuration}d</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-purple-400" />
+                    <span className="text-gray-300">Total Cost:</span>
+                    <span className="text-white font-bold">{totalRequired.toFixed(4)} cBTC</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Token Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="token">Token</Label>
-                <Select value={formData.token} onValueChange={v => setFormData(p => ({ ...p, token: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cBTC">cBTC (Citrea Bitcoin)</SelectItem>
-                    <SelectItem value="USDC">USDC (Stablecoin)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-gray-400">{formData.token === 'cBTC' ? 'Native Bitcoin on Citrea Layer 2' : 'Stable value, predictable returns'}</p>
-                {formData.token === 'USDC' && primaryWallet?.address && (
-                  <div className="mt-3 p-3 bg-dark-gray/50 rounded-lg border border-electric/20">
-                    <ApprovalStatus
-                      publicClient={roscaHook.publicClient}
-                      userAddress={primaryWallet.address as Address}
-                      spenderAddress={FACTORY_ADDRESS}
-                      tokenAddress={TOKENS.USDC.address}
-                      requiredAmount={totalAmountNeeded}
-                      onApprovalNeeded={handleApproval}
-                      className="w-full"
-                    />
-                  </div>
-                )}
+              {/* Info Card */}
+              <div className="glassmorphism p-4 rounded-lg border border-electric/30 mb-6">
+                <div className="text-sm text-gray-300 space-y-2">
+                  <p className="flex items-center gap-2">
+                    <Bitcoin className="w-4 h-4 text-bitcoin" />
+                    <strong className="text-bitcoin">Native ETH Only:</strong> No token approvals needed
+                  </p>
+                  <p>• Contributions and deposits are paid in native cBTC</p>
+                  <p>• Security deposit calculated automatically (2x contribution)</p>
+                  <p>• Creation fee: {ROSCA_CONFIG.FACTORY_CREATION_FEE} cBTC</p>
+                </div>
               </div>
 
               {/* Contribution */}
               <div className="space-y-2">
-                <Label>Contribution Amount per Round</Label>
+                <Label>Contribution Amount per Round (cBTC)</Label>
                 <Input
                   type="number"
-                  step={minAmount}
+                  step={0.001}
                   min={minAmount}
+                  max={maxAmount}
                   placeholder={`e.g. ${minAmount}`}
                   value={formData.contribution}
                   onChange={e => setFormData(p => ({ ...p, contribution: e.target.value }))}
+                  className="bg-dark-gray/50 border-gray-600 text-black"
                 />
-                {errors.contribution && <div className="text-red-400 text-sm flex items-center gap-1"><AlertCircle size={14} />{errors.contribution}</div>}
-              </div>
-
-              {/* Security Deposit */}
-              <div className="space-y-2">
-                <Label>Security Deposit</Label>
-                <Input
-                  type="number"
-                  step={minAmount}
-                  min={minAmount}
-                  placeholder={`e.g. ${minAmount}`}
-                  value={formData.securityDeposit}
-                  onChange={e => setFormData(p => ({ ...p, securityDeposit: e.target.value }))}
-                />
-                {errors.securityDeposit && <div className="text-red-400 text-sm flex items-center gap-1"><AlertCircle size={14} />{errors.securityDeposit}</div>}
+                <p className="text-xs text-gray-400">
+                  Min: {minAmount} cBTC, Max: {maxAmount} cBTC
+                </p>
+                {errors.contribution && (
+                  <div className="text-red-400 text-sm flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.contribution}
+                  </div>
+                )}
               </div>
 
               {/* Round Duration */}
               <div className="space-y-2">
                 <Label>Round Duration</Label>
                 <Select value={formData.roundDuration} onValueChange={v => setFormData(p => ({ ...p, roundDuration: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="bg-dark-gray/50 border-gray-600">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="1">1 day (Testing)</SelectItem>
                     <SelectItem value="3">3 days (Fast)</SelectItem>
                     <SelectItem value="7">7 days (Standard)</SelectItem>
                     <SelectItem value="14">14 days (Relaxed)</SelectItem>
@@ -285,30 +259,66 @@ export default function CreatePage() {
 
               {/* Member Target */}
               <div className="space-y-2">
-                <Label>Member Target: <span className="text-bitcoin font-bold">{formData.memberTarget}</span></Label>
-                <Slider value={[formData.memberTarget]} onValueChange={v => setFormData(p => ({ ...p, memberTarget: v[0] }))} min={3} max={15} step={1} />
-                <div className="flex justify-between text-xs text-gray-400"><span>3 (Min)</span><span>15 (Max)</span></div>
-                {errors.memberTarget && <div className="text-red-400 text-sm flex items-center gap-1"><AlertCircle size={14} />{errors.memberTarget}</div>}
+                <Label>
+                  Member Target: <span className="text-bitcoin font-bold">{formData.memberTarget}</span>
+                </Label>
+                <Slider 
+                  value={[formData.memberTarget]} 
+                  onValueChange={v => setFormData(p => ({ ...p, memberTarget: v[0] }))} 
+                  min={minMembers} 
+                  max={maxMembers} 
+                  step={1} 
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-400">
+                  <span>{minMembers} (Min)</span>
+                  <span>{maxMembers} (Max)</span>
+                </div>
+                {errors.memberTarget && (
+                  <div className="text-red-400 text-sm flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.memberTarget}
+                  </div>
+                )}
               </div>
 
-              {/* Errors */}
-              {Object.keys(errors).length > 0 && (
-                <div className="p-3 bg-red-900/20 border border-red-700/50 rounded-lg space-y-1">
-                  {Object.entries(errors).map(([k, m]) => (
-                    <div key={k} className="text-red-400 text-sm flex items-center gap-1"><AlertCircle size={14} />{m}</div>
-                  ))}
+              {/* Balance Error */}
+              {errors.balance && (
+                <div className="p-3 bg-red-900/20 border border-red-700/50 rounded-lg">
+                  <div className="text-red-400 text-sm flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.balance}
+                  </div>
                 </div>
               )}
 
               {/* Actions */}
               <div className="flex gap-4 pt-4">
-                <Button type="button" variant="outline" onClick={handleCancel} disabled={isCreating || roscaHook.isLoading} className="flex-1">Cancel</Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleCancel} 
+                  disabled={isCreating || roscaHook.isLoading} 
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
                 <Button
                   type="submit"
-                  disabled={isCreating || roscaHook.isLoading || (formData.token === 'USDC' && approvalNeeded === true)}
+                  disabled={isCreating || roscaHook.isLoading}
                   className="flex-1 bg-gradient-to-r from-bitcoin to-orange-600 hover:scale-105 transition-transform font-bold"
                 >
-                  {isCreating || roscaHook.isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : approvalNeeded === true ? 'Approve USDC First' : 'Create Chama'}
+                  {isCreating || roscaHook.isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Bitcoin className="w-4 h-4 mr-2" />
+                      Create Chama
+                    </>
+                  )}
                 </Button>
               </div>
             </form>
