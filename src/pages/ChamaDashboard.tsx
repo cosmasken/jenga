@@ -13,6 +13,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
+import { ChamaUserState, getAccessLevel } from '@/components/ChamaUserState';
+import { ChamaActionButtons } from '@/components/ChamaActionButtons';
 import {
   Users,
   DollarSign,
@@ -29,7 +31,8 @@ import {
   ArrowLeft,
   Calendar,
   Target,
-  TrendingUp
+  TrendingUp,
+  Wallet
 } from 'lucide-react';
 
 interface ChamaInfo {
@@ -44,19 +47,16 @@ interface ChamaInfo {
   creator: Address;
 }
 
-interface UserRole {
-  isCreator: boolean;
+interface UserMembershipStatus {
   isMember: boolean;
-  isLoggedIn: boolean;
-  canJoin: boolean;
-  canContribute: boolean;
-  canLeave: boolean;
+  isCreator: boolean;
+  hasContributed: boolean;
 }
 
 export default function ChamaDashboard() {
   const params = useParams();
   const [, navigate] = useLocation();
-  const { primaryWallet } = useDynamicContext();
+  const { primaryWallet, setShowAuthFlow } = useDynamicContext();
   const isLoggedIn = useIsLoggedIn();
 
   // State
@@ -64,8 +64,8 @@ export default function ChamaDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
-  const [isDataLoading, setIsDataLoading] = useState(false); // Prevent multiple calls
-  const loadingRef = useRef(false); // Additional protection against multiple calls
+  const [isDataLoading, setIsDataLoading] = useState(false);
+  const loadingRef = useRef(false);
   const [userMembershipStatus, setUserMembershipStatus] = useState<{
     isMember: boolean;
     isCreator: boolean;
@@ -86,7 +86,7 @@ export default function ChamaDashboard() {
   });
 
   // Auto-refresh countdown state
-  const [refreshCountdown, setRefreshCountdown] = useState(300); // 5 minutes in seconds
+  const [refreshCountdown, setRefreshCountdown] = useState(300);
   const [isAutoRefreshActive, setIsAutoRefreshActive] = useState(true);
   const [memberReadiness, setMemberReadiness] = useState<{
     totalJoined: number;
@@ -100,6 +100,11 @@ export default function ChamaDashboard() {
 
   // Use the Rosca hook
   const roscaHook = useRosca(FACTORY_ADDRESS);
+
+  // Calculate access level based on user state
+  const accessLevel = useMemo(() => {
+    return getAccessLevel(isLoggedIn, userMembershipStatus, chamaInfo);
+  }, [isLoggedIn, userMembershipStatus, chamaInfo]);
 
   // Check user membership status - memoized to prevent infinite loops
   const checkUserMembership = useCallback(async () => {
@@ -163,29 +168,6 @@ export default function ChamaDashboard() {
       });
     }
   }, [primaryWallet?.address, chamaInfo?.creator, chamaInfo?.currentRound, roscaHook, chamaAddress]);
-
-
-  // Calculate user role and permissions based on membership status
-  const userRole: UserRole = {
-    isLoggedIn,
-    isCreator: userMembershipStatus.isCreator,
-    isMember: userMembershipStatus.isMember,
-    canJoin: isLoggedIn && 
-             chamaInfo && 
-             !userMembershipStatus.isMember && 
-             chamaInfo.status === 0 && // Must be in RECRUITING status
-             chamaInfo.totalMembers < chamaInfo.memberTarget, // Must have available spots
-    canContribute: isLoggedIn && userMembershipStatus.isMember && !userMembershipStatus.hasContributed,
-    canLeave: isLoggedIn && userMembershipStatus.isMember && !userMembershipStatus.isCreator
-  };
-
-  // Debug userRole calculation
-  console.log('🎭 UserRole calculation:', {
-    userMembershipStatus,
-    userRole,
-    primaryWalletAddress: primaryWallet?.address,
-    chamaCreator: chamaInfo?.creator
-  });
 
   // Check ROSCA status and update state
   const checkRoscaStatus = useCallback(async () => {
@@ -651,6 +633,32 @@ export default function ChamaDashboard() {
 
   // Main render
   console.log('✅ Rendering main chama dashboard with data:', chamaInfo);
+  
+  // If user is not logged in, show limited view with connect wallet prompt
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <Header title="Connect Wallet" />
+        <div className="max-w-4xl mx-auto p-4 space-y-6">
+          <Button
+            onClick={() => navigate('/dashboard')}
+            variant="ghost"
+            className="mb-4"
+          >
+            <ArrowLeft size={16} className="mr-2" />
+            Back to Dashboard
+          </Button>
+
+          <ChamaUserState 
+            chamaInfo={chamaInfo}
+            userMembershipStatus={userMembershipStatus}
+            onConnect={() => setShowAuthFlow(true)}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <Header title={chamaInfo?.roscaName || "Chama Details"} />
@@ -666,45 +674,12 @@ export default function ChamaDashboard() {
           Back to Dashboard
         </Button>
 
-        {/* Role-based Status Alerts */}
-        {!isLoggedIn && (
-          <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800 dark:text-blue-200">
-              <strong>Connect your wallet</strong> to join this chama or view your membership status.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Creator Badge */}
-        {userRole.isCreator && (
-          <Alert className="border-bitcoin bg-bitcoin/10">
-            <Shield className="h-4 w-4 text-bitcoin" />
-            <AlertDescription className="text-bitcoin">
-              <strong>You are the creator</strong> of this chama. You can manage settings and invite members.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Member Badge */}
-        {userRole.isMember && !userRole.isCreator && (
-          <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-green-800 dark:text-green-200">
-              <strong>You are a member</strong> of this chama. {userMembershipStatus.hasContributed ? 'You have contributed this round.' : 'You can contribute to the current round.'}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Non-member Badge - only show if user is neither creator nor member */}
-        {isLoggedIn && !userRole.isMember && !userRole.isCreator && (
-          <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950">
-            <UserPlus className="h-4 w-4 text-orange-600" />
-            <AlertDescription className="text-orange-800 dark:text-orange-200">
-              <strong>You are not a member</strong> of this chama. {userRole.canJoin ? 'You can join if there are available spots.' : 'This chama is full or closed to new members.'}
-            </AlertDescription>
-          </Alert>
-        )}
+        {/* User State Alerts */}
+        <ChamaUserState 
+          chamaInfo={chamaInfo}
+          userMembershipStatus={userMembershipStatus}
+          onConnect={() => setShowAuthFlow(true)}
+        />
 
         {/* ROSCA Status Alert */}
         {roscaStatus.status === 1 && (
@@ -897,154 +872,19 @@ export default function ChamaDashboard() {
 
               {/* Action Buttons */}
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                {!isLoggedIn ? (
-                  <div className="text-center py-4">
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
-                      Connect your wallet to interact with this chama
-                    </p>
-                    <Button
-                      onClick={() => navigate('/dashboard')}
-                      className="bg-bitcoin hover:bg-bitcoin/90"
-                    >
-                      Connect Wallet
-                    </Button>
-                  </div>
-                ) : userRole.isCreator ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 p-3 bg-bitcoin/10 rounded-lg">
-                      <Shield className="w-5 h-5 text-bitcoin" />
-                      <span className="text-sm font-medium text-bitcoin">You created this chama</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Start ROSCA Button - show when status is WAITING (1) and all members ready */}
-                      {roscaStatus.status === 1 && roscaStatus.canStart && (
-                        <Button
-                          onClick={handleStartROSCA}
-                          disabled={isActionLoading}
-                          className="bg-green-600 hover:bg-green-700 col-span-full"
-                        >
-                          <Target className="w-4 h-4 mr-2" />
-                          {isActionLoading ? 'Starting...' : 'Start ROSCA'}
-                        </Button>
-                      )}
-                      
-                      {userRole.canContribute && (
-                        <Button
-                          onClick={handleContribute}
-                          disabled={isActionLoading}
-                          className="bg-bitcoin hover:bg-bitcoin/90"
-                        >
-                          <Coins className="w-4 h-4 mr-2" />
-                          {isActionLoading ? 'Contributing...' : 'Contribute'}
-                        </Button>
-                      )}
-                      <Button
-                        onClick={shareChama}
-                        variant="outline"
-                        className="border-bitcoin/50 text-bitcoin hover:bg-bitcoin/10"
-                      >
-                        <UserPlus className="w-4 h-4 mr-2" />
-                        Invite Members
-                      </Button>
-                    </div>
-                  </div>
-                ) : userRole.isMember ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span className="text-sm font-medium text-green-600">You are a member</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Start ROSCA Button - show for any member when ready */}
-                      {roscaStatus.status === 1 && roscaStatus.canStart && (
-                        <Button
-                          onClick={handleStartROSCA}
-                          disabled={isActionLoading}
-                          className="bg-green-600 hover:bg-green-700 col-span-full"
-                        >
-                          <Target className="w-4 h-4 mr-2" />
-                          {isActionLoading ? 'Starting...' : 'Start ROSCA'}
-                        </Button>
-                      )}
-                      
-                      {userRole.canContribute ? (
-                        <Button
-                          onClick={handleContribute}
-                          disabled={isActionLoading}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <Coins className="w-4 h-4 mr-2" />
-                          {isActionLoading ? 'Contributing...' : 'Contribute'}
-                        </Button>
-                      ) : (
-                        <Button
-                          disabled
-                          className="bg-gray-400"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          Already Contributed
-                        </Button>
-                      )}
-                      {userRole.canLeave && (
-                        <Button
-                          onClick={handleLeave}
-                          disabled={isActionLoading}
-                          variant="outline"
-                          className="border-red-500 text-red-600 hover:bg-red-50"
-                        >
-                          <ArrowLeft className="w-4 h-4 mr-2" />
-                          {isActionLoading ? 'Leaving...' : 'Leave Chama'}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ) : userRole.canJoin ? (
-                  <div className="space-y-3">
-                    <div className="text-center">
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                        Join this Chama
-                      </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Secure your spot in this savings circle. You'll need to deposit {formatTokenAmount(chamaInfo.securityDeposit)} {getTokenSymbol()} as security.
-                      </p>
-                    </div>
-                    <Button
-                      onClick={handleJoin}
-                      disabled={isActionLoading}
-                      className="w-full bg-gradient-to-r from-bitcoin to-orange-600 hover:scale-105 transition-transform font-bold"
-                    >
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      {isActionLoading ? 'Joining...' : `Join Chama (${formatTokenAmount(chamaInfo.securityDeposit)} ${getTokenSymbol()})`}
-                    </Button>
-                  </div>
-                ) : isLoggedIn ? (
-                  <div className="text-center py-4">
-                    <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Users size={32} className="text-orange-600" />
-                    </div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                      {chamaInfo.totalMembers >= chamaInfo.memberTarget ? 'Chama Full' : 'Not a Member'}
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {chamaInfo.totalMembers >= chamaInfo.memberTarget 
-                        ? 'This chama has reached its member limit. Check back later or explore other chamas.'
-                        : 'You are viewing this chama as a non-member. Join to participate in the savings circle.'
-                      }
-                    </p>
-                  </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <AlertCircle size={32} className="text-gray-400" />
-                    </div>
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
-                      Connect Wallet
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Connect your wallet to see your membership status and interact with this chama.
-                    </p>
-                  </div>
-                )}
+                <ChamaActionButtons
+                  accessLevel={accessLevel}
+                  chamaInfo={chamaInfo}
+                  userMembershipStatus={userMembershipStatus}
+                  roscaStatus={roscaStatus}
+                  isActionLoading={isActionLoading}
+                  onJoin={handleJoin}
+                  onContribute={handleContribute}
+                  onStartROSCA={handleStartROSCA}
+                  onShare={shareChama}
+                  getTokenSymbol={getTokenSymbol}
+                  formatTokenAmount={formatTokenAmount}
+                />
               </div>
             </CardContent>
           </Card>
