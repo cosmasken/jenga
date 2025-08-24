@@ -110,9 +110,7 @@ export const DYNAMIC_NETWORK_CONFIG = [
     vanityName: citreaTestnet.name,
   },
 ];
-    vanityName: coreDAOTestnet.name,
-  },
-];
+
 
 // =============================================================================
 // SMART CONTRACT CONFIGURATION

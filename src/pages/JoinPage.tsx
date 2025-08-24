@@ -132,7 +132,54 @@ export default function JoinPage() {
     if (!validateAddress(chamaAddress) || !primaryWallet?.address) return;
     
     try {
-      // Use the enhanced ROSCA hook to join
+      // First, check if the ROSCA is in RECRUITING status
+      const roscaInfo = await roscaHook.getROSCAInfo(chamaAddress as Address);
+      
+      if (!roscaInfo) {
+        toast({
+          title: "❌ Invalid ROSCA",
+          description: "Could not find ROSCA information. Please check the address.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if ROSCA is in RECRUITING status (0)
+      if (roscaInfo.status !== 0) {
+        const statusNames = ['RECRUITING', 'WAITING', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
+        const currentStatus = statusNames[roscaInfo.status] || 'UNKNOWN';
+        
+        toast({
+          title: "❌ Cannot Join ROSCA",
+          description: `This ROSCA is currently ${currentStatus} and not accepting new members.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if ROSCA is full
+      if (roscaInfo.memberCount >= roscaInfo.maxMembers) {
+        toast({
+          title: "❌ ROSCA Full",
+          description: "This ROSCA has reached its maximum number of members.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Check if user is already a member
+      const isMember = await roscaHook.isMember(chamaAddress as Address, primaryWallet.address as Address);
+      if (isMember) {
+        toast({
+          title: "ℹ️ Already a Member",
+          description: "You are already a member of this ROSCA.",
+          variant: "default",
+        });
+        navigate(`/dashboard/${chamaAddress}`);
+        return;
+      }
+
+      // All checks passed, proceed with joining
       const txHash = await roscaHook.joinROSCA(chamaAddress as Address);
       
       // Update state manager with the join action
@@ -160,7 +207,9 @@ export default function JoinPage() {
     navigate('/');
   };
 
-  const canJoin = chamaInfo && chamaInfo.currentMembers < chamaInfo.memberTarget && chamaInfo.isActive;
+  const canJoin = chamaInfo && 
+    chamaInfo.status === 0 && // Must be in RECRUITING status
+    chamaInfo.currentMembers < chamaInfo.memberTarget; // Must have available spots
   const totalCost = chamaInfo ? parseFloat(chamaInfo.contributionAmount) + parseFloat(chamaInfo.securityDeposit) : 0;
 
   return (
@@ -239,8 +288,15 @@ export default function JoinPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Shield className="w-4 h-4 text-purple-400" />
-                    <span className="text-gray-300">Total Cost:</span>
-                    <span className="text-white font-bold">{totalCost} {chamaInfo.token}</span>
+                    <span className="text-gray-300">Status:</span>
+                    <span className={`font-bold ${
+                      chamaInfo.status === 0 ? 'text-neon-green' : 
+                      chamaInfo.status === 1 ? 'text-yellow-400' :
+                      chamaInfo.status === 2 ? 'text-blue-400' :
+                      chamaInfo.status === 3 ? 'text-gray-400' : 'text-red-400'
+                    }`}>
+                      {['RECRUITING', 'WAITING', 'ACTIVE', 'COMPLETED', 'CANCELLED'][chamaInfo.status] || 'UNKNOWN'}
+                    </span>
                   </div>
                 </div>
 
@@ -251,23 +307,56 @@ export default function JoinPage() {
                   <div className="text-sm text-gray-300 mb-2">
                     <strong>Security Deposit:</strong> {chamaInfo.securityDeposit} {chamaInfo.token} (returned when complete)
                   </div>
+                  <div className="text-sm text-gray-300 mb-2">
+                    <strong>Total Cost:</strong> {totalCost} {chamaInfo.token}
+                  </div>
+                  
+                  {/* Status-specific messages */}
+                  {chamaInfo.status !== 0 && (
+                    <div className="mt-4 p-3 rounded-lg bg-yellow-900/20 border border-yellow-500/30">
+                      <div className="flex items-center gap-2 text-yellow-400">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="font-semibold">Cannot Join</span>
+                      </div>
+                      <p className="text-sm text-yellow-300 mt-1">
+                        {chamaInfo.status === 1 && "This ROSCA is waiting to start and no longer accepting new members."}
+                        {chamaInfo.status === 2 && "This ROSCA is currently active and not accepting new members."}
+                        {chamaInfo.status === 3 && "This ROSCA has completed all rounds."}
+                        {chamaInfo.status === 4 && "This ROSCA has been cancelled."}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {chamaInfo.status === 0 && chamaInfo.currentMembers >= chamaInfo.memberTarget && (
+                    <div className="mt-4 p-3 rounded-lg bg-orange-900/20 border border-orange-500/30">
+                      <div className="flex items-center gap-2 text-orange-400">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="font-semibold">ROSCA Full</span>
+                      </div>
+                      <p className="text-sm text-orange-300 mt-1">
+                        This ROSCA has reached its maximum number of members.
+                      </p>
+                    </div>
+                  )}
                   <div className="text-sm text-gray-300">
                     <strong>Total Rounds:</strong> {chamaInfo.totalRounds}
                   </div>
                 </div>
 
                 {/* Status Messages */}
-                {!canJoin && chamaInfo.currentMembers >= chamaInfo.memberTarget && (
+                {chamaInfo && chamaInfo.status === 0 && chamaInfo.currentMembers >= chamaInfo.memberTarget && (
                   <div className="flex items-center gap-2 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
                     <AlertCircle className="w-4 h-4 text-yellow-400" />
-                    <span className="text-yellow-400 text-sm">This chama is full</span>
+                    <span className="text-yellow-400 text-sm">This ROSCA is full</span>
                   </div>
                 )}
 
-                {!canJoin && !chamaInfo.isActive && (
+                {chamaInfo && chamaInfo.status !== 0 && (
                   <div className="flex items-center gap-2 p-3 bg-red-500/10 rounded-lg border border-red-500/30">
                     <AlertCircle className="w-4 h-4 text-red-400" />
-                    <span className="text-red-400 text-sm">This chama is no longer active</span>
+                    <span className="text-red-400 text-sm">
+                      This ROSCA is {['RECRUITING', 'WAITING', 'ACTIVE', 'COMPLETED', 'CANCELLED'][chamaInfo.status]} and not accepting new members
+                    </span>
                   </div>
                 )}
 

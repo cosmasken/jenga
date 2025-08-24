@@ -166,7 +166,11 @@ export default function ChamaDashboard() {
     isLoggedIn,
     isCreator: userMembershipStatus.isCreator,
     isMember: userMembershipStatus.isMember,
-    canJoin: isLoggedIn && chamaInfo && !userMembershipStatus.isMember && chamaInfo.totalMembers < chamaInfo.memberTarget,
+    canJoin: isLoggedIn && 
+             chamaInfo && 
+             !userMembershipStatus.isMember && 
+             chamaInfo.status === 0 && // Must be in RECRUITING status
+             chamaInfo.totalMembers < chamaInfo.memberTarget, // Must have available spots
     canContribute: isLoggedIn && userMembershipStatus.isMember && !userMembershipStatus.hasContributed,
     canLeave: isLoggedIn && userMembershipStatus.isMember && !userMembershipStatus.isCreator
   };
@@ -309,7 +313,40 @@ export default function ChamaDashboard() {
 
   // Action handlers
   const handleJoin = async () => {
-    if (!chamaInfo || !isLoggedIn) return;
+    if (!chamaInfo || !isLoggedIn || !primaryWallet?.address) return;
+
+    // Validate ROSCA status before attempting to join
+    if (chamaInfo.status !== 0) {
+      const statusNames = ['RECRUITING', 'WAITING', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
+      const currentStatus = statusNames[chamaInfo.status] || 'UNKNOWN';
+      
+      toast({
+        title: "❌ Cannot Join ROSCA",
+        description: `This ROSCA is currently ${currentStatus} and not accepting new members.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if ROSCA is full
+    if (chamaInfo.memberCount >= chamaInfo.maxMembers) {
+      toast({
+        title: "❌ ROSCA Full",
+        description: "This ROSCA has reached its maximum number of members.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if user is already a member
+    if (userMembershipStatus.isMember) {
+      toast({
+        title: "ℹ️ Already a Member",
+        description: "You are already a member of this ROSCA.",
+        variant: "default",
+      });
+      return;
+    }
 
     setIsActionLoading(true);
     try {
