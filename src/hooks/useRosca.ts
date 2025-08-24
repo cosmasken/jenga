@@ -45,6 +45,7 @@ export interface ROSCAInfo {
   totalRounds: number;
   recruitmentCompleteTime: number;
   nextPayoutIndex: number;
+  roscaName: string;
 }
 
 export interface MemberInfo {
@@ -79,9 +80,22 @@ export interface RoscaHook {
     token: Address,
     contributionAmount: string,
     roundDuration: number,
-    maxMembers: number
+    maxMembers: number,
+    roscaName: string
   ) => Promise<Hash | undefined>;
   getFactoryStats: () => Promise<FactoryStats | null>;
+  searchROSCAsByName: (searchTerm: string) => Promise<{
+    ids: number[];
+    addresses: Address[];
+    names: string[];
+  } | null>;
+  getAllActiveROSCAs: () => Promise<{
+    ids: number[];
+    addresses: Address[];
+    names: string[];
+    creators: Address[];
+    creationTimes: number[];
+  } | null>;
   
   // ROSCA functions
   joinROSCA: (roscaAddress: Address) => Promise<Hash | undefined>;
@@ -92,12 +106,20 @@ export interface RoscaHook {
   
   // View functions
   getROSCAInfo: (roscaAddress: Address) => Promise<ROSCAInfo | null>;
+  getRoscaName: (roscaAddress: Address) => Promise<string | null>;
   getMemberInfo: (roscaAddress: Address, memberAddress: Address) => Promise<MemberInfo | null>;
   getRoundInfo: (roscaAddress: Address, roundNumber: number) => Promise<RoundInfo | null>;
   getMembers: (roscaAddress: Address) => Promise<Address[]>;
   getRequiredDeposit: (roscaAddress: Address) => Promise<bigint | null>;
   getTimeUntilStart: (roscaAddress: Address) => Promise<number | null>;
   getTimeUntilRoundEnd: (roscaAddress: Address) => Promise<number | null>;
+  isReadyToStart: (roscaAddress: Address) => Promise<boolean>;
+  getMemberReadiness: (roscaAddress: Address) => Promise<{
+    totalJoined: number;
+    totalPaidDeposits: number;
+    maxMembersCount: number;
+    allReady: boolean;
+  } | null>;
   hasContributedThisRound: (roscaAddress: Address, memberAddress: Address) => Promise<boolean>;
   
   // Token functions
@@ -289,7 +311,8 @@ export function useRosca(
     token: Address,
     contributionAmount: string,
     roundDuration: number,
-    maxMembers: number
+    maxMembers: number,
+    roscaName: string
   ): Promise<Hash | undefined> => {
     const client = await getWalletClient();
     if (!client) return;
@@ -305,11 +328,12 @@ export function useRosca(
         client: client
       });
       
-      // Factory createROSCA expects only 3 parameters: contributionAmount, roundDuration, maxMembers
+      // Factory createROSCA now expects 4 parameters: contributionAmount, roundDuration, maxMembers, roscaName
       return await factoryWithWallet.write.createROSCA([
         contributionWei,
         BigInt(roundDuration),
-        BigInt(maxMembers)
+        BigInt(maxMembers),
+        roscaName
       ], { value: creationFee });
     });
   }, [executeTransaction, getWalletClient]);
@@ -318,13 +342,15 @@ export function useRosca(
   const createNativeROSCA = useCallback(async (
     contributionAmount: string,
     roundDuration: number,
-    maxMembers: number
+    maxMembers: number,
+    roscaName: string
   ): Promise<Hash | undefined> => {
     return createROSCA(
       '0x0000000000000000000000000000000000000000', // Native ETH token address
       contributionAmount,
       roundDuration,
-      maxMembers
+      maxMembers,
+      roscaName
     );
   }, [createROSCA]);
   
@@ -381,6 +407,46 @@ export function useRosca(
       };
     } catch (err) {
       console.error('Failed to get factory stats:', err);
+      return null;
+    }
+  }, [factoryContract]);
+  
+  const searchROSCAsByName = useCallback(async (searchTerm: string): Promise<{
+    ids: number[];
+    addresses: Address[];
+    names: string[];
+  } | null> => {
+    try {
+      const result = await factoryContract.read.searchROSCAsByName([searchTerm]);
+      return {
+        ids: result[0].map(id => Number(id)),
+        addresses: result[1],
+        names: result[2]
+      };
+    } catch (err) {
+      console.error('Failed to search ROSCAs by name:', err);
+      return null;
+    }
+  }, [factoryContract]);
+  
+  const getAllActiveROSCAs = useCallback(async (): Promise<{
+    ids: number[];
+    addresses: Address[];
+    names: string[];
+    creators: Address[];
+    creationTimes: number[];
+  } | null> => {
+    try {
+      const result = await factoryContract.read.getAllActiveROSCAs();
+      return {
+        ids: result[0].map(id => Number(id)),
+        addresses: result[1],
+        names: result[2],
+        creators: result[3],
+        creationTimes: result[4].map(time => Number(time))
+      };
+    } catch (err) {
+      console.error('Failed to get all active ROSCAs:', err);
       return null;
     }
   }, [factoryContract]);
@@ -498,7 +564,8 @@ export function useRosca(
         totalMembers,
         totalRounds,
         recruitmentCompleteTime,
-        nextPayoutIndex
+        nextPayoutIndex,
+        roscaName
       ] = await Promise.all([
         contract.read.contributionAmount(),
         contract.read.roundDuration(),
@@ -508,7 +575,8 @@ export function useRosca(
         contract.read.totalMembers(),
         contract.read.totalRounds(),
         contract.read.recruitmentCompleteTime(),
-        contract.read.nextPayoutIndex()
+        contract.read.nextPayoutIndex(),
+        contract.read.roscaName()
       ]);
       
       return {
@@ -521,10 +589,21 @@ export function useRosca(
         totalMembers: Number(totalMembers),
         totalRounds: Number(totalRounds),
         recruitmentCompleteTime: Number(recruitmentCompleteTime),
-        nextPayoutIndex: Number(nextPayoutIndex)
+        nextPayoutIndex: Number(nextPayoutIndex),
+        roscaName: roscaName as string
       };
     } catch (err) {
       console.error('Failed to get ROSCA info:', err);
+      return null;
+    }
+  }, [getROSCAContract]);
+  
+  const getRoscaName = useCallback(async (roscaAddress: Address): Promise<string | null> => {
+    try {
+      const contract = getROSCAContract(roscaAddress);
+      return await contract.read.roscaName();
+    } catch (err) {
+      console.error('Failed to get ROSCA name:', err);
       return null;
     }
   }, [getROSCAContract]);
@@ -624,6 +703,37 @@ export function useRosca(
       return Number(time);
     } catch (err) {
       console.error('Failed to get time until round end:', err);
+      return null;
+    }
+  }, [getROSCAContract]);
+  
+  const isReadyToStart = useCallback(async (roscaAddress: Address): Promise<boolean> => {
+    try {
+      const contract = getROSCAContract(roscaAddress);
+      return await contract.read.isReadyToStart();
+    } catch (err) {
+      console.error('Failed to check if ready to start:', err);
+      return false;
+    }
+  }, [getROSCAContract]);
+  
+  const getMemberReadiness = useCallback(async (roscaAddress: Address): Promise<{
+    totalJoined: number;
+    totalPaidDeposits: number;
+    maxMembersCount: number;
+    allReady: boolean;
+  } | null> => {
+    try {
+      const contract = getROSCAContract(roscaAddress);
+      const result = await contract.read.getMemberReadiness();
+      return {
+        totalJoined: Number(result[0]),
+        totalPaidDeposits: Number(result[1]),
+        maxMembersCount: Number(result[2]),
+        allReady: result[3]
+      };
+    } catch (err) {
+      console.error('Failed to get member readiness:', err);
       return null;
     }
   }, [getROSCAContract]);
@@ -750,11 +860,15 @@ export function useRosca(
     // Use USDC by default if token is null (legacy behavior)
     const tokenAddress = token || CONTRACT_ADDRESSES.USDC;
     
+    // Generate a default name for legacy calls
+    const defaultName = `Chama ${Date.now()}`;
+    
     const hash = await createROSCA(
       tokenAddress,
       contribution,
       roundDuration,
-      memberTarget
+      memberTarget,
+      defaultName
     );
     
     if (!hash) return undefined;
@@ -812,7 +926,8 @@ export function useRosca(
         currentRound: info.currentRound,
         totalMembers: info.totalMembers,
         isActive: info.status === ROSCAStatus.ACTIVE || info.status === ROSCAStatus.RECRUITING,
-        creator
+        creator,
+        roscaName: info.roscaName // Add ROSCA name to legacy format
       };
     } catch (err) {
       console.error('Failed to get chama info:', err);
@@ -834,6 +949,8 @@ export function useRosca(
     createROSCA,
     createNativeROSCA, // Helper for native ETH ROSCAs
     getFactoryStats,
+    searchROSCAsByName,
+    getAllActiveROSCAs,
     
     // ROSCA functions
     joinROSCA,
@@ -844,12 +961,15 @@ export function useRosca(
     
     // View functions
     getROSCAInfo,
+    getRoscaName,
     getMemberInfo,
     getRoundInfo,
     getMembers,
     getRequiredDeposit,
     getTimeUntilStart,
     getTimeUntilRoundEnd,
+    isReadyToStart,
+    getMemberReadiness,
     hasContributedThisRound,
     
     // Token functions

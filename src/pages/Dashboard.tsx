@@ -15,9 +15,10 @@ import RepayModal from '@/components/modals/RepayModal';
 import WithdrawModal from '@/components/modals/WithdrawModal';
 import { toast } from '@/hooks/use-toast';
 import { useDashboardData } from '@/hooks/useDashboardData';
+import { useRosca } from '@/hooks/useRosca';
 import { useSaccoStatus, useSaccoFeatureAccess } from '@/contexts/SaccoStatusContext';
 import { SaccoStatusIndicator, SaccoTreasuryStats } from '@/components/SaccoStatusIndicator';
-import { BITCOIN_PRICE_USD } from '@/utils/constants';
+import { BITCOIN_PRICE_USD, FACTORY_ADDRESS } from '@/utils/constants';
 import {
   Users,
   Plus,
@@ -53,6 +54,9 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'sacco' | 'chama'>('overview');
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedChama, setSelectedChama] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Sacco modal states
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -70,6 +74,9 @@ export default function Dashboard() {
     refresh,
     isConnected
   } = useDashboardData();
+
+  // Use ROSCA hook for search functionality
+  const roscaHook = useRosca(FACTORY_ADDRESS);
 
   // Use the global Sacco status context
   const {
@@ -161,6 +168,44 @@ export default function Dashboard() {
   const handleInviteToChama = (chama: any) => {
     setSelectedChama(chama);
     setShowInviteModal(true);
+  };
+
+  const handleSearch = async () => {
+    if (!searchTerm.trim() || !isLoggedIn) return;
+    
+    setIsSearching(true);
+    try {
+      const results = await roscaHook.searchROSCAsByName(searchTerm.trim());
+      if (results) {
+        // Convert search results to display format
+        const formattedResults = results.addresses.map((address, index) => ({
+          address,
+          name: results.names[index],
+          id: results.ids[index]
+        }));
+        setSearchResults(formattedResults);
+        toast({
+          title: "🔍 Search Results",
+          description: `Found ${formattedResults.length} ROSCAs matching "${searchTerm}"`,
+        });
+      } else {
+        setSearchResults([]);
+        toast({
+          title: "🔍 No Results",
+          description: `No ROSCAs found matching "${searchTerm}"`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Search failed:', error);
+      toast({
+        title: "❌ Search Failed",
+        description: "Could not search ROSCAs. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   if (!isLoggedIn) {
@@ -604,6 +649,62 @@ export default function Dashboard() {
 
           {activeTab === 'chama' && (
             <div className="space-y-6">
+              {/* Search Section */}
+              <Card className="border-blue-200 dark:border-blue-800">
+                <CardContent className="p-4">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Search className="text-blue-600" size={20} />
+                    Find ROSCAs by Name
+                  </h3>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Search for chamas by name..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      disabled={!isLoggedIn}
+                    />
+                    <Button 
+                      onClick={handleSearch}
+                      disabled={!searchTerm.trim() || isSearching || !isLoggedIn}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isSearching ? (
+                        <RefreshCw size={16} className="animate-spin" />
+                      ) : (
+                        <Search size={16} />
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {/* Search Results */}
+                  {searchResults.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      <h4 className="font-medium text-gray-700 dark:text-gray-300">Search Results:</h4>
+                      {searchResults.map((result) => (
+                        <div key={result.address} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                          <div>
+                            <p className="font-medium">{result.name}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {result.address.slice(0, 6)}...{result.address.slice(-4)}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => navigate(`/chama/${result.address}`)}
+                            className="bg-bitcoin hover:bg-bitcoin/90"
+                          >
+                            View
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               {userChamas.length === 0 ? (
                 <Card className="text-center py-12">
                   <CardContent>

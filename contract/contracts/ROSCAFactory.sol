@@ -68,32 +68,35 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
     function createROSCA(
         uint256 _contributionAmount,
         uint256 _roundDuration,
-        uint256 _maxMembers
+        uint256 _maxMembers,
+        string memory _roscaName
     ) external payable nonReentrant returns (address) {
         require(msg.value >= creationFee, "Insufficient creation fee");
         require(_maxMembers >= 2, "Need at least 2 members");
         require(_roundDuration >= 1 days, "Round duration too short");
         require(_contributionAmount > 0, "Contribution amount must be > 0");
+        require(bytes(_roscaName).length > 0, "ROSCA name cannot be empty");
+        require(bytes(_roscaName).length <= 50, "ROSCA name too long");
         
-        // Create new ROSCA contract directly (no clones for simplicity)
+        // Create new ROSCA contract with name
         ROSCA roscaContract = new ROSCA(
             _contributionAmount,
             _roundDuration,
             _maxMembers,
-            msg.sender
+            msg.sender,
+            _roscaName
         );
         
         address roscaAddress = address(roscaContract);
         
         // Record the deployment
         uint256 roscaId = totalROSCAsCreated++;
-        string memory roscaName = string(abi.encodePacked("ROSCA #", _toString(roscaId)));
         
         deployedROSCAs[roscaId] = DeployedROSCA({
             roscaAddress: roscaAddress,
             creator: msg.sender,
             creationTime: block.timestamp,
-            name: roscaName,
+            name: _roscaName, // Use the provided name instead of generating one
             contributionAmount: _contributionAmount,
             maxMembers: _maxMembers,
             isActive: true
@@ -111,7 +114,7 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
             roscaId,
             msg.sender,
             roscaAddress,
-            roscaName,
+            _roscaName, // Emit the actual name
             address(0), // Native ETH - no token address
             _contributionAmount,
             _maxMembers
@@ -212,6 +215,77 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
         );
     }
     
+    /**
+     * @dev Search ROSCAs by name (case-insensitive partial match)
+     * Note: This is a view function that searches through all ROSCAs
+     * For better performance in production, consider using events/indexing
+     */
+    function searchROSCAsByName(string memory searchTerm) external view returns (
+        uint256[] memory matchingIds,
+        address[] memory matchingAddresses,
+        string[] memory matchingNames
+    ) {
+        require(bytes(searchTerm).length > 0, "Search term cannot be empty");
+        
+        // First pass: count matches
+        uint256 matchCount = 0;
+        for (uint256 i = 0; i < totalROSCAsCreated; i++) {
+            if (deployedROSCAs[i].isActive && _containsIgnoreCase(deployedROSCAs[i].name, searchTerm)) {
+                matchCount++;
+            }
+        }
+        
+        // Second pass: collect matches
+        matchingIds = new uint256[](matchCount);
+        matchingAddresses = new address[](matchCount);
+        matchingNames = new string[](matchCount);
+        
+        uint256 currentIndex = 0;
+        for (uint256 i = 0; i < totalROSCAsCreated; i++) {
+            if (deployedROSCAs[i].isActive && _containsIgnoreCase(deployedROSCAs[i].name, searchTerm)) {
+                matchingIds[currentIndex] = i;
+                matchingAddresses[currentIndex] = deployedROSCAs[i].roscaAddress;
+                matchingNames[currentIndex] = deployedROSCAs[i].name;
+                currentIndex++;
+            }
+        }
+        
+        return (matchingIds, matchingAddresses, matchingNames);
+    }
+    
+    /**
+     * @dev Get all active ROSCAs with their names (for browsing)
+     */
+    function getAllActiveROSCAs() external view returns (
+        uint256[] memory ids,
+        address[] memory addresses,
+        string[] memory names,
+        address[] memory creators,
+        uint256[] memory creationTimes
+    ) {
+        uint256 activeCount = getActiveROSCACount();
+        
+        ids = new uint256[](activeCount);
+        addresses = new address[](activeCount);
+        names = new string[](activeCount);
+        creators = new address[](activeCount);
+        creationTimes = new uint256[](activeCount);
+        
+        uint256 currentIndex = 0;
+        for (uint256 i = 0; i < totalROSCAsCreated; i++) {
+            if (deployedROSCAs[i].isActive) {
+                ids[currentIndex] = i;
+                addresses[currentIndex] = deployedROSCAs[i].roscaAddress;
+                names[currentIndex] = deployedROSCAs[i].name;
+                creators[currentIndex] = deployedROSCAs[i].creator;
+                creationTimes[currentIndex] = deployedROSCAs[i].creationTime;
+                currentIndex++;
+            }
+        }
+        
+        return (ids, addresses, names, creators, creationTimes);
+    }
+    
     /* ============================================================================
                                     UTILITY FUNCTIONS
     ============================================================================ */
@@ -233,6 +307,50 @@ contract ROSCAFactory is Ownable, ReentrancyGuard {
             value /= 10;
         }
         return string(buffer);
+    }
+    
+    /**
+     * @dev Helper function for case-insensitive string matching
+     * Checks if 'source' contains 'searchTerm' (case-insensitive)
+     */
+    function _containsIgnoreCase(string memory source, string memory searchTerm) internal pure returns (bool) {
+        bytes memory sourceBytes = bytes(source);
+        bytes memory searchBytes = bytes(searchTerm);
+        
+        if (searchBytes.length > sourceBytes.length) {
+            return false;
+        }
+        
+        if (searchBytes.length == 0) {
+            return true;
+        }
+        
+        // Convert both to lowercase and search
+        for (uint256 i = 0; i <= sourceBytes.length - searchBytes.length; i++) {
+            bool found = true;
+            for (uint256 j = 0; j < searchBytes.length; j++) {
+                bytes1 sourceByte = sourceBytes[i + j];
+                bytes1 searchByte = searchBytes[j];
+                
+                // Convert to lowercase
+                if (sourceByte >= 0x41 && sourceByte <= 0x5A) {
+                    sourceByte = bytes1(uint8(sourceByte) + 32);
+                }
+                if (searchByte >= 0x41 && searchByte <= 0x5A) {
+                    searchByte = bytes1(uint8(searchByte) + 32);
+                }
+                
+                if (sourceByte != searchByte) {
+                    found = false;
+                    break;
+                }
+            }
+            if (found) {
+                return true;
+            }
+        }
+        
+        return false;
     }
     
     // Receive function for creation fees

@@ -48,6 +48,9 @@ contract ROSCA is ReentrancyGuard, Ownable {
     uint256 public gracePeriod = 2 days;  // Grace period before auto-start
     uint256 public maxMissedRounds = 2;   // Max missed rounds before penalty
     
+    // ROSCA Identity
+    string public roscaName;              // Custom name for the ROSCA
+    
     // State
     bool private _initialized;
     ROSCAStatus public status = ROSCAStatus.RECRUITING;
@@ -66,6 +69,7 @@ contract ROSCA is ReentrancyGuard, Ownable {
     // Events
     event MemberJoined(address indexed member, uint256 timestamp, uint256 depositAmount);
     event RecruitmentComplete(uint256 timestamp, uint256 gracePeriodEnd);
+    event ROSCAReadyToStart(uint256 timestamp);
     event ROSCAStarted(uint256 timestamp);
     event RoundStarted(uint256 indexed roundNumber, uint256 deadline, address indexed winner);
     event ContributionMade(address indexed member, uint256 indexed roundNumber, uint256 amount);
@@ -73,6 +77,7 @@ contract ROSCA is ReentrancyGuard, Ownable {
     event MemberPenalized(address indexed member, uint256 penaltyAmount, string reason);
     event ROSCACompleted(uint256 timestamp);
     event ROSCACancelled(string reason);
+    event ROSCANameUpdated(string oldName, string newName);
 
     modifier onlyMember() {
         require(members[msg.sender].isActive, "Not an active member");
@@ -88,17 +93,21 @@ contract ROSCA is ReentrancyGuard, Ownable {
         uint256 _contributionAmount,
         uint256 _roundDuration,
         uint256 _maxMembers,
-        address _creator
+        address _creator,
+        string memory _roscaName
     ) Ownable(_creator) {
         require(_maxMembers >= 2, "Need at least 2 members");
         require(_contributionAmount > 0, "Contribution must be > 0");
         require(_roundDuration >= 1 days, "Round too short");
         require(_creator != address(0), "Creator cannot be zero address");
+        require(bytes(_roscaName).length > 0, "ROSCA name cannot be empty");
+        require(bytes(_roscaName).length <= 50, "ROSCA name too long");
         
         contributionAmount = _contributionAmount;
         roundDuration = _roundDuration;
         maxMembers = _maxMembers;
         totalRounds = _maxMembers;
+        roscaName = _roscaName;
         
         // Always add creator as the first member
         _addMember(_creator);
@@ -106,6 +115,19 @@ contract ROSCA is ReentrancyGuard, Ownable {
         _initialized = true;
     }
     
+
+    /**
+     * @dev Set or update ROSCA name (only owner)
+     */
+    function setRoscaName(string memory _newName) external onlyOwner {
+        require(bytes(_newName).length > 0, "ROSCA name cannot be empty");
+        require(bytes(_newName).length <= 50, "ROSCA name too long");
+        
+        string memory oldName = roscaName;
+        roscaName = _newName;
+        
+        emit ROSCANameUpdated(oldName, _newName);
+    }
 
     /**
      * @dev Join ROSCA with required security deposit
@@ -127,11 +149,12 @@ contract ROSCA is ReentrancyGuard, Ownable {
         
         emit MemberJoined(msg.sender, block.timestamp, requiredDeposit);
         
-        // Check if recruitment is complete
-        if (totalMembers == maxMembers) {
+        // Check if recruitment is complete AND all deposits are paid
+        if (totalMembers == maxMembers && _allMembersReady()) {
             status = ROSCAStatus.WAITING;
             recruitmentCompleteTime = block.timestamp;
-            emit RecruitmentComplete(block.timestamp, block.timestamp + gracePeriod);
+            emit RecruitmentComplete(block.timestamp, 0); // No grace period needed
+            emit ROSCAReadyToStart(block.timestamp); // Signal that any member can start
         }
     }
     
@@ -153,10 +176,10 @@ contract ROSCA is ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Start ROSCA after grace period
+     * @dev Start ROSCA - can be called by any member once all have joined and paid deposits
      */
-    function startROSCA() external whenStatus(ROSCAStatus.WAITING) {
-        require(block.timestamp >= recruitmentCompleteTime + gracePeriod, "Grace period not over");
+    function startROSCA() external onlyMember whenStatus(ROSCAStatus.WAITING) {
+        require(_allMembersReady(), "Not all members have paid deposits");
         require(totalMembers >= 2, "Need at least 2 members");
         
         status = ROSCAStatus.ACTIVE;
@@ -167,9 +190,10 @@ contract ROSCA is ReentrancyGuard, Ownable {
     }
     
     /**
-     * @dev Force start by owner (emergency)
+     * @dev Force start - can be called by any member (no grace period needed)
      */
-    function forceStart() external onlyOwner whenStatus(ROSCAStatus.WAITING) {
+    function forceStart() external onlyMember whenStatus(ROSCAStatus.WAITING) {
+        require(_allMembersReady(), "Not all members have paid deposits");
         require(totalMembers >= 2, "Need at least 2 members");
         
         status = ROSCAStatus.ACTIVE;
@@ -177,6 +201,25 @@ contract ROSCA is ReentrancyGuard, Ownable {
         _initializeRound(currentRound);
         
         emit ROSCAStarted(block.timestamp);
+    }
+    
+    /**
+     * @dev Check if all members have joined and paid their deposits
+     */
+    function _allMembersReady() private view returns (bool) {
+        // Check if we have max members and all have paid deposits
+        if (totalMembers < maxMembers) {
+            return false;
+        }
+        
+        for (uint256 i = 0; i < membersList.length; i++) {
+            address member = membersList[i];
+            if (members[member].isActive && members[member].depositAmount == 0) {
+                return false; // Member hasn't paid deposit
+            }
+        }
+        
+        return true;
     }
 
     function _initializeRound(uint256 roundNumber) private {
@@ -306,11 +349,37 @@ contract ROSCA is ReentrancyGuard, Ownable {
     }
 
     // View functions
+    function isReadyToStart() external view returns (bool) {
+        return status == ROSCAStatus.WAITING && _allMembersReady();
+    }
+    
+    function getMemberReadiness() external view returns (
+        uint256 totalJoined,
+        uint256 totalPaidDeposits,
+        uint256 maxMembersCount,
+        bool allReady
+    ) {
+        uint256 paidCount = 0;
+        for (uint256 i = 0; i < membersList.length; i++) {
+            address member = membersList[i];
+            if (members[member].isActive && members[member].depositAmount > 0) {
+                paidCount++;
+            }
+        }
+        
+        return (
+            totalMembers,
+            paidCount,
+            maxMembers,
+            _allMembersReady()
+        );
+    }
+
     function getTimeUntilStart() external view returns (uint256) {
+        // ROSCA can start immediately when all members are ready
         if (status != ROSCAStatus.WAITING) return 0;
-        uint256 startTime = recruitmentCompleteTime + gracePeriod;
-        if (block.timestamp >= startTime) return 0;
-        return startTime - block.timestamp;
+        if (_allMembersReady()) return 0; // Can start now!
+        return type(uint256).max; // Not ready yet, return max value to indicate indefinite wait
     }
 
     function getTimeUntilRoundEnd() external view returns (uint256) {

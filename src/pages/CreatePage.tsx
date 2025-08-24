@@ -28,6 +28,7 @@ export default function CreatePage() {
   const { addChama } = useDashboardData();
 
   const [formData, setFormData] = useState({
+    roscaName: '',
     contribution: '',
     roundDuration: '7',
     memberTarget: 5
@@ -46,6 +47,15 @@ export default function CreatePage() {
     const errs: Record<string, string> = {};
     const contrib = parseFloat(formData.contribution);
 
+    // ROSCA name validation
+    if (!formData.roscaName.trim()) {
+      errs.roscaName = 'ROSCA name is required';
+    } else if (formData.roscaName.trim().length < 3) {
+      errs.roscaName = 'ROSCA name must be at least 3 characters';
+    } else if (formData.roscaName.trim().length > 50) {
+      errs.roscaName = 'ROSCA name must be 50 characters or less';
+    }
+
     // Basic validation (no API calls to prevent refresh)
     if (!formData.contribution || contrib < minAmount) {
       errs.contribution = `Contribution must be ≥ ${minAmount} cBTC`;
@@ -59,7 +69,7 @@ export default function CreatePage() {
 
     setErrors(errs);
     return Object.keys(errs).length === 0;
-  }, [formData.contribution, formData.memberTarget, minAmount, maxAmount, minMembers, maxMembers]);
+  }, [formData.roscaName, formData.contribution, formData.memberTarget, minAmount, maxAmount, minMembers, maxMembers]);
 
   // Separate balance check (only on submit)
   const checkBalance = useCallback(async (): Promise<string | null> => {
@@ -105,7 +115,8 @@ export default function CreatePage() {
       const txHash = await roscaHook.createNativeROSCA(
         formData.contribution,                        // contribution amount
         parseInt(formData.roundDuration) * 86400,     // round duration in seconds
-        formData.memberTarget                         // max members
+        formData.memberTarget,                        // max members
+        formData.roscaName.trim()                     // ROSCA name
       );
 
       if (txHash) {
@@ -214,6 +225,28 @@ export default function CreatePage() {
                   <p>• Security deposit calculated automatically (2x contribution)</p>
                   <p>• Creation fee: {ROSCA_CONFIG.FACTORY_CREATION_FEE} cBTC</p>
                 </div>
+              </div>
+
+              {/* ROSCA Name */}
+              <div className="space-y-2">
+                <Label>Chama Name</Label>
+                <Input
+                  type="text"
+                  placeholder="e.g. Mama Mboga Savings, Harambee Circle, Business Partners"
+                  value={formData.roscaName}
+                  onChange={e => setFormData(p => ({ ...p, roscaName: e.target.value }))}
+                  className="bg-dark-gray/50 border-gray-600 text-black"
+                  maxLength={50}
+                />
+                <p className="text-xs text-gray-400">
+                  Give your savings circle a meaningful name (3-50 characters)
+                </p>
+                {errors.roscaName && (
+                  <div className="text-red-400 text-sm flex items-center gap-1">
+                    <AlertCircle size={14} />
+                    {errors.roscaName}
+                  </div>
+                )}
               </div>
 
               {/* Contribution */}

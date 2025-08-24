@@ -66,30 +66,34 @@ export const coreDAOTestnet = defineChain({
  * Network Configuration Constants
  */
 export const NETWORK_CONFIG = {
-  // Primary network (Citrea)
+  // Citrea Testnet Only (no mainnet)
   CHAIN_ID: 5115,
   CHAIN_ID_HEX: '0x13FB', // 5115 in hex
+  // Blast as primary, Citrea testnet RPC as backup
   RPC_URL: import.meta.env.VITE_BLAST_API_PROJECT_ID 
     ? `https://citrea-testnet.blastapi.io/${import.meta.env.VITE_BLAST_API_PROJECT_ID}`
-    : 'https://rpc.testnet.citrea.xyz', // Fallback RPC URL
+    : 'https://rpc.testnet.citrea.xyz', // Backup if no Blast API key
+  RPC_URLS: [
+    // Primary: Blast API (if available)
+    ...(import.meta.env.VITE_BLAST_API_PROJECT_ID 
+      ? [`https://citrea-testnet.blastapi.io/${import.meta.env.VITE_BLAST_API_PROJECT_ID}`]
+      : []
+    ),
+    // Backup: Default Citrea testnet RPC
+    'https://rpc.testnet.citrea.xyz',
+  ],
   EXPLORER_URL: 'https://explorer.testnet.citrea.xyz',
   FAUCET_URL: 'https://citrea.xyz/faucet',
   CURRENCY_SYMBOL: 'cBTC',
   CURRENCY_NAME: 'Citrea Bitcoin',
   CURRENCY_DECIMALS: 18,
-  
-  // Alternative network (CoreDAO)
-  ALT_CHAIN_ID: 1115,
-  ALT_RPC_URL: 'https://rpc.test.btcs.network',
-  ALT_EXPLORER_URL: 'https://scan.test.btcs.network',
-  ALT_CURRENCY_SYMBOL: 'tCORE',
 } as const;
 
 /**
- * Dynamic Wallet Configuration for Citrea & CoreDAO
+ * Dynamic Wallet Configuration for Citrea Testnet Only
  */
 export const DYNAMIC_NETWORK_CONFIG = [
-  // Citrea Testnet (Primary)
+  // Citrea Testnet (Primary and Only)
   {
     blockExplorerUrls: [NETWORK_CONFIG.EXPLORER_URL],
     chainId: NETWORK_CONFIG.CHAIN_ID,
@@ -102,23 +106,10 @@ export const DYNAMIC_NETWORK_CONFIG = [
       symbol: NETWORK_CONFIG.CURRENCY_SYMBOL,
     },
     networkId: NETWORK_CONFIG.CHAIN_ID,
-    rpcUrls: [NETWORK_CONFIG.RPC_URL],
+    rpcUrls: NETWORK_CONFIG.RPC_URLS, // Use multiple RPC URLs for reliability
     vanityName: citreaTestnet.name,
   },
-  // CoreDAO Testnet (Alternative)
-  {
-    blockExplorerUrls: [NETWORK_CONFIG.ALT_EXPLORER_URL],
-    chainId: NETWORK_CONFIG.ALT_CHAIN_ID,
-    chainName: coreDAOTestnet.name,
-    iconUrls: ['https://coredao.org/favicon.ico'],
-    name: coreDAOTestnet.name,
-    nativeCurrency: {
-      decimals: 18,
-      name: 'Core',
-      symbol: NETWORK_CONFIG.ALT_CURRENCY_SYMBOL,
-    },
-    networkId: NETWORK_CONFIG.ALT_CHAIN_ID,
-    rpcUrls: [NETWORK_CONFIG.ALT_RPC_URL],
+];
     vanityName: coreDAOTestnet.name,
   },
 ];
@@ -137,9 +128,9 @@ export const DYNAMIC_NETWORK_CONFIG = [
  * Deployed on 2025-08-20 with enhanced features: deposits, grace periods, penalties
  */
 export const CONTRACT_ADDRESSES = {
-  ROSCA_FACTORY: (import.meta.env.VITE_ROSCA_FACTORY_ADDRESS || '0x0f84E3eB4B8a212942D717d8487C6Db1FBe8f17f') as Address,
-  MICRO_SACCO: (import.meta.env.VITE_MICRO_SACCO_ADDRESS || '0xCb31b92eE34e6bD7bb683Db495B8afE7ebd64d59') as Address,
-  USDC: (import.meta.env.VITE_USDC_ADDRESS || '0x78642728e4Ab7C12546f1A5B829ca471df5234a8') as Address,
+  ROSCA_FACTORY: (import.meta.env.VITE_ROSCA_FACTORY_ADDRESS || '0x650227713428012d253832C0b7879F9c3B4FF262') as Address,
+  MICRO_SACCO: (import.meta.env.VITE_MICRO_SACCO_ADDRESS || '0xde4835fe0d0395D82B5A0b65458e976D3ff1647d') as Address,
+  USDC: (import.meta.env.VITE_USDC_ADDRESS || '0x66BFC419A61E4a5C05eF8513A195cd9A5818504C') as Address,
   // Native ETH ROSCA - no token implementation needed for ROSCA system
 } as const;
 
@@ -149,9 +140,9 @@ export const CONTRACT_ADDRESSES = {
 export const DEPLOYMENT_INFO = {
   network: 'citrea-testnet',
   chainId: 5115,
-  timestamp: '2025-08-20T15:59:27Z', // Updated by deployment script
+  timestamp: '2025-08-24T08:20:00Z', // Updated by deployment script
   deployer: '0x09aB514B6974601967E7b379478EFf4073cceD06', // Updated by deployment script
-  version: '3.0.0', // Enhanced ROSCA with MicroSacco integration
+  version: '3.0.1', // Latest deployment with updated addresses
   phase: 'Phase 2 - Enhanced ROSCA + MicroSacco'
 } as const;
 
@@ -410,37 +401,31 @@ export function isDynamicConfigured(): boolean {
   return getDynamicEnvironmentId() !== null;
 }
 export function isCorrectNetwork(chainId: number): boolean {
-  return chainId === NETWORK_CONFIG.CHAIN_ID || chainId === NETWORK_CONFIG.ALT_CHAIN_ID;
+  return chainId === NETWORK_CONFIG.CHAIN_ID; // Only Citrea testnet (5115)
 }
 
 /**
  * Get explorer URL for a transaction hash
  */
 export function getTransactionUrl(hash: string, chainId?: number): string {
-  const explorerUrl = chainId === NETWORK_CONFIG.ALT_CHAIN_ID 
-    ? NETWORK_CONFIG.ALT_EXPLORER_URL 
-    : NETWORK_CONFIG.EXPLORER_URL;
-  return `${explorerUrl}/tx/${hash}`;
+  // Only support Citrea testnet
+  return `${NETWORK_CONFIG.EXPLORER_URL}/tx/${hash}`;
 }
 
 /**
  * Get explorer URL for an address
  */
 export function getAddressUrl(address: string, chainId?: number): string {
-  const explorerUrl = chainId === NETWORK_CONFIG.ALT_CHAIN_ID 
-    ? NETWORK_CONFIG.ALT_EXPLORER_URL 
-    : NETWORK_CONFIG.EXPLORER_URL;
-  return `${explorerUrl}/address/${address}`;
+  // Only support Citrea testnet
+  return `${NETWORK_CONFIG.EXPLORER_URL}/address/${address}`;
 }
 
 /**
  * Get explorer URL for a block
  */
 export function getBlockUrl(blockNumber: number | string, chainId?: number): string {
-  const explorerUrl = chainId === NETWORK_CONFIG.ALT_CHAIN_ID 
-    ? NETWORK_CONFIG.ALT_EXPLORER_URL 
-    : NETWORK_CONFIG.EXPLORER_URL;
-  return `${explorerUrl}/block/${blockNumber}`;
+  // Only support Citrea testnet
+  return `${NETWORK_CONFIG.EXPLORER_URL}/block/${blockNumber}`;
 }
 
 /**

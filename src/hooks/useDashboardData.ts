@@ -175,7 +175,7 @@ export function useDashboardData() {
       
       return {
         address: chamaAddress,
-        name: `ROSCA ${chamaAddress.slice(0, 6)}...${chamaAddress.slice(-4)}`,
+        name: chamaInfo.roscaName || `ROSCA ${chamaAddress.slice(0, 6)}...${chamaAddress.slice(-4)}`, // Use actual name or fallback
         token: chamaInfo.token,
         tokenSymbol,
         contribution: chamaInfo.contribution,

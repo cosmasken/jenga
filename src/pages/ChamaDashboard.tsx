@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useDynamicContext, useIsLoggedIn } from '@dynamic-labs/sdk-react-core';
 import { useRosca } from '@/hooks/useRosca';
@@ -65,6 +65,7 @@ export default function ChamaDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [isDataLoading, setIsDataLoading] = useState(false); // Prevent multiple calls
+  const loadingRef = useRef(false); // Additional protection against multiple calls
   const [userMembershipStatus, setUserMembershipStatus] = useState<{
     isMember: boolean;
     isCreator: boolean;
@@ -74,6 +75,21 @@ export default function ChamaDashboard() {
     isCreator: false,
     hasContributed: false
   });
+  const [roscaStatus, setRoscaStatus] = useState<{
+    status: number | null;
+    timeUntilStart: number | null;
+    canStart: boolean;
+  }>({
+    status: null,
+    timeUntilStart: null,
+    canStart: false
+  });
+  const [memberReadiness, setMemberReadiness] = useState<{
+    totalJoined: number;
+    totalPaidDeposits: number;
+    maxMembersCount: number;
+    allReady: boolean;
+  } | null>(null);
 
   // Get chama address from URL params
   const chamaAddress = (params.address || '0x0000000000000000000000000000000000000000') as Address;
@@ -83,7 +99,7 @@ export default function ChamaDashboard() {
 
   // Check user membership status - memoized to prevent infinite loops
   const checkUserMembership = useCallback(async () => {
-    if (!primaryWallet?.address || !chamaInfo) {
+    if (!primaryWallet?.address || !chamaInfo || loadingRef.current) {
       setUserMembershipStatus({
         isMember: false,
         isCreator: false,
@@ -105,13 +121,15 @@ export default function ChamaDashboard() {
         addressesMatch: userAddress.toLowerCase() === chamaInfo.creator.toLowerCase()
       });
 
-      // Check if user is a member using the contract
+      // Check if user is a member using the contract - add delay to prevent rate limiting
+      await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
       const isMember = await roscaHook.isMember(chamaAddress, userAddress);
 
       // Check if user has contributed this round (if they're a member)
       let hasContributed = false;
       if (isMember && chamaInfo.currentRound > 0) {
         try {
+          await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
           hasContributed = await roscaHook.hasContributed(chamaAddress, userAddress, chamaInfo.currentRound);
         } catch (error) {
           console.warn('Could not check contribution status:', error);
@@ -140,7 +158,7 @@ export default function ChamaDashboard() {
         hasContributed: false
       });
     }
-  }, [primaryWallet?.address, chamaInfo, roscaHook, chamaAddress]);
+  }, [primaryWallet?.address, chamaInfo?.creator, chamaInfo?.currentRound, roscaHook, chamaAddress]);
 
 
   // Calculate user role and permissions based on membership status
@@ -161,6 +179,50 @@ export default function ChamaDashboard() {
     chamaCreator: chamaInfo?.creator
   });
 
+  // Check ROSCA status and update state
+  const checkRoscaStatus = useCallback(async () => {
+    if (!chamaAddress || loadingRef.current) return;
+
+    try {
+      // Add delay to prevent rate limiting
+      await new Promise(resolve => setTimeout(resolve, 150)); // 150ms delay
+      const roscaInfo = await roscaHook.getROSCAInfo(chamaAddress);
+      if (!roscaInfo) return;
+
+      await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+      const timeUntilStart = await roscaHook.getTimeUntilStart(chamaAddress);
+      
+      await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+      const isReady = await roscaHook.isReadyToStart(chamaAddress);
+      
+      await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
+      const readiness = await roscaHook.getMemberReadiness(chamaAddress);
+      
+      // NEW: Any member can start when ROSCA is ready
+      const canStart = userMembershipStatus.isMember && isReady;
+
+      setRoscaStatus({
+        status: roscaInfo.status,
+        timeUntilStart,
+        canStart
+      });
+
+      setMemberReadiness(readiness);
+
+      console.log('📊 ROSCA Status:', {
+        status: roscaInfo.status,
+        statusText: ['RECRUITING', 'WAITING', 'ACTIVE', 'COMPLETED', 'CANCELLED'][roscaInfo.status],
+        timeUntilStart,
+        isReady,
+        canStart,
+        isMember: userMembershipStatus.isMember,
+        readiness
+      });
+    } catch (error) {
+      console.warn('Failed to check ROSCA status:', error);
+    }
+  }, [chamaAddress, roscaHook, userMembershipStatus.isMember]);
+
   // Load chama data - simplified to avoid infinite loops
   const loadChamaData = async () => {
     if (!chamaAddress || chamaAddress === '0x0000000000000000000000000000000000000000') {
@@ -170,12 +232,13 @@ export default function ChamaDashboard() {
     }
 
     // Prevent multiple simultaneous calls
-    if (isDataLoading) {
+    if (isDataLoading || loadingRef.current) {
       console.log('⏳ Data loading already in progress, skipping...');
       return;
     }
 
     setIsDataLoading(true);
+    loadingRef.current = true;
     setIsLoading(true);
     setError(null);
 
@@ -189,6 +252,9 @@ export default function ChamaDashboard() {
       if (isLoggedIn && primaryWallet?.address) {
         await checkUserMembership();
       }
+      
+      // Check ROSCA status
+      await checkRoscaStatus();
     } catch (err: any) {
       console.error('❌ Failed to load chama data:', err);
       setError(err.message || 'Failed to load chama data');
@@ -200,6 +266,7 @@ export default function ChamaDashboard() {
     } finally {
       setIsLoading(false);
       setIsDataLoading(false);
+      loadingRef.current = false;
     }
   };
 
@@ -209,7 +276,7 @@ export default function ChamaDashboard() {
     loadChamaData();
   }, [chamaAddress]); // Only depend on chamaAddress
 
-  // Check user membership when chamaInfo loads or wallet changes
+  // Check user membership when chamaInfo loads or wallet changes - NO function dependencies
   useEffect(() => {
     if (chamaInfo && isLoggedIn && primaryWallet?.address) {
       checkUserMembership();
@@ -221,7 +288,14 @@ export default function ChamaDashboard() {
         hasContributed: false
       });
     }
-  }, [chamaInfo, isLoggedIn, primaryWallet?.address, checkUserMembership]);
+  }, [chamaInfo, isLoggedIn, primaryWallet?.address]); // Removed checkUserMembership dependency
+
+  // Check ROSCA status after user membership is determined - NO function dependencies
+  useEffect(() => {
+    if (chamaInfo && userMembershipStatus.isCreator !== undefined) {
+      checkRoscaStatus();
+    }
+  }, [chamaInfo, userMembershipStatus.isCreator]); // Removed checkRoscaStatus dependency
 
   // Debug logging
   useEffect(() => {
@@ -250,6 +324,54 @@ export default function ChamaDashboard() {
     } catch (err: any) {
       toast({
         title: "❌ Failed to join",
+        description: err.message || "Please try again",
+        variant: "destructive",
+      });
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleStartROSCA = async () => {
+    if (!chamaInfo || !isLoggedIn) return;
+
+    setIsActionLoading(true);
+    try {
+      // Check if we can start (all members ready)
+      const timeUntilStart = await roscaHook.getTimeUntilStart(chamaAddress);
+      
+      if (timeUntilStart && timeUntilStart > 0) {
+        // Not all members have joined and paid deposits yet
+        toast({
+          title: "⏰ Not ready to start",
+          description: `ROSCA cannot start yet. All members must join and pay their deposits first.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!userMembershipStatus.isMember) {
+        toast({
+          title: "❌ Access denied",
+          description: "Only members can start the ROSCA.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Any member can start when all are ready - use startROSCA (no force needed)
+      const txHash = await roscaHook.startROSCA(chamaAddress);
+        
+      if (txHash) {
+        toast({
+          title: "🚀 ROSCA Started!",
+          description: "The savings circle is now active. Round 1 has begun!",
+        });
+        await loadChamaData(); // Refresh data
+      }
+    } catch (err: any) {
+      toast({
+        title: "❌ Failed to start ROSCA",
         description: err.message || "Please try again",
         variant: "destructive",
       });
@@ -414,7 +536,7 @@ export default function ChamaDashboard() {
   console.log('✅ Rendering main chama dashboard with data:', chamaInfo);
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      <Header title="Chama Details" />
+      <Header title={chamaInfo?.roscaName || "Chama Details"} />
 
       <div className="max-w-4xl mx-auto p-4 space-y-6">
         {/* Back Button */}
@@ -467,6 +589,25 @@ export default function ChamaDashboard() {
           </Alert>
         )}
 
+        {/* ROSCA Status Alert */}
+        {roscaStatus.status === 1 && (
+          <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+            <Clock className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+              <strong>ROSCA is waiting to start</strong> - All members have joined. 
+              {memberReadiness ? (
+                memberReadiness.allReady ? (
+                  <span className="text-green-600 font-semibold"> All deposits paid - any member can start the ROSCA now!</span>
+                ) : (
+                  ` Waiting for ${memberReadiness.totalJoined - memberReadiness.totalPaidDeposits} more members to pay their deposits.`
+                )
+              ) : (
+                ' Checking deposit status...'
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Main Chama Info Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -478,7 +619,7 @@ export default function ChamaDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Chama Details
+                    {chamaInfo.roscaName || 'Chama Details'}
                   </CardTitle>
                   <p className="text-gray-600 dark:text-gray-400 mt-1">
                     {chamaAddress.slice(0, 6)}...{chamaAddress.slice(-4)}
@@ -586,6 +727,30 @@ export default function ChamaDashboard() {
                 </div>
               </div>
 
+              {/* Deposit Readiness Progress - only show when in WAITING status */}
+              {roscaStatus.status === 1 && memberReadiness && (
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
+                    <span>Deposits Paid</span>
+                    <span>{memberReadiness.totalPaidDeposits}/{memberReadiness.totalJoined} members</span>
+                  </div>
+                  <Progress
+                    value={(memberReadiness.totalPaidDeposits / memberReadiness.totalJoined) * 100}
+                    className="h-3"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>0</span>
+                    <span>{memberReadiness.totalJoined} (All Ready)</span>
+                  </div>
+                  {memberReadiness.allReady && (
+                    <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
+                      <CheckCircle className="w-4 h-4" />
+                      All members ready - ROSCA can start!
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Additional Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3">
@@ -629,6 +794,18 @@ export default function ChamaDashboard() {
                       <span className="text-sm font-medium text-bitcoin">You created this chama</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* Start ROSCA Button - show when status is WAITING (1) and all members ready */}
+                      {roscaStatus.status === 1 && roscaStatus.canStart && (
+                        <Button
+                          onClick={handleStartROSCA}
+                          disabled={isActionLoading}
+                          className="bg-green-600 hover:bg-green-700 col-span-full"
+                        >
+                          <Target className="w-4 h-4 mr-2" />
+                          {isActionLoading ? 'Starting...' : 'Start ROSCA'}
+                        </Button>
+                      )}
+                      
                       {userRole.canContribute && (
                         <Button
                           onClick={handleContribute}
@@ -656,6 +833,18 @@ export default function ChamaDashboard() {
                       <span className="text-sm font-medium text-green-600">You are a member</span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* Start ROSCA Button - show for any member when ready */}
+                      {roscaStatus.status === 1 && roscaStatus.canStart && (
+                        <Button
+                          onClick={handleStartROSCA}
+                          disabled={isActionLoading}
+                          className="bg-green-600 hover:bg-green-700 col-span-full"
+                        >
+                          <Target className="w-4 h-4 mr-2" />
+                          {isActionLoading ? 'Starting...' : 'Start ROSCA'}
+                        </Button>
+                      )}
+                      
                       {userRole.canContribute ? (
                         <Button
                           onClick={handleContribute}
