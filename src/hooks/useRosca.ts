@@ -15,6 +15,7 @@ import {
   parseEther
 } from 'viem';
 import { citreaTestnet, CONTRACT_ADDRESSES, NETWORK_CONFIG } from '@/config';
+import { cachedBlockchainRead, createROSCACacheKey, createUserCacheKey } from '@/utils/requestCache';
 
 // Import the new enhanced contract ABIs
 import ROSCA_ABI_JSON from '../abi/ROSCA.json';
@@ -479,8 +480,28 @@ export function useRosca(
     return executeTransaction(async () => {
       const roscaContract = getROSCAContract(roscaAddress);
       
-      // New factory ROSCAs are native ETH only
-      // Just get the contribution amount and send ETH with the transaction
+      // Check ROSCA status before contributing
+      const roscaInfo = await roscaContract.read.getROSCAInfo();
+      if (roscaInfo.status !== 2) { // ROSCAStatus.ACTIVE = 2
+        const statusNames = ['RECRUITING', 'WAITING', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
+        const currentStatus = statusNames[roscaInfo.status] || 'UNKNOWN';
+        throw new Error(`Cannot contribute: ROSCA is ${currentStatus}. ROSCA must be ACTIVE to accept contributions.`);
+      }
+      
+      // Check if user is a member
+      if (!address) throw new Error('Wallet not connected');
+      const isMember = await roscaContract.read.isMember([address]);
+      if (!isMember) {
+        throw new Error('You must be a member of this ROSCA to contribute');
+      }
+      
+      // Check if user already contributed this round
+      const hasContributed = await roscaContract.read.hasContributedThisRound([address]);
+      if (hasContributed) {
+        throw new Error('You have already contributed to this round');
+      }
+      
+      // Get the contribution amount and send ETH with the transaction
       const contributionAmount = await roscaContract.read.contributionAmount();
       
       const roscaWithWallet = getContract({
@@ -489,10 +510,12 @@ export function useRosca(
         client: client
       });
       
+      console.log(`💰 Contributing ${formatEther(contributionAmount)} cBTC to ROSCA ${roscaAddress}`);
+      
       // Send ETH with the contribution transaction
       return await roscaWithWallet.write.contribute({ value: contributionAmount });
     });
-  }, [executeTransaction, getWalletClient, getROSCAContract]);
+  }, [executeTransaction, getWalletClient, getROSCAContract, address]);
   
   const startROSCA = useCallback(async (roscaAddress: Address): Promise<Hash | undefined> => {
     const client = await getWalletClient();
@@ -541,61 +564,67 @@ export function useRosca(
   
   // View Functions
   const getROSCAInfo = useCallback(async (roscaAddress: Address): Promise<ROSCAInfo | null> => {
-    try {
-      const contract = getROSCAContract(roscaAddress);
-      
-      // First check if this is a valid enhanced ROSCA contract by testing if it has the new functions
+    const cacheKey = createROSCACacheKey('info', roscaAddress);
+    
+    return cachedBlockchainRead(async () => {
       try {
-        // Test call to verify this is an enhanced ROSCA contract
-        await contract.read.status();
-      } catch (statusError: any) {
-        console.warn(`⚠️ Contract at ${roscaAddress} appears to be an old ROSCA contract without enhanced features. Skipping.`);
-        console.warn('This is likely an old contract from before the migration to enhanced ROSCA system.');
+        const contract = getROSCAContract(roscaAddress);
+        
+        // First check if this is a valid enhanced ROSCA contract by testing if it has the new functions
+        try {
+          // Test call to verify this is an enhanced ROSCA contract
+          await contract.read.status();
+        } catch (statusError: any) {
+          console.warn(`⚠️ Contract at ${roscaAddress} appears to be an old ROSCA contract without enhanced features. Skipping.`);
+          console.warn('This is likely an old contract from before the migration to enhanced ROSCA system.');
+          return null;
+        }
+        
+        // Native ETH ROSCAs don't have a token function - they are native ETH only
+        const [
+          contributionAmount,
+          roundDuration,
+          maxMembers,
+          status,
+          currentRound,
+          totalMembers,
+          totalRounds,
+          recruitmentCompleteTime,
+          nextPayoutIndex,
+          roscaName
+        ] = await Promise.all([
+          contract.read.contributionAmount(),
+          contract.read.roundDuration(),
+          contract.read.maxMembers(),
+          contract.read.status(),
+          contract.read.currentRound(),
+          contract.read.totalMembers(),
+          contract.read.totalRounds(),
+          contract.read.recruitmentCompleteTime(),
+          contract.read.nextPayoutIndex(),
+          contract.read.roscaName()
+        ]);
+        
+        return {
+          token: '0x0000000000000000000000000000000000000000' as Address, // Native ETH
+          contributionAmount,
+          roundDuration: Number(roundDuration),
+          maxMembers: Number(maxMembers),
+          status: Number(status) as ROSCAStatus,
+          currentRound: Number(currentRound),
+          totalMembers: Number(totalMembers),
+          totalRounds: Number(totalRounds),
+          recruitmentCompleteTime: Number(recruitmentCompleteTime),
+          nextPayoutIndex: Number(nextPayoutIndex),
+          roscaName: roscaName || `ROSCA ${roscaAddress.slice(0, 8)}...`
+        };
+      } catch (error) {
+        console.error(`Failed to get ROSCA info for ${roscaAddress}:`, error);
         return null;
       }
-      
-      // Native ETH ROSCAs don't have a token function - they are native ETH only
-      const [
-        contributionAmount,
-        roundDuration,
-        maxMembers,
-        status,
-        currentRound,
-        totalMembers,
-        totalRounds,
-        recruitmentCompleteTime,
-        nextPayoutIndex,
-        roscaName
-      ] = await Promise.all([
-        contract.read.contributionAmount(),
-        contract.read.roundDuration(),
-        contract.read.maxMembers(),
-        contract.read.status(),
-        contract.read.currentRound(),
-        contract.read.totalMembers(),
-        contract.read.totalRounds(),
-        contract.read.recruitmentCompleteTime(),
-        contract.read.nextPayoutIndex(),
-        contract.read.roscaName()
-      ]);
-      
-      return {
-        token: '0x0000000000000000000000000000000000000000', // Native ETH address
-        contributionAmount,
-        roundDuration: Number(roundDuration),
-        maxMembers: Number(maxMembers),
-        status: Number(status) as ROSCAStatus,
-        currentRound: Number(currentRound),
-        totalMembers: Number(totalMembers),
-        totalRounds: Number(totalRounds),
-        recruitmentCompleteTime: Number(recruitmentCompleteTime),
-        nextPayoutIndex: Number(nextPayoutIndex),
-        roscaName: roscaName as string
-      };
-    } catch (err) {
-      console.error('Failed to get ROSCA info:', err);
-      return null;
-    }
+    }, cacheKey, { 
+      cacheDuration: 15000 // Cache for 15 seconds - shorter for active ROSCAs
+    });
   }, [getROSCAContract]);
   
   const getRoscaName = useCallback(async (roscaAddress: Address): Promise<string | null> => {

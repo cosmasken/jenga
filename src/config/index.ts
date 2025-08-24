@@ -69,18 +69,18 @@ export const NETWORK_CONFIG = {
   // Citrea Testnet Only (no mainnet)
   CHAIN_ID: 5115,
   CHAIN_ID_HEX: '0x13FB', // 5115 in hex
-  // Blast as primary, Citrea testnet RPC as backup
-  RPC_URL: import.meta.env.VITE_BLAST_API_PROJECT_ID 
+  // Use fallback RPC primarily to avoid rate limiting, Blast as secondary
+  RPC_URL: import.meta.env.VITE_BLAST_API_PROJECT_ID && import.meta.env.VITE_BLAST_API_PROJECT_ID !== 'your-blast-api-project-id-here'
     ? `https://citrea-testnet.blastapi.io/${import.meta.env.VITE_BLAST_API_PROJECT_ID}`
-    : 'https://rpc.testnet.citrea.xyz', // Backup if no Blast API key
+    : 'https://rpc.testnet.citrea.xyz', // Primary: Free RPC to avoid rate limits
   RPC_URLS: [
-    // Primary: Blast API (if available)
-    ...(import.meta.env.VITE_BLAST_API_PROJECT_ID 
+    // Primary: Free Citrea testnet RPC (no rate limits)
+    'https://rpc.testnet.citrea.xyz',
+    // Secondary: Blast API (if available and properly configured)
+    ...(import.meta.env.VITE_BLAST_API_PROJECT_ID && import.meta.env.VITE_BLAST_API_PROJECT_ID !== 'your-blast-api-project-id-here'
       ? [`https://citrea-testnet.blastapi.io/${import.meta.env.VITE_BLAST_API_PROJECT_ID}`]
       : []
     ),
-    // Backup: Default Citrea testnet RPC
-    'https://rpc.testnet.citrea.xyz',
   ],
   EXPLORER_URL: 'https://explorer.testnet.citrea.xyz',
   FAUCET_URL: 'https://citrea.xyz/faucet',
@@ -188,8 +188,10 @@ export const SACCO_CONFIG = {
 export const UI_CONFIG = {
   TOAST_DURATION: 5000, // 5 seconds
   MODAL_ANIMATION_DURATION: 300, // 300ms
-  POLLING_INTERVAL: 10_000, // 10 seconds for data refresh
+  POLLING_INTERVAL: 120_000, // 2 minutes for data refresh (reduced from 10 seconds)
   DECIMALS_DISPLAY: 6, // Number of decimals to show for token amounts
+  CACHE_DURATION: 30_000, // 30 seconds default cache duration
+  LONG_CACHE_DURATION: 300_000, // 5 minutes for static data
 } as const;
 
 /**

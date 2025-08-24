@@ -422,16 +422,52 @@ export default function ChamaDashboard() {
 
     setIsActionLoading(true);
     try {
+      // Check ROSCA status first
+      if (chamaInfo.status === 1) { // WAITING status
+        toast({
+          title: "⏰ ROSCA Not Started",
+          description: "This ROSCA needs to be started first. All members must join and pay deposits, then any member can start it.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (chamaInfo.status !== 2) { // Not ACTIVE
+        const statusNames = ['RECRUITING', 'WAITING', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
+        const currentStatus = statusNames[chamaInfo.status] || 'UNKNOWN';
+        toast({
+          title: "❌ Cannot Contribute",
+          description: `ROSCA is currently ${currentStatus}. Contributions are only accepted when ROSCA is ACTIVE.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       await roscaHook.contribute(chamaAddress);
       toast({
         title: "💸 Contribution sent!",
-        description: `Contribution successful`,
+        description: `Contribution successful for round ${chamaInfo.currentRound}`,
       });
       await loadChamaData(); // Refresh data
     } catch (err: any) {
+      console.error('Contribution error:', err);
+      
+      // Provide specific error messages based on the error
+      let errorMessage = err.message || "Please try again";
+      
+      if (err.message?.includes('Invalid ROSCA status')) {
+        errorMessage = "ROSCA must be ACTIVE to accept contributions. Check if it needs to be started first.";
+      } else if (err.message?.includes('Already contributed')) {
+        errorMessage = "You have already contributed to this round.";
+      } else if (err.message?.includes('Incorrect payment amount')) {
+        errorMessage = "Incorrect payment amount. Please check the contribution amount.";
+      } else if (err.message?.includes('Round deadline passed')) {
+        errorMessage = "The deadline for this round has passed.";
+      }
+      
       toast({
         title: "❌ Contribution failed",
-        description: err.message || "Please try again",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

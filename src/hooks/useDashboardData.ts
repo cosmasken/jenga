@@ -5,6 +5,7 @@ import { useRosca } from '@/hooks/useRosca';
 import { CONTRACT_ADDRESSES } from '@/config';
 import { isLikelyOldContract } from '@/utils/migration';
 import { formatUnits, type Address } from 'viem';
+import { cachedBlockchainRead, createUserCacheKey, createROSCACacheKey, useCacheManager } from '@/utils/requestCache';
 
 export interface ChamaData {
   address: Address;
@@ -67,42 +68,48 @@ export function useDashboardData() {
       return [];
     }
 
-    setLoadingStates(prev => ({ ...prev, isLoadingAddresses: true }));
-    setError(null);
+    const cacheKey = createUserCacheKey('rosca-addresses', base.address);
+    
+    return cachedBlockchainRead(async () => {
+      setLoadingStates(prev => ({ ...prev, isLoadingAddresses: true }));
+      setError(null);
 
-    try {
-      console.log('💾 Loading ROSCAs from localStorage for user:', base.address);
-      
-      // Load only from localStorage (auto-discovery disabled)
-      const storedKey = `user_roscas_${base.address.toLowerCase()}`;
-      const storedROSCAs: Address[] = JSON.parse(localStorage.getItem(storedKey) || '[]');
-      
-      // Filter out old contract addresses
-      const validAddresses = storedROSCAs.filter(addr => {
-        const isOld = isLikelyOldContract(addr);
-        if (isOld) {
-          console.log('🗑️ Filtering out old contract:', addr);
-          return false;
+      try {
+        console.log('💾 Loading ROSCAs from localStorage for user:', base.address);
+        
+        // Load only from localStorage (auto-discovery disabled)
+        const storedKey = `user_roscas_${base.address.toLowerCase()}`;
+        const storedROSCAs: Address[] = JSON.parse(localStorage.getItem(storedKey) || '[]');
+        
+        // Filter out old contract addresses
+        const validAddresses = storedROSCAs.filter(addr => {
+          const isOld = isLikelyOldContract(addr);
+          if (isOld) {
+            console.log('🗑️ Filtering out old contract:', addr);
+            return false;
+          }
+          return true;
+        });
+        
+        console.log(`✅ Loaded ${validAddresses.length} valid ROSCA addresses from storage`);
+        
+        if (validAddresses.length === 0) {
+          console.log('💡 No ROSCAs found in storage.');
+          console.log('   → Create a new ROSCA to get started');
+          console.log('   → Or use "Add ROSCA" to track an existing ROSCA address');
         }
-        return true;
-      });
-      
-      console.log(`✅ Loaded ${validAddresses.length} valid ROSCA addresses from storage`);
-      
-      if (validAddresses.length === 0) {
-        console.log('💡 No ROSCAs found in storage.');
-        console.log('   → Create a new ROSCA to get started');
-        console.log('   → Or use "Add ROSCA" to track an existing ROSCA address');
+        
+        return validAddresses;
+        
+      } catch (error) {
+        console.error('❌ Error loading ROSCA addresses from storage:', error);
+        return [];
+      } finally {
+        setLoadingStates(prev => ({ ...prev, isLoadingAddresses: false }));
       }
-      
-      return validAddresses;
-      
-    } catch (error) {
-      console.error('❌ Error loading ROSCA addresses from storage:', error);
-      return [];
-    } finally {
-      setLoadingStates(prev => ({ ...prev, isLoadingAddresses: false }));
-    }
+    }, cacheKey, {
+      cacheDuration: 60000 // Cache for 1 minute - addresses don't change often
+    });
   }, [base.address]);
 
   // Load addresses when user connects
@@ -278,23 +285,35 @@ export function useDashboardData() {
     }
   }, [base.address, roscaHook.publicClient, chamaAddresses, fetchChamaData]);
 
-  // Auto-fetch when addresses are loaded
+  // Auto-fetch when addresses are loaded (with reduced frequency)
   useEffect(() => {
     let mounted = true;
     
     if (base.address && roscaHook.publicClient && chamaAddresses.length > 0 && !loadingStates.isLoadingChamaData) {
-      // Add a small delay to prevent rapid successive calls
+      // Add a longer delay to prevent rapid successive calls and reduce API usage
       const timeoutId = setTimeout(() => {
         if (mounted) {
           fetchDashboardData();
         }
-      }, 200);
+      }, 1000); // Increased from 200ms to 1 second
       
       return () => {
         clearTimeout(timeoutId);
         mounted = false;
       };
     }
+  }, [base.address, roscaHook.publicClient, chamaAddresses, fetchDashboardData]);
+
+  // Auto-refresh every 2 minutes (instead of constant polling)
+  useEffect(() => {
+    if (!base.address || !roscaHook.publicClient || chamaAddresses.length === 0) return;
+
+    const interval = setInterval(() => {
+      console.log('🔄 Auto-refresh: Updating dashboard data (2-minute interval)');
+      fetchDashboardData();
+    }, 120000); // 2 minutes instead of frequent polling
+
+    return () => clearInterval(interval);
   }, [base.address, roscaHook.publicClient, chamaAddresses, fetchDashboardData]);
   
   // Manual refresh function that reloads everything from chain
