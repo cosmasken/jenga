@@ -153,8 +153,8 @@
       ]
     },
     "/home/groot/Code/akindo/citrea/FINAL/sacco-static/contract/contracts/ROSCA.sol": {
-      "lastModificationDate": 1756036807401,
-      "contentHash": "206dbb0b13a5a69f30bb11e4ec92c5b9",
+      "lastModificationDate": 1756044665761,
+      "contentHash": "a6085104ee89197a5ff6adc22e479ed5",
       "sourceName": "contracts/ROSCA.sol",
       "solcConfig": {
         "version": "0.8.20",

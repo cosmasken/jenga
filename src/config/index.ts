@@ -126,9 +126,9 @@ export const DYNAMIC_NETWORK_CONFIG = [
  * Deployed on 2025-08-20 with enhanced features: deposits, grace periods, penalties
  */
 export const CONTRACT_ADDRESSES = {
-  ROSCA_FACTORY: (import.meta.env.VITE_ROSCA_FACTORY_ADDRESS || '0x650227713428012d253832C0b7879F9c3B4FF262') as Address,
-  MICRO_SACCO: (import.meta.env.VITE_MICRO_SACCO_ADDRESS || '0xde4835fe0d0395D82B5A0b65458e976D3ff1647d') as Address,
-  USDC: (import.meta.env.VITE_USDC_ADDRESS || '0x66BFC419A61E4a5C05eF8513A195cd9A5818504C') as Address,
+  ROSCA_FACTORY: (import.meta.env.VITE_ROSCA_FACTORY_ADDRESS || '0x09582bb16C7bb4a871d96dDba533B92E5c90D708') as Address,
+  MICRO_SACCO: (import.meta.env.VITE_MICRO_SACCO_ADDRESS || '0xB7BdA8401964Bd2BEC1a551C64c47A7098F80112') as Address,
+  USDC: (import.meta.env.VITE_USDC_ADDRESS || '0xE59A85512B82BCf6f69757FCFB61BF5D3AeC88bb') as Address,
   // Native ETH ROSCA - no token implementation needed for ROSCA system
 } as const;
 
@@ -138,10 +138,10 @@ export const CONTRACT_ADDRESSES = {
 export const DEPLOYMENT_INFO = {
   network: 'citrea-testnet',
   chainId: 5115,
-  timestamp: '2025-08-24T08:20:00Z', // Updated by deployment script
+  timestamp: '2025-08-24T14:44:15Z', // Updated by deployment script
   deployer: '0x09aB514B6974601967E7b379478EFf4073cceD06', // Updated by deployment script
-  version: '3.0.1', // Latest deployment with updated addresses
-  phase: 'Phase 2 - Enhanced ROSCA + MicroSacco'
+  version: '4.0.0', // Latest deployment with updated addresses
+  phase: 'Phase 3 - Enhanced ROSCA + MicroSacco (Aug 24, 2025)'
 } as const;
 
 /**

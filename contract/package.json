@@ -6,10 +6,11 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy": "hardhat run scripts/deploy-all.js",
-    "deploy:testnet": "hardhat run scripts/deploy-all.js --network citrea_testnet",
-    "deploy:mainnet": "hardhat run scripts/deploy-all.js --network citrea_mainnet",
-    "deploy:localhost": "hardhat run scripts/deploy-all.js --network localhost",
+    "deploy": "hardhat run scripts/deploy-enhanced.js",
+    "deploy:old": "hardhat run scripts/deploy-all.js",
+    "deploy:testnet": "hardhat run scripts/deploy-enhanced.js --network citrea_testnet",
+    "deploy:mainnet": "hardhat run scripts/deploy-enhanced.js --network citrea_mainnet",
+    "deploy:localhost": "hardhat run scripts/deploy-enhanced.js --network localhost",
     "test-deployment": "hardhat run scripts/test-deployment.js",
     "test-deployment:testnet": "hardhat run scripts/test-deployment.js --network citrea_testnet"
   },
