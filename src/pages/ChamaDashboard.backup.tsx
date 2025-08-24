@@ -1,6 +1,6 @@
 import { useParams, useLocation } from 'wouter';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
-import { useComprehensiveChamaData } from '@/hooks/useChamaData';
+import { useChamaQuery } from '@/hooks/useChamaQuery';
 import { BITCOIN_PRICE_USD } from '@/utils/constants';
 import { formatUnits, type Address } from 'viem';
 import Header from '@/components/Header';
@@ -10,7 +10,6 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
-import { ErrorBoundary, QueryErrorFallback } from '@/components/ErrorBoundary';
 import { ChamaUserState } from '@/components/ChamaUserState';
 import { ChamaActionButtons } from '@/components/ChamaActionButtons';
 import {
@@ -34,7 +33,7 @@ import {
 } from 'lucide-react';
 
 
-function ChamaDashboardContent() {
+export default function ChamaDashboard() {
   const params = useParams();
   const [, navigate] = useLocation();
   const { setShowAuthFlow } = useDynamicContext();
@@ -42,7 +41,7 @@ function ChamaDashboardContent() {
   // Get chama address from URL params
   const chamaAddress = (params.address || '0x0000000000000000000000000000000000000000') as Address;
 
-  // Use the new production-ready hook - replaces complex state management and localStorage
+  // Use the consolidated query hook - this replaces all the complex state management
   const {
     chamaInfo,
     roscaStatus,
@@ -55,17 +54,17 @@ function ChamaDashboardContent() {
     join,
     contribute,
     startROSCA,
-    refetch,
+    refreshAll,
     isJoining,
     isContributing,
     isStartingROSCA,
-  } = useComprehensiveChamaData(chamaAddress);
+  } = useChamaQuery(chamaAddress);
 
   // Current loading state (any of the individual loading states)
   const isAnyLoading = isJoining || isContributing || isStartingROSCA;
 
-  // Action handlers - now with built-in optimistic updates and error handling
-  const handleJoin = () => {
+  // Action handlers with proper error handling and optimistic updates
+  const handleJoin = async () => {
     if (!availableActions.canJoin) {
       toast({
         title: "❌ Cannot Join",
@@ -74,11 +73,23 @@ function ChamaDashboardContent() {
       });
       return;
     }
-    // join() now handles all error states and optimistic updates
-    join();
+
+    try {
+      await join();
+      toast({
+        title: "🎉 Joined successfully!",
+        description: "Welcome to the savings circle. Deposit paid!",
+      });
+    } catch (err: any) {
+      toast({
+        title: "❌ Failed to join",
+        description: err.message || "Please try again",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleStartROSCA = () => {
+  const handleStartROSCA = async () => {
     if (!availableActions.canStartROSCA) {
       toast({
         title: "❌ Cannot start ROSCA",
@@ -87,11 +98,23 @@ function ChamaDashboardContent() {
       });
       return;
     }
-    // startROSCA() now handles all error states
-    startROSCA();
+
+    try {
+      await startROSCA();
+      toast({
+        title: "🚀 ROSCA Started!",
+        description: "The savings circle is now active. Round 1 has begun!",
+      });
+    } catch (err: any) {
+      toast({
+        title: "❌ Failed to start ROSCA",
+        description: err.message || "Please try again",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleContribute = () => {
+  const handleContribute = async () => {
     if (!availableActions.canContribute) {
       toast({
         title: "❌ Cannot contribute",
@@ -100,8 +123,28 @@ function ChamaDashboardContent() {
       });
       return;
     }
-    // contribute() now handles all error states and optimistic updates
-    contribute();
+
+    try {
+      await contribute();
+      toast({
+        title: "💸 Contribution sent!",
+        description: `Contribution successful for round ${chamaInfo?.currentRound}`,
+      });
+    } catch (err: any) {
+      let errorMessage = err.message || "Please try again";
+      
+      if (err.message?.includes('Invalid ROSCA status')) {
+        errorMessage = "ROSCA must be ACTIVE to accept contributions.";
+      } else if (err.message?.includes('Already contributed')) {
+        errorMessage = "You have already contributed to this round.";
+      }
+      
+      toast({
+        title: "❌ Contribution failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
   };
 
 
@@ -176,55 +219,33 @@ function ChamaDashboardContent() {
     );
   }
 
-  // Error state - now handled by TanStack Query error handling
-  if (error) {
+  // Error state
+  if (error || !chamaInfo) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
         <Header title="Error" />
         <div className="max-w-4xl mx-auto p-4 space-y-6">
-          <Button
-            onClick={() => navigate('/dashboard')}
-            variant="ghost"
-            className="mb-4"
-          >
-            <ArrowLeft size={16} className="mr-2" />
-            Back to Dashboard
-          </Button>
-          <QueryErrorFallback error={error instanceof Error ? error : new Error('Unknown error')} refetch={refetch} />
-        </div>
-      </div>
-    );
-  }
-  
-  // Data not loaded yet
-  if (!chamaInfo) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-        <Header title="Chama Not Found" />
-        <div className="max-w-4xl mx-auto p-4 space-y-6">
-          <Button
-            onClick={() => navigate('/dashboard')}
-            variant="ghost"
-            className="mb-4"
-          >
-            <ArrowLeft size={16} className="mr-2" />
-            Back to Dashboard
-          </Button>
           <Card className="text-center py-12">
             <CardContent>
-              <div className="w-16 h-16 bg-orange-100 dark:bg-orange-950 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertCircle size={32} className="text-orange-600" />
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-950 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertCircle size={32} className="text-red-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Chama Not Found
+                {error || 'Chama Not Found'}
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
                 The requested chama could not be found or loaded.
               </p>
-              <Button onClick={refetch} className="bg-bitcoin hover:bg-bitcoin/90">
-                <RefreshCw size={16} className="mr-2" />
-                Try Again
-              </Button>
+              <div className="flex justify-center gap-3">
+                <Button onClick={() => navigate('/dashboard')} variant="outline">
+                  <ArrowLeft size={16} className="mr-2" />
+                  Back to Dashboard
+                </Button>
+                <Button onClick={refreshAll} className="bg-bitcoin hover:bg-bitcoin/90">
+                  <RefreshCw size={16} className="mr-2" />
+                  Try Again
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -290,25 +311,23 @@ function ChamaDashboardContent() {
           onConnect={() => setShowAuthFlow(true)}
         />
 
-        {/* ROSCA Status Alert - now with proper error boundaries */}
+        {/* ROSCA Status Alert */}
         {chamaInfo?.status === 1 && (
-          <ErrorBoundary level="component">
-            <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
-              <Clock className="h-4 w-4 text-yellow-600" />
-              <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                <strong>ROSCA is waiting to start</strong> - All members have joined. 
-                {roscaStatus?.memberReadiness ? (
-                  roscaStatus.memberReadiness.allReady ? (
-                    <span className="text-green-600 font-semibold"> All deposits paid - any member can start the ROSCA now!</span>
-                  ) : (
-                    ` Waiting for more members to pay their deposits.`
-                  )
+          <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+            <Clock className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-800 dark:text-yellow-200">
+              <strong>ROSCA is waiting to start</strong> - All members have joined. 
+              {roscaStatus?.memberReadiness ? (
+                roscaStatus.memberReadiness.allReady ? (
+                  <span className="text-green-600 font-semibold"> All deposits paid - any member can start the ROSCA now!</span>
                 ) : (
-                  ' Checking deposit status...'
-                )}
-              </AlertDescription>
-            </Alert>
-          </ErrorBoundary>
+                  ` Waiting for more members to pay their deposits.`
+                )
+              ) : (
+                ' Checking deposit status...'
+              )}
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Main Chama Info Card */}
@@ -350,10 +369,9 @@ function ChamaDashboardContent() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={refetch}
+                    onClick={refreshAll}
                     disabled={isLoading}
                     className="border-bitcoin/50 text-bitcoin hover:bg-bitcoin/10"
-                    title="Refresh data from blockchain"
                   >
                     <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                   </Button>
@@ -551,14 +569,5 @@ function ChamaDashboardContent() {
         </motion.div>
       </div>
     </div>
-  );
-}
-
-// Export with Error Boundary wrapper for production
-export default function ChamaDashboard() {
-  return (
-    <ErrorBoundary level="page">
-      <ChamaDashboardContent />
-    </ErrorBoundary>
   );
 }

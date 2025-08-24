@@ -956,7 +956,8 @@ export function useRosca(
         totalMembers: info.totalMembers,
         isActive: info.status === ROSCAStatus.ACTIVE || info.status === ROSCAStatus.RECRUITING,
         creator,
-        roscaName: info.roscaName // Add ROSCA name to legacy format
+        roscaName: info.roscaName, // Add ROSCA name to legacy format
+        status: info.status // Add status for new useChamaQuery hook
       };
     } catch (err) {
       console.error('Failed to get chama info:', err);

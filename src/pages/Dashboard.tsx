@@ -71,8 +71,6 @@ export default function Dashboard() {
     isLoading: chamaLoading,
     error: chamaError,
     lastRefresh,
-    refresh,
-    isConnected
   } = useDashboardData();
 
   // Use ROSCA hook for search functionality
@@ -113,7 +111,6 @@ export default function Dashboard() {
   // Enhanced refresh function that refreshes both Chama and Sacco data
   const refreshAllData = async () => {
     await Promise.all([
-      refresh(),
       refreshSaccoData()
     ]);
   };
@@ -172,7 +169,7 @@ export default function Dashboard() {
 
   const handleSearch = async () => {
     if (!searchTerm.trim() || !isLoggedIn) return;
-    
+
     setIsSearching(true);
     try {
       const results = await roscaHook.searchROSCAsByName(searchTerm.trim());
@@ -666,7 +663,7 @@ export default function Dashboard() {
                       className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                       disabled={!isLoggedIn}
                     />
-                    <Button 
+                    <Button
                       onClick={handleSearch}
                       disabled={!searchTerm.trim() || isSearching || !isLoggedIn}
                       className="bg-blue-600 hover:bg-blue-700"
@@ -678,7 +675,7 @@ export default function Dashboard() {
                       )}
                     </Button>
                   </div>
-                  
+
                   {/* Search Results */}
                   {searchResults.length > 0 && (
                     <div className="mt-4 space-y-2">
