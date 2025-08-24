@@ -8,7 +8,9 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "update-contracts": "node scripts/update-contracts.js",
+    "deploy": "cd contract && npm run deploy:testnet && cd .. && npm run update-contracts"
   },
   "dependencies": {
     "@dynamic-labs/ethereum": "^4.25.10",

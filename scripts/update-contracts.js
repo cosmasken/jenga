@@ -5,8 +5,13 @@
  * Usage: node scripts/update-contracts.js [deployment-file]
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function updateFrontendConfig(deploymentData) {
   console.log('🔧 Updating frontend configuration...');
@@ -141,8 +146,6 @@ function main() {
 }
 
 // Run if called directly
-if (require.main === module) {
-  main();
-}
+main();
 
-module.exports = { updateFrontendConfig, updateEnvironmentFile };
+export { updateFrontendConfig, updateEnvironmentFile };

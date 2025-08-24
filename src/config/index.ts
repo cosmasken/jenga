@@ -138,9 +138,9 @@ export const CONTRACT_ADDRESSES = {
 export const DEPLOYMENT_INFO = {
   network: 'citrea-testnet',
   chainId: 5115,
-  timestamp: '2025-08-24T14:44:15Z', // Updated by deployment script
+  timestamp: '2025-08-24T14:47:14.987Z', // Updated by deployment script
   deployer: '0x09aB514B6974601967E7b379478EFf4073cceD06', // Updated by deployment script
-  version: '4.0.0', // Latest deployment with updated addresses
+  version: '4.1.0', // Latest deployment with updated addresses
   phase: 'Phase 3 - Enhanced ROSCA + MicroSacco (Aug 24, 2025)'
 } as const;
 
