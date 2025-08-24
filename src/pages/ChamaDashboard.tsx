@@ -84,6 +84,10 @@ export default function ChamaDashboard() {
     timeUntilStart: null,
     canStart: false
   });
+
+  // Auto-refresh countdown state
+  const [refreshCountdown, setRefreshCountdown] = useState(300); // 5 minutes in seconds
+  const [isAutoRefreshActive, setIsAutoRefreshActive] = useState(true);
   const [memberReadiness, setMemberReadiness] = useState<{
     totalJoined: number;
     totalPaidDeposits: number;
@@ -202,8 +206,10 @@ export default function ChamaDashboard() {
       await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay
       const readiness = await roscaHook.getMemberReadiness(chamaAddress);
       
-      // NEW: Any member can start when ROSCA is ready
-      const canStart = userMembershipStatus.isMember && isReady;
+      // FIXED: Any member can start when ROSCA is in WAITING status and has reached target members
+      const canStart = userMembershipStatus.isMember && 
+                      roscaInfo.status === 1 && // WAITING status
+                      roscaInfo.totalMembers >= roscaInfo.maxMembers; // Has reached target members
 
       setRoscaStatus({
         status: roscaInfo.status,
@@ -216,10 +222,14 @@ export default function ChamaDashboard() {
       console.log('📊 ROSCA Status:', {
         status: roscaInfo.status,
         statusText: ['RECRUITING', 'WAITING', 'ACTIVE', 'COMPLETED', 'CANCELLED'][roscaInfo.status],
+        totalMembers: roscaInfo.totalMembers,
+        maxMembers: roscaInfo.maxMembers,
+        membersReached: roscaInfo.totalMembers >= roscaInfo.maxMembers,
         timeUntilStart,
         isReady,
         canStart,
         isMember: userMembershipStatus.isMember,
+        shouldShowStartButton: roscaInfo.status === 1 && canStart,
         readiness
       });
     } catch (error) {
@@ -279,6 +289,40 @@ export default function ChamaDashboard() {
   useEffect(() => {
     loadChamaData();
   }, [chamaAddress]); // Only depend on chamaAddress
+
+  // Manual refresh function that resets countdown
+  const handleManualRefresh = useCallback(async () => {
+    console.log('🔄 Manual refresh triggered');
+    setRefreshCountdown(300); // Reset to 5 minutes
+    setIsAutoRefreshActive(true);
+    await loadChamaData();
+  }, [loadChamaData]);
+
+  // Auto-refresh countdown effect
+  useEffect(() => {
+    if (!isAutoRefreshActive) return;
+
+    const interval = setInterval(() => {
+      setRefreshCountdown(prev => {
+        if (prev <= 1) {
+          // Time's up, refresh data
+          console.log('⏰ Auto-refresh triggered (5 minutes elapsed)');
+          loadChamaData();
+          return 300; // Reset countdown
+        }
+        return prev - 1;
+      });
+    }, 1000); // Update every second
+
+    return () => clearInterval(interval);
+  }, [isAutoRefreshActive, loadChamaData]);
+
+  // Format countdown for display
+  const formatCountdown = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
   // Check user membership when chamaInfo loads or wallet changes - NO function dependencies
   useEffect(() => {
@@ -720,12 +764,17 @@ export default function ChamaDashboard() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={loadChamaData}
+                    onClick={handleManualRefresh}
                     disabled={isLoading}
                     className="border-bitcoin/50 text-bitcoin hover:bg-bitcoin/10"
+                    title={`Auto-refresh in ${formatCountdown(refreshCountdown)}`}
                   >
                     <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                   </Button>
+                  {/* Countdown Display */}
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Auto-refresh: {formatCountdown(refreshCountdown)}
+                  </div>
                 </div>
               </div>
             </CardHeader>

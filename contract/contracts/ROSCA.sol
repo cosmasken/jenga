@@ -44,7 +44,7 @@ contract ROSCA is ReentrancyGuard, Ownable {
     uint256 public contributionAmount;
     uint256 public roundDuration;
     uint256 public maxMembers;
-    uint256 public depositMultiplier = 2; // Deposit = 2x contribution amount
+    uint256 public depositMultiplier = 1; // Deposit = 1x contribution amount
     uint256 public gracePeriod = 2 days;  // Grace period before auto-start
     uint256 public maxMissedRounds = 2;   // Max missed rounds before penalty
     
