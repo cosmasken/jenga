@@ -1,16 +1,36 @@
+# Dependencies
 node_modules
+
+# Build outputs
 dist
-.DS_Store
-server/public
-vite.config.ts.*
-*.tar.gz
-.vercel
-
-
-.env
 /dist
 /.next
 
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Contract environment files
+/contract/.env
+/contract/.env.local
+/contract/.env.development.local
+/contract/.env.test.local
+/contract/.env.production.local
+
+# Contract artifacts and cache
 /contract/artifacts/
-/contracts/cache/
-WARP.md
+/contract/cache/
+
+# System files
+.DS_Store
+
+# Deployment
+.vercel
+server/public
+
+# Build artifacts
+vite.config.ts.*
+*.tar.gz
