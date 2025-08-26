@@ -5,6 +5,18 @@
 
 import { type Address, type Hash } from 'viem';
 import { useRosca } from '@/hooks/useRosca';
+import { 
+  type EnhancedMemberInfo, 
+  type MemberContributionHistory, 
+  type EnhancedMemberList,
+  type MemberReadiness,
+  type MemberPerformance,
+  type MemberActivity,
+  type MembershipStatus,
+  type DepositStatus,
+  type ContributionStatus,
+  type RoundContribution
+} from '@/types/member';
 
 export interface ChamaBasicInfo {
   address: Address;
@@ -343,6 +355,348 @@ class BlockchainService {
       console.error('Failed to fetch active ROSCAs:', error);
       return [];
     }
+  }
+
+  // ============ ENHANCED MEMBER TRACKING METHODS ============
+
+  /**
+   * Get enhanced member information for a specific member
+   */
+  async getEnhancedMemberInfo(chamaAddress: Address, memberAddress: Address): Promise<EnhancedMemberInfo | null> {
+    const hook = this.ensureHook();
+    
+    try {
+      const [chamaInfo, memberInfo, requiredDeposit] = await Promise.all([
+        this.getChamaInfo(chamaAddress),
+        hook.getMemberInfo(chamaAddress, memberAddress),
+        hook.getRequiredDeposit(chamaAddress)
+      ]);
+
+      if (!memberInfo || !chamaInfo) {
+        return null;
+      }
+
+      // Determine membership status
+      const membershipStatus = this.determineMembershipStatus(
+        memberInfo,
+        chamaInfo,
+        requiredDeposit || 0n
+      );
+
+      // Determine deposit status
+      const depositStatus = this.determineDepositStatus(
+        memberInfo,
+        chamaInfo,
+        requiredDeposit || 0n
+      );
+
+      // Determine current round contribution status
+      const currentRoundStatus = await this.determineContributionStatus(
+        chamaAddress,
+        memberAddress,
+        chamaInfo.currentRound,
+        chamaInfo.status
+      );
+
+      // Calculate performance metrics
+      const contributionRate = chamaInfo.currentRound > 0 
+        ? (memberInfo.roundsPaid / chamaInfo.currentRound) * 100 
+        : 0;
+      
+      const reliabilityScore = this.calculateReliabilityScore(
+        memberInfo.roundsPaid,
+        memberInfo.missedRounds,
+        contributionRate
+      );
+
+      return {
+        address: memberAddress,
+        displayName: `Member ${memberAddress.slice(0, 6)}...${memberAddress.slice(-4)}`,
+        joinTime: Date.now() - (30 * 24 * 60 * 60 * 1000), // Mock join time
+        
+        membershipStatus,
+        isActive: memberInfo.isActive,
+        isCreator: chamaInfo.creator.toLowerCase() === memberAddress.toLowerCase(),
+        
+        depositStatus,
+        depositAmount: requiredDeposit || 0n,
+        
+        currentRoundStatus,
+        totalContributions: memberInfo.totalContributions,
+        roundsPaid: memberInfo.roundsPaid,
+        roundsMissed: memberInfo.missedRounds,
+        lateContributions: 0, // Would need to track separately
+        
+        hasReceivedPayout: memberInfo.hasReceivedPayout,
+        payoutRound: memberInfo.hasReceivedPayout ? memberInfo.payoutRound : undefined,
+        
+        contributionRate,
+        reliabilityScore,
+      };
+    } catch (error) {
+      console.error('Failed to get enhanced member info:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get enhanced member list for a chama
+   */
+  async getEnhancedMemberList(chamaAddress: Address): Promise<EnhancedMemberList | null> {
+    const hook = this.ensureHook();
+    
+    try {
+      const [chamaInfo, memberAddresses, memberReadiness] = await Promise.all([
+        this.getChamaInfo(chamaAddress),
+        hook.getMembers(chamaAddress),
+        hook.getMemberReadiness(chamaAddress)
+      ]);
+
+      if (!chamaInfo || !memberAddresses.length) {
+        return null;
+      }
+
+      // Get enhanced info for each member
+      const members = await Promise.all(
+        memberAddresses.map(address => this.getEnhancedMemberInfo(chamaAddress, address))
+      );
+
+      const validMembers = members.filter((member): member is EnhancedMemberInfo => member !== null);
+
+      // Create readiness array
+      const readiness: MemberReadiness[] = validMembers.map(member => ({
+        address: member.address,
+        hasJoined: true,
+        hasPaidDeposit: member.depositStatus === 'paid',
+        isReady: member.depositStatus === 'paid',
+        joinTime: member.joinTime,
+        depositPaidTime: member.depositPaidTime,
+        depositAmount: member.depositAmount
+      }));
+
+      // Calculate summary
+      const summary = {
+        totalMembers: validMembers.length,
+        activeMembers: validMembers.filter(m => m.isActive).length,
+        membersReady: readiness.filter(r => r.isReady).length,
+        averageReliabilityScore: validMembers.reduce((sum, m) => sum + m.reliabilityScore, 0) / validMembers.length || 0,
+        totalDeposits: validMembers.reduce((sum, m) => sum + m.depositAmount, 0n),
+        totalContributions: validMembers.reduce((sum, m) => sum + m.totalContributions, 0n)
+      };
+
+      return {
+        members: validMembers,
+        readiness,
+        summary
+      };
+    } catch (error) {
+      console.error('Failed to get enhanced member list:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get member contribution history
+   */
+  async getMemberContributionHistory(chamaAddress: Address, memberAddress: Address): Promise<MemberContributionHistory | null> {
+    const hook = this.ensureHook();
+    
+    try {
+      const chamaInfo = await this.getChamaInfo(chamaAddress);
+      if (!chamaInfo) return null;
+
+      const contributions: RoundContribution[] = [];
+      
+      // Get contribution info for each completed round
+      for (let round = 1; round <= chamaInfo.currentRound; round++) {
+        try {
+          const hasContributed = await hook.hasContributed(chamaAddress, memberAddress, round);
+          const roundInfo = await hook.getRoundInfo(chamaAddress, round);
+          
+          const contribution: RoundContribution = {
+            roundNumber: round,
+            status: hasContributed ? 'paid' : 'missed',
+            amount: hasContributed ? chamaInfo.contributionAmount : 0n,
+            isLate: false, // Would need additional tracking
+            contributionTime: roundInfo?.startTime
+          };
+          
+          contributions.push(contribution);
+        } catch (error) {
+          console.warn(`Failed to get contribution info for round ${round}:`, error);
+        }
+      }
+
+      // Calculate summary
+      const totalContributed = contributions
+        .filter(c => c.status === 'paid')
+        .reduce((sum, c) => sum + c.amount, 0n);
+      
+      const onTimeContributions = contributions.filter(c => c.status === 'paid' && !c.isLate).length;
+      const lateContributions = contributions.filter(c => c.status === 'paid' && c.isLate).length;
+      const missedContributions = contributions.filter(c => c.status === 'missed').length;
+
+      return {
+        memberAddress,
+        totalRounds: chamaInfo.currentRound,
+        contributions,
+        summary: {
+          totalContributed,
+          onTimeContributions,
+          lateContributions,
+          missedContributions,
+          averageDaysToContribute: 0, // Would need additional tracking
+          currentStreak: this.calculateCurrentStreak(contributions),
+          longestStreak: this.calculateLongestStreak(contributions)
+        }
+      };
+    } catch (error) {
+      console.error('Failed to get member contribution history:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get member performance analytics
+   */
+  async getMemberPerformance(chamaAddress: Address, memberAddress: Address): Promise<MemberPerformance | null> {
+    const history = await this.getMemberContributionHistory(chamaAddress, memberAddress);
+    const enhancedInfo = await this.getEnhancedMemberInfo(chamaAddress, memberAddress);
+    
+    if (!history || !enhancedInfo) return null;
+
+    const activities: MemberActivity[] = [
+      {
+        type: 'joined',
+        timestamp: enhancedInfo.joinTime,
+        description: 'Joined the chama'
+      }
+    ];
+
+    if (enhancedInfo.depositStatus === 'paid') {
+      activities.push({
+        type: 'deposit_paid',
+        timestamp: enhancedInfo.depositPaidTime || enhancedInfo.joinTime,
+        amount: enhancedInfo.depositAmount,
+        description: 'Paid security deposit'
+      });
+    }
+
+    // Add contribution activities
+    history.contributions.filter(c => c.status === 'paid').forEach(contribution => {
+      activities.push({
+        type: 'contributed',
+        timestamp: contribution.contributionTime || Date.now(),
+        roundNumber: contribution.roundNumber,
+        amount: contribution.amount,
+        description: `Contributed to round ${contribution.roundNumber}`
+      });
+    });
+
+    // Add payout activity
+    if (enhancedInfo.hasReceivedPayout && enhancedInfo.payoutRound) {
+      activities.push({
+        type: 'won_round',
+        timestamp: enhancedInfo.payoutTime || Date.now(),
+        roundNumber: enhancedInfo.payoutRound,
+        amount: enhancedInfo.payoutAmount,
+        description: `Won round ${enhancedInfo.payoutRound}`
+      });
+    }
+
+    // Calculate risk level
+    const riskLevel = this.calculateRiskLevel(enhancedInfo.reliabilityScore, enhancedInfo.contributionRate);
+
+    return {
+      address: memberAddress,
+      reliabilityScore: enhancedInfo.reliabilityScore,
+      contributionRate: enhancedInfo.contributionRate,
+      averageContributionDelay: 0, // Would need additional tracking
+      totalEarnings: enhancedInfo.payoutAmount || 0n,
+      netContribution: enhancedInfo.totalContributions - (enhancedInfo.payoutAmount || 0n),
+      riskLevel,
+      activities: activities.sort((a, b) => b.timestamp - a.timestamp)
+    };
+  }
+
+  // ============ PRIVATE HELPER METHODS ============
+
+  private determineMembershipStatus(memberInfo: any, chamaInfo: ChamaBasicInfo, requiredDeposit: bigint): MembershipStatus {
+    if (!memberInfo.isActive) return 'inactive';
+    if (chamaInfo.status === 3) return 'completed';
+    if (memberInfo.hasReceivedPayout) return 'winner';
+    if (memberInfo.missedRounds > 2) return 'defaulted';
+    if (memberInfo.missedRounds > 0) return 'late';
+    if (chamaInfo.status === 2) return 'active';
+    if (chamaInfo.status === 1) return 'deposit_paid';
+    return 'pending_deposit';
+  }
+
+  private determineDepositStatus(memberInfo: any, chamaInfo: ChamaBasicInfo, requiredDeposit: bigint): DepositStatus {
+    if (chamaInfo.status === 0) return 'required';
+    if (memberInfo.isActive) return 'paid';
+    if (memberInfo.missedRounds > 2) return 'forfeited';
+    return 'required';
+  }
+
+  private async determineContributionStatus(
+    chamaAddress: Address, 
+    memberAddress: Address, 
+    currentRound: number, 
+    chamaStatus: number
+  ): Promise<ContributionStatus> {
+    if (chamaStatus !== 2 || currentRound === 0) return 'not_due';
+    
+    try {
+      const hook = this.ensureHook();
+      const hasContributed = await hook.hasContributedThisRound(chamaAddress, memberAddress);
+      return hasContributed ? 'paid' : 'due';
+    } catch {
+      return 'due';
+    }
+  }
+
+  private calculateReliabilityScore(roundsPaid: number, missedRounds: number, contributionRate: number): number {
+    const baseScore = contributionRate;
+    const penaltyPerMiss = 5;
+    const penalty = Math.min(missedRounds * penaltyPerMiss, 30);
+    return Math.max(0, Math.min(100, baseScore - penalty));
+  }
+
+  private calculateCurrentStreak(contributions: RoundContribution[]): number {
+    let streak = 0;
+    for (let i = contributions.length - 1; i >= 0; i--) {
+      if (contributions[i].status === 'paid' && !contributions[i].isLate) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  private calculateLongestStreak(contributions: RoundContribution[]): number {
+    let maxStreak = 0;
+    let currentStreak = 0;
+    
+    contributions.forEach(contribution => {
+      if (contribution.status === 'paid' && !contribution.isLate) {
+        currentStreak++;
+        maxStreak = Math.max(maxStreak, currentStreak);
+      } else {
+        currentStreak = 0;
+      }
+    });
+    
+    return maxStreak;
+  }
+
+  private calculateRiskLevel(reliabilityScore: number, contributionRate: number): 'low' | 'medium' | 'high' {
+    const combinedScore = (reliabilityScore + contributionRate) / 2;
+    
+    if (combinedScore >= 80) return 'low';
+    if (combinedScore >= 60) return 'medium';
+    return 'high';
   }
 }
 

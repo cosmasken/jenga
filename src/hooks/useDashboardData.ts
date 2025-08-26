@@ -154,10 +154,9 @@ export function useDashboardData() {
         return null;
       }
       
-      // Determine token symbol and decimals
-      const isNative = chamaInfo.token === null || chamaInfo.token === '0x0000000000000000000000000000000000000000';
-      const tokenSymbol = isNative ? 'cBTC' : 'USDC';
-      const decimals = isNative ? 18 : 6;
+      // Only native cBTC token is supported
+      const tokenSymbol = 'cBTC';
+      const decimals = 18;
       
       // Convert amounts to human readable format
       const contributionAmount = parseFloat(formatUnits(chamaInfo.contribution, decimals));

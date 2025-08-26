@@ -67,7 +67,7 @@ export default function Dashboard() {
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
   const roscaHook = useRosca(FACTORY_ADDRESS);
-  
+
   // Initialize blockchain service
   React.useEffect(() => {
     blockchainService.setRoscaHook(roscaHook);
@@ -223,8 +223,8 @@ export default function Dashboard() {
   }
 
   // Calculate total portfolio value
-  const totalPortfolioValue = (saccoData.totalCollateral * BITCOIN_PRICE_USD) + dashboardStats.totalSaved;
-
+  // const totalPortfolioValue = (saccoData.totalCollateral * BITCOIN_PRICE_USD) + dashboardStats.totalSaved;
+  const totalPortfolioValue = dashboardStats.totalSaved;
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <Header title="Dashboard" />

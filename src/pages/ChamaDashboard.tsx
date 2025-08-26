@@ -1,6 +1,8 @@
 import { useParams, useLocation } from 'wouter';
+import { useState } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { useComprehensiveChamaData } from '@/hooks/useChamaData';
+import { useEnhancedMemberList, useMemberStatistics, useMemberContributionHistory } from '@/hooks/useEnhancedMemberData';
 import { BITCOIN_PRICE_USD } from '@/utils/constants';
 import { formatUnits, type Address } from 'viem';
 import Header from '@/components/Header';
@@ -8,11 +10,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import { ErrorBoundary, QueryErrorFallback } from '@/components/ErrorBoundary';
 import { ChamaUserState } from '@/components/ChamaUserState';
 import { ChamaActionButtons } from '@/components/ChamaActionButtons';
+import { MemberList } from '@/components/MemberList';
+import { MemberStatusIndicator } from '@/components/MemberStatusIndicator';
+import { MemberContributionHistory } from '@/components/MemberContributionHistory';
+import type { EnhancedMemberInfo } from '@/types/member';
 import {
   Users,
   DollarSign,
@@ -38,6 +45,7 @@ function ChamaDashboardContent() {
   const params = useParams();
   const [, navigate] = useLocation();
   const { setShowAuthFlow } = useDynamicContext();
+  const [selectedMember, setSelectedMember] = useState<EnhancedMemberInfo | null>(null);
 
   // Get chama address from URL params
   const chamaAddress = (params.address || '0x0000000000000000000000000000000000000000') as Address;
@@ -53,16 +61,18 @@ function ChamaDashboardContent() {
     availableActions,
     userState,
     join,
+    payDeposit,
     contribute,
     startROSCA,
     refetch,
     isJoining,
+    isPayingDeposit,
     isContributing,
     isStartingROSCA,
   } = useComprehensiveChamaData(chamaAddress);
 
   // Current loading state (any of the individual loading states)
-  const isAnyLoading = isJoining || isContributing || isStartingROSCA;
+  const isAnyLoading = isJoining || isPayingDeposit || isContributing || isStartingROSCA;
 
   // Action handlers - now with built-in optimistic updates and error handling
   const handleJoin = () => {
@@ -76,6 +86,19 @@ function ChamaDashboardContent() {
     }
     // join() now handles all error states and optimistic updates
     join();
+  };
+
+  const handlePayDeposit = () => {
+    if (!availableActions.canPayDeposit) {
+      toast({
+        title: "❌ Cannot pay deposit",
+        description: "You cannot pay your deposit at this time.",
+        variant: "destructive",
+      });
+      return;
+    }
+    // payDeposit() now handles all error states and optimistic updates
+    payDeposit();
   };
 
   const handleStartROSCA = () => {
@@ -126,28 +149,36 @@ function ChamaDashboardContent() {
     }
   };
 
-  // Helper functions
+  // Helper functions - Only support native cBTC token
   const getTokenSymbol = () => {
-    if (!chamaInfo) return 'cBTC';
-    return chamaInfo.token === null || chamaInfo.token === '0x0000000000000000000000000000000000000000' ? 'cBTC' : 'USDC';
+    return 'cBTC'; // Only native token supported
   };
 
   const getTokenDecimals = () => {
-    return getTokenSymbol() === 'cBTC' ? 18 : 6;
+    return 18; // cBTC has 18 decimals
   };
 
-  const formatTokenAmount = (amount: bigint) => {
-    const decimals = getTokenDecimals();
-    const formatted = parseFloat(formatUnits(amount, decimals));
-    return formatted.toFixed(decimals === 18 ? 4 : 2);
-  };
-
-  const getUSDValue = (amount: bigint) => {
-    const tokenAmount = parseFloat(formatUnits(amount, getTokenDecimals()));
-    if (getTokenSymbol() === 'cBTC') {
-      return tokenAmount * BITCOIN_PRICE_USD;
+  const formatTokenAmount = (amount: bigint | undefined | null) => {
+    if (amount === undefined || amount === null) return '0.0000';
+    try {
+      const decimals = getTokenDecimals();
+      const formatted = parseFloat(formatUnits(amount, decimals));
+      return formatted.toFixed(4); // Always show 4 decimals for cBTC
+    } catch (error) {
+      console.error('Error formatting token amount:', error, { amount });
+      return '0.0000';
     }
-    return tokenAmount; // USDC is already in USD
+  };
+
+  const getUSDValue = (amount: bigint | undefined | null) => {
+    if (amount === undefined || amount === null) return 0;
+    try {
+      const tokenAmount = parseFloat(formatUnits(amount, getTokenDecimals()));
+      return tokenAmount * BITCOIN_PRICE_USD; // Always convert cBTC to USD
+    } catch (error) {
+      console.error('Error calculating USD value:', error, { amount });
+      return 0;
+    }
   };
 
   const getRoundDurationText = (seconds: number) => {
@@ -266,7 +297,7 @@ function ChamaDashboardContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      <Header title={chamaInfo?.roscaName || "Chama Details"} />
+      <Header title={chamaInfo?.name || "Chama Details"} />
 
       <div className="max-w-4xl mx-auto p-4 space-y-6">
         {/* Back Button */}
@@ -289,6 +320,38 @@ function ChamaDashboardContent() {
           }}
           onConnect={() => setShowAuthFlow(true)}
         />
+
+        {/* Debug Alert - temporary for troubleshooting */}
+        <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950">
+          <AlertCircle className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
+            <div className="space-y-1">
+              <div><strong>DEBUG ROSCA STATUS:</strong></div>
+              <div>• Contract Status: {chamaInfo.status} ({chamaInfo.status === 0 ? 'RECRUITING' : chamaInfo.status === 1 ? 'WAITING' : chamaInfo.status === 2 ? 'ACTIVE' : 'COMPLETED'})</div>
+              <div>• Members: {chamaInfo.totalMembers}/{chamaInfo.memberTarget} {chamaInfo.totalMembers === chamaInfo.memberTarget ? '✅ FULL' : '❌ NOT FULL'}</div>
+              <div>• User Access: {accessLevel}</div>
+              <div>• Can Contribute: {availableActions.canContribute ? '✅ YES' : '❌ NO'}</div>
+              <div>• Can Start ROSCA: {availableActions.canStartROSCA ? '✅ YES' : '❌ NO'}</div>
+              <div>• Current Round: {chamaInfo.currentRound}</div>
+              <div>• User is Member: {userState.isMember ? '✅ YES' : '❌ NO'}</div>
+              <div>• User is Creator: {userState.isCreator ? '✅ YES' : '❌ NO'}</div>
+              {roscaStatus?.memberReadiness && (
+                <div>
+                  • Deposits Paid: {roscaStatus.memberReadiness.totalPaidDeposits}/{roscaStatus.memberReadiness.totalJoined} members {roscaStatus.memberReadiness.allReady ? '✅ ALL READY' : '❌ WAITING FOR DEPOSITS'}
+                  {roscaStatus.memberReadiness.memberDetails && (
+                    <div className="ml-4 mt-1 space-y-1 text-xs">
+                      {roscaStatus.memberReadiness.memberDetails.map((member, i) => (
+                        <div key={i}>
+                          - {member.address.slice(0, 8)}...{member.address.slice(-4)}: {member.hasDeposit ? '✅ PAID' : '❌ NOT PAID'} ({member.isReady ? 'READY' : 'NOT READY'})
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
 
         {/* ROSCA Status Alert - now with proper error boundaries */}
         {chamaInfo?.status === 1 && (
@@ -322,7 +385,7 @@ function ChamaDashboardContent() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-2xl font-bold text-gray-900 dark:text-white">
-                    {chamaInfo.roscaName || 'Chama Details'}
+                    {chamaInfo.name || 'Chama Details'}
                   </CardTitle>
                   <p className="text-gray-600 dark:text-gray-400 mt-1">
                     {chamaAddress.slice(0, 6)}...{chamaAddress.slice(-4)}
@@ -382,10 +445,10 @@ function ChamaDashboardContent() {
                     <span className="text-sm text-gray-600 dark:text-gray-400">Contribution</span>
                   </div>
                   <div className="text-2xl font-bold text-green-600">
-                    {formatTokenAmount(chamaInfo.contribution)} {getTokenSymbol()}
+                    {formatTokenAmount(chamaInfo.contributionAmount)} {getTokenSymbol()}
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    ≈ ${getUSDValue(chamaInfo.contribution).toFixed(2)}
+                    ≈ ${getUSDValue(chamaInfo.contributionAmount).toFixed(2)}
                   </div>
                 </div>
 
@@ -410,8 +473,8 @@ function ChamaDashboardContent() {
                   <div className="text-2xl font-bold text-purple-600">
                     {chamaInfo.currentRound}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Current round
+                <div className="text-xs text-gray-500 mt-1">
+                    Status: {chamaInfo.status} (Current round)
                   </div>
                 </div>
               </div>
@@ -493,6 +556,7 @@ function ChamaDashboardContent() {
                   }}
                   isActionLoading={isAnyLoading}
                   onJoin={handleJoin}
+                  onPayDeposit={handlePayDeposit}
                   onContribute={handleContribute}
                   onStartROSCA={handleStartROSCA}
                   onShare={shareChama}
@@ -504,53 +568,194 @@ function ChamaDashboardContent() {
           </Card>
         </motion.div>
 
-        {/* Additional Info Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-        >
-          <Card className="border-gray-200 dark:border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-                How it Works
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4">
-                  <div className="w-12 h-12 bg-bitcoin/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <UserPlus size={24} className="text-bitcoin" />
+        {/* Enhanced Member Tracking */}
+        {userState.isLoggedIn && (userState.isMember || userState.isCreator) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+          >
+            <Tabs defaultValue="members" className="space-y-4">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="members">Members</TabsTrigger>
+                <TabsTrigger value="details">Member Details</TabsTrigger>
+                <TabsTrigger value="history">Contribution History</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="members">
+                <ErrorBoundary level="component">
+                  <EnhancedMemberListWrapper
+                    chamaAddress={chamaAddress}
+                    tokenSymbol={getTokenSymbol()}
+                    formatTokenAmount={formatTokenAmount}
+                    onMemberClick={setSelectedMember}
+                  />
+                </ErrorBoundary>
+              </TabsContent>
+              
+              <TabsContent value="details">
+                <ErrorBoundary level="component">
+                  {selectedMember ? (
+                    <MemberStatusIndicator
+                      member={selectedMember}
+                      tokenSymbol={getTokenSymbol()}
+                      formatTokenAmount={formatTokenAmount}
+                      compact={false}
+                      showPerformance={true}
+                    />
+                  ) : (
+                    <Card>
+                      <CardContent className="text-center py-12">
+                        <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                          Select a Member
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-400">
+                          Click on a member from the Members tab to view their detailed information.
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </ErrorBoundary>
+              </TabsContent>
+              
+              <TabsContent value="history">
+                <ErrorBoundary level="component">
+                  <MemberContributionHistoryWrapper
+                    chamaAddress={chamaAddress}
+                    memberAddress={selectedMember?.address}
+                    tokenSymbol={getTokenSymbol()}
+                    formatTokenAmount={formatTokenAmount}
+                  />
+                </ErrorBoundary>
+              </TabsContent>
+            </Tabs>
+          </motion.div>
+        )}
+
+        {/* How it Works Card - Show for non-members */}
+        {(!userState.isLoggedIn || (!userState.isMember && !userState.isCreator)) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
+          >
+            <Card className="border-gray-200 dark:border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white">
+                  How it Works
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center p-4">
+                    <div className="w-12 h-12 bg-bitcoin/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <UserPlus size={24} className="text-bitcoin" />
+                    </div>
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">1. Join</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Pay security deposit to secure your spot
+                    </p>
                   </div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">1. Join</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Pay security deposit to secure your spot
-                  </p>
-                </div>
-                <div className="text-center p-4">
-                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Coins size={24} className="text-green-600" />
+                  <div className="text-center p-4">
+                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Coins size={24} className="text-green-600" />
+                    </div>
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">2. Contribute</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Make regular contributions each round
+                    </p>
                   </div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">2. Contribute</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Make regular contributions each round
-                  </p>
-                </div>
-                <div className="text-center p-4">
-                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <TrendingUp size={24} className="text-purple-600" />
+                  <div className="text-center p-4">
+                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <TrendingUp size={24} className="text-purple-600" />
+                    </div>
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-2">3. Receive</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Get the full pot when it's your turn
+                    </p>
                   </div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-2">3. Receive</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Get the full pot when it's your turn
-                  </p>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
       </div>
     </div>
+  );
+}
+
+// Helper wrapper components
+function EnhancedMemberListWrapper({
+  chamaAddress,
+  tokenSymbol,
+  formatTokenAmount,
+  onMemberClick
+}: {
+  chamaAddress: Address;
+  tokenSymbol: string;
+  formatTokenAmount: (amount: bigint) => string;
+  onMemberClick: (member: EnhancedMemberInfo) => void;
+}) {
+  const { data: memberList, isLoading } = useEnhancedMemberList(chamaAddress);
+  
+  return (
+    <MemberList
+      memberList={memberList}
+      isLoading={isLoading}
+      tokenSymbol={tokenSymbol}
+      formatTokenAmount={formatTokenAmount}
+      onMemberClick={onMemberClick}
+      showReadinessIndicator={true}
+    />
+  );
+}
+
+function MemberContributionHistoryWrapper({
+  chamaAddress,
+  memberAddress,
+  tokenSymbol,
+  formatTokenAmount
+}: {
+  chamaAddress: Address;
+  memberAddress?: Address;
+  tokenSymbol: string;
+  formatTokenAmount: (amount: bigint) => string;
+}) {
+  const { data: history, isLoading } = memberAddress 
+    ? useMemberContributionHistory(chamaAddress, memberAddress)
+    : { data: null, isLoading: false };
+  
+  const handleTransactionClick = (txHash: string) => {
+    // Open transaction in block explorer
+    const explorerUrl = `https://explorer.citrea.xyz/tx/${txHash}`;
+    window.open(explorerUrl, '_blank');
+  };
+  
+  if (!memberAddress) {
+    return (
+      <Card>
+        <CardContent className="text-center py-12">
+          <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Select a Member
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            Click on a member from the Members tab to view their contribution history.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  return (
+    <MemberContributionHistory
+      history={history}
+      isLoading={isLoading}
+      tokenSymbol={tokenSymbol}
+      formatTokenAmount={formatTokenAmount}
+      onTransactionClick={handleTransactionClick}
+    />
   );
 }
 

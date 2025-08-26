@@ -187,15 +187,17 @@ export function useJoinRosca(chamaAddress: Address) {
         variant: 'destructive',
       });
     },
-    onSuccess: () => {
+    onSuccess: (data, variables, context) => {
+      // Check if this was a creator paying their deposit vs new member joining
       toast({
-        title: '🎉 Joined successfully!',
-        description: 'Welcome to the savings circle!',
+        title: '🎉 Success!',
+        description: 'Transaction completed successfully!',
       });
       
-      // Invalidate related queries
+      // Force immediate refresh of all related data
       queryClient.invalidateQueries({ queryKey: chamaKeys.detail(chamaAddress) });
       queryClient.invalidateQueries({ queryKey: chamaKeys.status(chamaAddress) });
+      queryClient.invalidateQueries({ queryKey: chamaKeys.userMembership(chamaAddress, userAddress) });
       if (userAddress) {
         queryClient.invalidateQueries({ queryKey: chamaKeys.userRoscas(userAddress) });
       }
@@ -293,7 +295,7 @@ export function useComprehensiveChamaData(chamaAddress: Address) {
   const { primaryWallet } = useDynamicContext();
   const isLoggedIn = useIsLoggedIn();
   const userAddress = primaryWallet?.address as Address;
-
+  const queryClient = useQueryClient();
 
   // Core data queries
   const chamaInfoQuery = useChamaInfo(chamaAddress);
@@ -320,6 +322,7 @@ export function useComprehensiveChamaData(chamaAddress: Address) {
 
   const availableActions = {
     canJoin: accessLevel === 'CAN_JOIN',
+    canPayDeposit: accessLevel === 'CREATOR' && chamaInfoQuery.data?.status === 0 && chamaInfoQuery.data.totalMembers === chamaInfoQuery.data.memberTarget,
     canContribute: userMembershipQuery.data?.isMember && !userMembershipQuery.data.hasContributed && chamaInfoQuery.data?.status === 2,
     canStartROSCA: roscaStatusQuery.data?.canStart && (userMembershipQuery.data?.isMember || userMembershipQuery.data?.isCreator),
     canShare: true,
@@ -353,16 +356,26 @@ export function useComprehensiveChamaData(chamaAddress: Address) {
     
     // Actions
     join: joinMutation.mutate,
+    payDeposit: joinMutation.mutate, // Same as join - the smart contract handles the difference
     contribute: contributeMutation.mutate,
     startROSCA: startMutation.mutate,
     
     // Mutation states
     isJoining: joinMutation.isPending,
+    isPayingDeposit: joinMutation.isPending,
     isContributing: contributeMutation.isPending,
     isStartingROSCA: startMutation.isPending,
     
-    // Manual refresh
+    // Manual refresh with force invalidation
     refetch: () => {
+      // Invalidate and refetch all chama-related data
+      queryClient.invalidateQueries({ queryKey: chamaKeys.detail(chamaAddress) });
+      queryClient.invalidateQueries({ queryKey: chamaKeys.status(chamaAddress) });
+      if (userAddress) {
+        queryClient.invalidateQueries({ queryKey: chamaKeys.userMembership(chamaAddress, userAddress) });
+      }
+      
+      // Also trigger immediate refetch
       chamaInfoQuery.refetch();
       userMembershipQuery.refetch();
       roscaStatusQuery.refetch();

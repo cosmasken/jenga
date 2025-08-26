@@ -15,7 +15,7 @@ import {
 import { formatUnits, type Address } from 'viem';
 
 interface ChamaInfo {
-  contribution: bigint;
+  contributionAmount: bigint;
   securityDeposit: bigint;
   totalMembers: number;
   memberTarget: number;
@@ -41,6 +41,7 @@ interface ActionButtonsProps {
   roscaStatus: RoscaStatus;
   isActionLoading: boolean;
   onJoin: () => void;
+  onPayDeposit: () => void;
   onContribute: () => void;
   onStartROSCA: () => void;
   onShare: () => void;
@@ -55,6 +56,7 @@ export function ChamaActionButtons({
   roscaStatus,
   isActionLoading,
   onJoin,
+  onPayDeposit,
   onContribute,
   onStartROSCA,
   onShare,
@@ -98,6 +100,18 @@ export function ChamaActionButtons({
           <span className="text-sm font-medium text-bitcoin">You created this chama</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Creator needs to pay deposit (status = 0 RECRUITING and chama is full but not ready) */}
+          {chamaInfo.status === 0 && chamaInfo.totalMembers === chamaInfo.memberTarget && (
+            <Button
+              onClick={onPayDeposit}
+              disabled={isActionLoading}
+              className="bg-orange-600 hover:bg-orange-700 col-span-full"
+            >
+              <Shield className="w-4 h-4 mr-2" />
+              {isActionLoading ? 'Paying Deposit...' : `Pay Your Security Deposit (${formatTokenAmount(chamaInfo.securityDeposit)} ${getTokenSymbol()})`}
+            </Button>
+          )}
+          
           {/* Start ROSCA Button - show when status is WAITING (1) and can start */}
           {roscaStatus.status === 1 && roscaStatus.canStart && (
             <Button
