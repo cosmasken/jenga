@@ -19,6 +19,10 @@ import { ChamaActionButtons } from '@/components/ChamaActionButtons';
 import { MemberList } from '@/components/MemberList';
 import { MemberStatusIndicator } from '@/components/MemberStatusIndicator';
 import { MemberContributionHistory } from '@/components/MemberContributionHistory';
+import RoundProgress, { InlineRoundStatus } from '@/components/RoundProgress';
+import CountdownTimer from '@/components/CountdownTimer';
+import { useTimeRemaining, useROSCATimerNotifications } from '@/hooks/useTimeRemaining';
+import { UserGuidance, ContextualHelp, SmartNotification } from '@/components/UserGuidance';
 import type { EnhancedMemberInfo } from '@/types/member';
 import {
   Users,
@@ -71,6 +75,36 @@ function ChamaDashboardContent() {
     isStartingROSCA,
   } = useComprehensiveChamaData(chamaAddress);
 
+  // Get timing information for this ROSCA
+  const { status: roscaTimingStatus, timeData, isLoading: timingLoading } = useTimeRemaining(chamaAddress);
+
+  // Set up timer notifications
+  useROSCATimerNotifications(
+    chamaAddress,
+    (minutesRemaining) => {
+      toast({
+        title: "⏰ Round Deadline Warning",
+        description: `Only ${minutesRemaining} minute${minutesRemaining !== 1 ? 's' : ''} left to contribute!`,
+        variant: "destructive",
+      });
+    },
+    () => {
+      toast({
+        title: "🔄 Round Completed",
+        description: "The current round has ended. Check if a new round has started.",
+      });
+      refetch(); // Refresh data when round completes
+    },
+    () => {
+      toast({
+        title: "🚀 ROSCA Ready to Start",
+        description: "All members are ready! Any member can now start the ROSCA.",
+        variant: "default",
+      });
+      refetch(); // Refresh data when ready to start
+    }
+  );
+
   // Current loading state (any of the individual loading states)
   const isAnyLoading = isJoining || isPayingDeposit || isContributing || isStartingROSCA;
 
@@ -115,7 +149,20 @@ function ChamaDashboardContent() {
   };
 
   const handleContribute = () => {
+    console.log('💆 Contribute button clicked!');
+    console.log('📊 Debug data:', {
+      availableActions,
+      userState,
+      chamaInfo: {
+        status: chamaInfo?.status,
+        currentRound: chamaInfo?.currentRound
+      },
+      isContributing,
+      isAnyLoading
+    });
+
     if (!availableActions.canContribute) {
+      console.log('❌ Cannot contribute - conditions not met');
       toast({
         title: "❌ Cannot contribute",
         description: "You cannot contribute at this time.",
@@ -123,6 +170,8 @@ function ChamaDashboardContent() {
       });
       return;
     }
+
+    console.log('✅ Calling contribute() function...');
     // contribute() now handles all error states and optimistic updates
     contribute();
   };
@@ -181,13 +230,40 @@ function ChamaDashboardContent() {
     }
   };
 
-  const getRoundDurationText = (seconds: number) => {
-    const days = Math.floor(seconds / (24 * 60 * 60));
+  const getRoundDurationText = (seconds: number | undefined | null) => {
+    // Handle invalid input
+    if (seconds === undefined || seconds === null || isNaN(seconds) || seconds <= 0) {
+      return 'Duration not set';
+    }
+    
+    // Ensure seconds is a valid number
+    const validSeconds = Number(seconds);
+    if (!isFinite(validSeconds) || validSeconds <= 0) {
+      return 'Invalid duration';
+    }
+    
+    const days = Math.floor(validSeconds / (24 * 60 * 60));
+    const hours = Math.floor((validSeconds % (24 * 60 * 60)) / (60 * 60));
+    const minutes = Math.floor((validSeconds % (60 * 60)) / 60);
+    
+    // Handle different time ranges
+    if (days === 0) {
+      if (hours === 0) {
+        return minutes <= 1 ? '1 minute' : `${minutes} minutes`;
+      }
+      return hours === 1 ? '1 hour' : `${hours} hours`;
+    }
+    
     if (days === 1) return '1 day';
     if (days < 7) return `${days} days`;
     if (days === 7) return '1 week';
-    if (days < 30) return `${Math.floor(days / 7)} weeks`;
-    return `${Math.floor(days / 30)} months`;
+    if (days < 30) {
+      const weeks = Math.floor(days / 7);
+      return weeks === 1 ? '1 week' : `${weeks} weeks`;
+    }
+    
+    const months = Math.floor(days / 30);
+    return months === 1 ? '1 month' : `${months} months`;
   };
 
   // Loading state
@@ -226,7 +302,7 @@ function ChamaDashboardContent() {
       </div>
     );
   }
-  
+
   // Data not loaded yet
   if (!chamaInfo) {
     return (
@@ -265,7 +341,7 @@ function ChamaDashboardContent() {
 
   // Main render
   // Removed excessive logging to prevent performance issues
-  
+
   // If user is not logged in, show limited view with connect wallet prompt
   if (!userState.isLoggedIn) {
     return (
@@ -281,7 +357,7 @@ function ChamaDashboardContent() {
             Back to Dashboard
           </Button>
 
-          <ChamaUserState 
+          <ChamaUserState
             chamaInfo={chamaInfo}
             userMembershipStatus={{
               isMember: userState.isMember,
@@ -310,8 +386,18 @@ function ChamaDashboardContent() {
           Back to Dashboard
         </Button>
 
+        {/* User Guidance */}
+        <UserGuidance
+          userLevel={userState.isCreator ? 'intermediate' : userState.isMember ? 'beginner' : 'new'}
+          currentContext="chama-detail"
+          chamaStatus={chamaInfo?.status}
+          isCreator={userState.isCreator}
+          isMember={userState.isMember}
+          hasContributed={userState.hasContributed}
+        />
+
         {/* User State Alerts */}
-        <ChamaUserState 
+        <ChamaUserState
           chamaInfo={chamaInfo}
           userMembershipStatus={{
             isMember: userState.isMember,
@@ -322,7 +408,7 @@ function ChamaDashboardContent() {
         />
 
         {/* Debug Alert - temporary for troubleshooting */}
-        <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950">
+        {/* <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950">
           <AlertCircle className="h-4 w-4 text-blue-600" />
           <AlertDescription className="text-blue-800 dark:text-blue-200">
             <div className="space-y-1">
@@ -351,7 +437,7 @@ function ChamaDashboardContent() {
               )}
             </div>
           </AlertDescription>
-        </Alert>
+        </Alert> */}
 
         {/* ROSCA Status Alert - now with proper error boundaries */}
         {chamaInfo?.status === 1 && (
@@ -359,7 +445,7 @@ function ChamaDashboardContent() {
             <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
               <Clock className="h-4 w-4 text-yellow-600" />
               <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-                <strong>ROSCA is waiting to start</strong> - All members have joined. 
+                <strong>ROSCA is waiting to start</strong> - All members have joined.
                 {roscaStatus?.memberReadiness ? (
                   roscaStatus.memberReadiness.allReady ? (
                     <span className="text-green-600 font-semibold"> All deposits paid - any member can start the ROSCA now!</span>
@@ -473,7 +559,7 @@ function ChamaDashboardContent() {
                   <div className="text-2xl font-bold text-purple-600">
                     {chamaInfo.currentRound}
                   </div>
-                <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-gray-500 mt-1">
                     Status: {chamaInfo.status} (Current round)
                   </div>
                 </div>
@@ -518,6 +604,31 @@ function ChamaDashboardContent() {
                 </div>
               )}
 
+              {/* Round Timer and Progress Section */}
+              {!timingLoading && roscaTimingStatus !== null && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="pt-4 border-t border-gray-200 dark:border-gray-700"
+                >
+                  <RoundProgress
+                    status={roscaTimingStatus}
+                    currentRound={chamaInfo.currentRound}
+                    totalRounds={chamaInfo.memberTarget}
+                    timeUntilRoundEnd={timeData.timeUntilRoundEnd}
+                    roundProgress={timeData.roundProgress}
+                    roundStartTime={timeData.roundStartTime}
+                    roundDeadline={timeData.roundDeadline}
+                    roundDuration={chamaInfo.roundDuration}
+                    timeUntilStart={timeData.timeUntilStart}
+                    isExpired={timeData.isExpired}
+                    detailed={true}
+                    className="mb-4"
+                  />
+                </motion.div>
+              )}
+
               {/* Additional Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-3">
@@ -542,6 +653,10 @@ function ChamaDashboardContent() {
 
               {/* Action Buttons */}
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Available Actions</h3>
+                  <ContextualHelp context={!userState.hasContributed && userState.isMember ? 'contributing' : 'joining'} />
+                </div>
                 <ChamaActionButtons
                   accessLevel={accessLevel}
                   chamaInfo={chamaInfo}
@@ -581,7 +696,7 @@ function ChamaDashboardContent() {
                 <TabsTrigger value="details">Member Details</TabsTrigger>
                 <TabsTrigger value="history">Contribution History</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="members">
                 <ErrorBoundary level="component">
                   <EnhancedMemberListWrapper
@@ -592,7 +707,7 @@ function ChamaDashboardContent() {
                   />
                 </ErrorBoundary>
               </TabsContent>
-              
+
               <TabsContent value="details">
                 <ErrorBoundary level="component">
                   {selectedMember ? (
@@ -618,7 +733,7 @@ function ChamaDashboardContent() {
                   )}
                 </ErrorBoundary>
               </TabsContent>
-              
+
               <TabsContent value="history">
                 <ErrorBoundary level="component">
                   <MemberContributionHistoryWrapper
@@ -698,7 +813,7 @@ function EnhancedMemberListWrapper({
   onMemberClick: (member: EnhancedMemberInfo) => void;
 }) {
   const { data: memberList, isLoading } = useEnhancedMemberList(chamaAddress);
-  
+
   return (
     <MemberList
       memberList={memberList}
@@ -722,16 +837,16 @@ function MemberContributionHistoryWrapper({
   tokenSymbol: string;
   formatTokenAmount: (amount: bigint) => string;
 }) {
-  const { data: history, isLoading } = memberAddress 
+  const { data: history, isLoading } = memberAddress
     ? useMemberContributionHistory(chamaAddress, memberAddress)
     : { data: null, isLoading: false };
-  
+
   const handleTransactionClick = (txHash: string) => {
     // Open transaction in block explorer
     const explorerUrl = `https://explorer.citrea.xyz/tx/${txHash}`;
     window.open(explorerUrl, '_blank');
   };
-  
+
   if (!memberAddress) {
     return (
       <Card>
@@ -747,7 +862,7 @@ function MemberContributionHistoryWrapper({
       </Card>
     );
   }
-  
+
   return (
     <MemberContributionHistory
       history={history}

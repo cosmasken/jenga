@@ -137,7 +137,7 @@ export function useDashboardData() {
     return () => {
       mounted = false;
     };
-  }, [base.address, roscaHook.publicClient, fetchUserROSCAAddresses]);
+  }, [base.address, roscaHook.publicClient]); // Removed fetchUserROSCAAddresses to break infinite loop
 
   // Enhanced chama data fetching with better error handling
   const fetchChamaData = useCallback(async (chamaAddress: Address): Promise<ChamaData | null> => {
@@ -301,7 +301,7 @@ export function useDashboardData() {
         mounted = false;
       };
     }
-  }, [base.address, roscaHook.publicClient, chamaAddresses, fetchDashboardData]);
+  }, [base.address, roscaHook.publicClient, chamaAddresses.length]); // Removed fetchDashboardData and used length instead
 
   // Auto-refresh every 2 minutes (instead of constant polling)
   useEffect(() => {
@@ -313,7 +313,7 @@ export function useDashboardData() {
     }, 120000); // 2 minutes instead of frequent polling
 
     return () => clearInterval(interval);
-  }, [base.address, roscaHook.publicClient, chamaAddresses, fetchDashboardData]);
+  }, [base.address, roscaHook.publicClient, chamaAddresses.length]); // Removed fetchDashboardData to prevent infinite loop
   
   // Manual refresh function that reloads everything from chain
   const refreshData = useCallback(async () => {

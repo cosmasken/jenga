@@ -20,7 +20,11 @@ import { useRosca } from '@/hooks/useRosca';
 import { useSaccoStatus, useSaccoFeatureAccess } from '@/contexts/SaccoStatusContext';
 import { SaccoStatusIndicator, SaccoTreasuryStats } from '@/components/SaccoStatusIndicator';
 import { BITCOIN_PRICE_USD, FACTORY_ADDRESS } from '@/utils/constants';
-import { type Address } from 'viem';
+import { type Address, formatUnits } from 'viem';
+import CountdownTimer from '@/components/CountdownTimer';
+import { useTimeRemaining, getTimerDisplayText, getTimerTheme } from '@/hooks/useTimeRemaining';
+import { UserGuidance, InteractiveTutorial, SmartNotification } from '@/components/UserGuidance';
+import { ROSCAStatus } from '@/hooks/useRosca';
 import {
   Users,
   Plus,
@@ -59,6 +63,8 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [showSmartNotification, setShowSmartNotification] = useState(true);
 
   // Sacco modal states
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -80,9 +86,26 @@ export default function Dashboard() {
     error: chamaError,
   } = useUserRoscas(primaryWallet?.address as Address);
 
-  // Mock dashboard stats for now
+  // Helper functions for calculating portfolio values
+  const formatCBTCAmount = (amount: bigint | undefined | null) => {
+    if (amount === undefined || amount === null) return 0;
+    try {
+      return parseFloat(formatUnits(amount, 18)); // cBTC has 18 decimals
+    } catch (error) {
+      console.error('Error formatting cBTC amount:', error, { amount });
+      return 0;
+    }
+  };
+
+  const getCBTCUSDValue = (amount: bigint | undefined | null) => {
+    const cbtcAmount = formatCBTCAmount(amount);
+    return cbtcAmount * BITCOIN_PRICE_USD;
+  };
+
+  // Dashboard stats with proper bigint handling
   const dashboardStats = {
-    totalSaved: userChamas.reduce((sum, chama) => sum + (parseFloat(chama.contributionAmount) || 0), 0),
+    totalSavedCBTC: userChamas.reduce((sum, chama) => sum + formatCBTCAmount(chama.contributionAmount), 0),
+    totalSavedUSD: userChamas.reduce((sum, chama) => sum + getCBTCUSDValue(chama.contributionAmount), 0),
     userChamas: userChamas.length,
     averageRound: userChamas.length > 0 ? Math.round(userChamas.reduce((sum, chama) => sum + (chama.currentRound || 1), 0) / userChamas.length) : 0
   };
@@ -128,22 +151,49 @@ export default function Dashboard() {
 
   const lastRefresh = new Date(); // Placeholder for now
 
-  // Helper function to calculate next round time
-  const getNextRoundText = (chama: any) => {
-    if (!chama.roundDuration) return "Round timing unknown";
-
-    // Calculate days remaining (simplified - in real app would use actual timestamps)
-    const daysInRound = Math.ceil(chama.roundDuration / (24 * 60 * 60));
-    const estimatedDaysRemaining = Math.max(1, daysInRound - (Date.now() % (daysInRound * 24 * 60 * 60 * 1000)) / (24 * 60 * 60 * 1000));
-
-    if (estimatedDaysRemaining < 1) {
-      return "Round ending soon";
-    } else if (estimatedDaysRemaining === 1) {
-      return "Next round in 1 day";
-    } else {
-      return `Next round in ${Math.ceil(estimatedDaysRemaining)} days`;
+  // Component for showing timer for each chama card
+  const ChamaTimer = React.memo(({ chama }: { chama: any }) => {
+    const { status, timeData, isLoading } = useTimeRemaining(chama.address as Address);
+    
+    if (isLoading) {
+      return (
+        <div className="flex items-center space-x-2 text-sm text-gray-500">
+          <Clock size={16} className="animate-spin" />
+          <span>Loading timer...</span>
+        </div>
+      );
     }
-  };
+
+    const timerInfo = getTimerDisplayText(status, timeData);
+    
+    if (timerInfo.type === 'static') {
+      return (
+        <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+          <Clock size={16} />
+          <span>{timerInfo.label}</span>
+        </div>
+      );
+    }
+
+    const theme = timerInfo.value ? getTimerTheme(timerInfo.value) : 'default';
+
+    return (
+      <div className="flex items-center space-x-2">
+        <CountdownTimer
+          targetTime={timerInfo.value || 0}
+          isTimestamp={false}
+          format="compact"
+          theme={theme}
+          label={timerInfo.label}
+          showIcon={true}
+          className="text-sm"
+        />
+      </div>
+    );
+  }, (prevProps, nextProps) => {
+    // Only re-render if chama address changes
+    return prevProps.chama.address === nextProps.chama.address;
+  });
 
   // Redirect if not logged in
   useEffect(() => {
@@ -222,14 +272,35 @@ export default function Dashboard() {
     return null; // Will redirect via useEffect
   }
 
-  // Calculate total portfolio value
-  // const totalPortfolioValue = (saccoData.totalCollateral * BITCOIN_PRICE_USD) + dashboardStats.totalSaved;
-  const totalPortfolioValue = dashboardStats.totalSaved;
+  // Calculate total portfolio value in cBTC
+  const totalPortfolioValueCBTC = dashboardStats.totalSavedCBTC + saccoData.totalCollateral;
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <Header title="Dashboard" />
 
       <div className="max-w-7xl mx-auto p-4 md:p-6 pb-20">
+        {/* User Guidance */}
+        <UserGuidance
+          userLevel={userChamas.length === 0 ? 'new' : userChamas.length < 3 ? 'beginner' : 'intermediate'}
+          currentContext="dashboard"
+          isMember={userChamas.some(chama => chama.totalMembers > 0)}
+          isCreator={userChamas.length > 0}
+          hasContributed={false} // Would need to check this properly
+        />
+
+        {/* Smart Notifications */}
+        {showSmartNotification && userChamas.length === 0 && (
+          <SmartNotification
+            type="info"
+            message="Welcome! Start your Bitcoin savings journey by creating your first chama or joining an existing one."
+            actionText="Get Started"
+            onAction={() => {
+              setShowTutorial(true);
+              setShowSmartNotification(false);
+            }}
+          />
+        )}
+
         {/* Welcome Header */}
         <motion.div
           className="mb-8"
@@ -280,7 +351,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-2xl font-bold text-bitcoin">
-                    ${totalPortfolioValue.toLocaleString()}
+                    {totalPortfolioValueCBTC.toFixed(6)} cBTC
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Portfolio</p>
                 </div>
@@ -296,7 +367,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-2xl font-bold text-blue-600">
-                    ₿{saccoData.totalCollateral}
+                    {saccoData.totalCollateral.toFixed(6)} cBTC
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Sacco Collateral</p>
                 </div>
@@ -513,7 +584,7 @@ export default function Dashboard() {
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600 dark:text-gray-400">Total Saved</span>
-                      <span className="font-semibold">${dashboardStats.totalSaved.toLocaleString()}</span>
+                      <span className="font-semibold">{dashboardStats.totalSavedCBTC.toFixed(6)} cBTC</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600 dark:text-gray-400">Active Groups</span>
@@ -555,7 +626,7 @@ export default function Dashboard() {
                       <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-sm text-gray-600 dark:text-gray-400">Collateral Deposited</span>
-                          <span className="font-semibold">₿{saccoData.totalCollateral.toFixed(4)}</span>
+                          <span className="font-semibold">{saccoData.totalCollateral.toFixed(6)} cBTC</span>
                         </div>
                         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                           <div
@@ -766,22 +837,19 @@ export default function Dashboard() {
                             <div>
                               <p className="text-sm text-gray-600 dark:text-gray-400">Contribution</p>
                               <p className="text-lg font-bold text-bitcoin">
-                                {chama.contributionAmount} {chama.tokenSymbol}
+                                {formatCBTCAmount(chama.contributionAmount).toFixed(4)} cBTC
                               </p>
                             </div>
                             <div>
                               <p className="text-sm text-gray-600 dark:text-gray-400">Security Deposit</p>
                               <p className="text-lg font-bold text-green-600">
-                                {chama.securityDepositAmount} {chama.tokenSymbol}
+                                {formatCBTCAmount(chama.securityDeposit).toFixed(4)} cBTC
                               </p>
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-                              <Clock size={16} />
-                              <span>{getNextRoundText(chama)}</span>
-                            </div>
+                            <div className="flex items-center justify-between">
+                            <ChamaTimer chama={chama} />
                             <div className="flex items-center gap-2">
                               <Button
                                 size="sm"
@@ -844,6 +912,17 @@ export default function Dashboard() {
         onClose={() => setShowWithdrawModal(false)}
         onSuccess={refreshAllData}
       />
+
+      {/* Interactive Tutorial */}
+      {showTutorial && (
+        <InteractiveTutorial
+          onComplete={() => {
+            setShowTutorial(false);
+            // Navigate to create chama page after tutorial
+            navigate('/create');
+          }}
+        />
+      )}
     </div>
   );
 }

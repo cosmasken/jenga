@@ -214,7 +214,19 @@ export function useContributeToRosca(chamaAddress: Address) {
   const userAddress = primaryWallet?.address as Address;
 
   return useMutation({
-    mutationFn: () => blockchainService.contribute(chamaAddress),
+    mutationFn: async () => {
+      console.log('🚀 Starting contribution mutation for:', chamaAddress);
+      console.log('💳 User address:', userAddress);
+      
+      try {
+        const result = await blockchainService.contribute(chamaAddress);
+        console.log('✅ Contribution mutation completed:', result);
+        return result;
+      } catch (error) {
+        console.error('❌ Contribution mutation failed:', error);
+        throw error;
+      }
+    },
     onMutate: async () => {
       if (!userAddress) return;
       
@@ -253,8 +265,12 @@ export function useContributeToRosca(chamaAddress: Address) {
         description: 'Your contribution was successful',
       });
       
-      // Invalidate related queries
+      // Invalidate related queries to force refresh from blockchain
       queryClient.invalidateQueries({ queryKey: chamaKeys.status(chamaAddress) });
+      queryClient.invalidateQueries({ queryKey: chamaKeys.detail(chamaAddress) });
+      if (userAddress) {
+        queryClient.invalidateQueries({ queryKey: chamaKeys.userMembership(chamaAddress, userAddress) });
+      }
     },
   });
 }

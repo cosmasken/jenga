@@ -481,24 +481,64 @@ export function useRosca(
       const roscaContract = getROSCAContract(roscaAddress);
       
       // Check ROSCA status before contributing
-      const roscaInfo = await roscaContract.read.getROSCAInfo();
-      if (roscaInfo.status !== 2) { // ROSCAStatus.ACTIVE = 2
+      const status = await roscaContract.read.status();
+      if (Number(status) !== 2) { // ROSCAStatus.ACTIVE = 2
         const statusNames = ['RECRUITING', 'WAITING', 'ACTIVE', 'COMPLETED', 'CANCELLED'];
-        const currentStatus = statusNames[roscaInfo.status] || 'UNKNOWN';
+        const currentStatus = statusNames[Number(status)] || 'UNKNOWN';
         throw new Error(`Cannot contribute: ROSCA is ${currentStatus}. ROSCA must be ACTIVE to accept contributions.`);
       }
       
       // Check if user is a member
       if (!address) throw new Error('Wallet not connected');
-      const isMember = await roscaContract.read.isMember([address]);
+      const memberInfo = await roscaContract.read.members([address]);
+      const isMember = memberInfo[0]; // isActive is at index 0
       if (!isMember) {
         throw new Error('You must be a member of this ROSCA to contribute');
       }
       
       // Check if user already contributed this round
-      const hasContributed = await roscaContract.read.hasContributedThisRound([address]);
-      if (hasContributed) {
-        throw new Error('You have already contributed to this round');
+      // Since hasContributedThisRound doesn't exist in the contract ABI, we'll check manually
+      const currentRound = await roscaContract.read.currentRound();
+      try {
+        // Try to get recent contribution events for this user and round
+        const currentBlock = await publicClient.getBlockNumber();
+        const fromBlock = currentBlock - 1000n; // Search last ~1k blocks
+        
+        const logs = await publicClient.getLogs({
+          address: roscaAddress,
+          event: {
+            type: 'event',
+            name: 'ContributionMade',
+            inputs: [
+              { name: 'member', type: 'address', indexed: true },
+              { name: 'roundNumber', type: 'uint256', indexed: true },
+              { name: 'amount', type: 'uint256', indexed: false }
+            ]
+          },
+          args: {
+            member: address,
+            roundNumber: currentRound
+          },
+          fromBlock,
+          toBlock: 'latest'
+        });
+        
+        if (logs.length > 0) {
+          throw new Error('You have already contributed to this round');
+        }
+      } catch (eventError: any) {
+        // If event querying fails or the error is about already contributing, handle it
+        if (eventError.message?.includes('already contributed')) {
+          throw eventError;
+        }
+        
+        // If event querying fails for other reasons, fall back to checking roundsPaid
+        console.warn('Event querying failed, falling back to member info check:', eventError);
+        const memberInfo = await roscaContract.read.members([address]);
+        const roundsPaid = Number(memberInfo[4]); // roundsPaid is at index 4
+        if (roundsPaid >= Number(currentRound)) {
+          throw new Error('You have already contributed to this round');
+        }
       }
       
       // Get the contribution amount and send ETH with the transaction
@@ -772,16 +812,37 @@ export function useRosca(
     memberAddress: Address
   ): Promise<boolean> => {
     try {
-      // Since there's no direct function in the ABI, we'll check the member's
-      // contribution status by looking at recent ContributionMade events
       const contract = getROSCAContract(roscaAddress);
       const currentRound = await contract.read.currentRound();
       
-      // Get recent blocks to search for contribution events
-      const currentBlock = await publicClient.getBlockNumber();
-      const fromBlock = currentBlock - 1000n; // Search last ~1k blocks
-      
+      // Primary method: Check member's roundsPaid from the contract
+      // This is more reliable than event querying which often fails on testnet
       try {
+        const memberInfo = await contract.read.members([memberAddress]);
+        const isActive = memberInfo[0]; // isActive is at index 0
+        const roundsPaid = Number(memberInfo[4]); // roundsPaid is at index 4
+        
+        if (!isActive) {
+          return false; // Not a member
+        }
+        
+        // If roundsPaid equals or exceeds currentRound, user has contributed
+        // For current round contribution, roundsPaid should equal currentRound
+        const hasContributed = roundsPaid >= Number(currentRound);
+        
+        console.log(`🔍 Contribution check for ${memberAddress.slice(0, 8)}...${memberAddress.slice(-4)}:`);
+        console.log(`   Current Round: ${currentRound}`);
+        console.log(`   Rounds Paid: ${roundsPaid}`);
+        console.log(`   Has Contributed: ${hasContributed}`);
+        
+        return hasContributed;
+      } catch (contractError) {
+        console.warn('Failed to read member info from contract, trying event logs:', contractError);
+        
+        // Fallback: Try event logs if contract read fails
+        const currentBlock = await publicClient.getBlockNumber();
+        const fromBlock = currentBlock - 1000n; // Search last ~1k blocks
+        
         const logs = await publicClient.getLogs({
           address: roscaAddress,
           event: {
@@ -802,12 +863,6 @@ export function useRosca(
         });
         
         return logs.length > 0;
-      } catch (eventError) {
-        // If event querying fails, fall back to checking if roundsPaid >= currentRound
-        // This is less accurate but provides a reasonable approximation
-        const memberInfo = await contract.read.members([memberAddress]);
-        const roundsPaid = Number(memberInfo[4]); // roundsPaid is at index 4
-        return roundsPaid >= Number(currentRound);
       }
     } catch (err) {
       console.error('Failed to check contribution status:', err);

@@ -29,6 +29,7 @@ export interface ChamaBasicInfo {
   status: number;
   currentRound: number;
   isActive: boolean;
+  roundDuration: number; // Duration in seconds
   creationTime?: number;
 }
 
@@ -86,6 +87,7 @@ class BlockchainService {
       status: info.status || 0,
       currentRound: info.currentRound,
       isActive: info.isActive,
+      roundDuration: info.roundDuration || 0, // Duration in seconds from contract
     };
   }
 
