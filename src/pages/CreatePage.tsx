@@ -1,11 +1,12 @@
 // src/pages/CreatePage.tsx
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { useDynamicContext, useIsLoggedIn } from '@dynamic-labs/sdk-react-core';
+import { blockchainService } from '@/services/blockchainService';
 import { useRosca } from '@/hooks/useRosca';
-import { useDashboardData } from '@/hooks/useDashboardData';
 import { FACTORY_ADDRESS } from '@/utils/constants';
 import { ROSCA_CONFIG } from '@/config';
+import { useQueryClient } from '@tanstack/react-query';
 import InputModal from '@/components/InputModal';
 import Header from '@/components/Header';
 import { toast } from '@/hooks/use-toast';
@@ -24,8 +25,13 @@ export default function CreatePage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isCreating, setIsCreating] = useState(false);
 
+  const queryClient = useQueryClient();
   const roscaHook = useRosca(FACTORY_ADDRESS);
-  const { addChama } = useDashboardData();
+  
+  // Initialize blockchain service with the hook
+  React.useEffect(() => {
+    blockchainService.setRoscaHook(roscaHook);
+  }, [roscaHook]);
 
   const [formData, setFormData] = useState({
     roscaName: '',
@@ -73,14 +79,12 @@ export default function CreatePage() {
 
   // Separate balance check (only on submit)
   const checkBalance = useCallback(async (): Promise<string | null> => {
-    if (!primaryWallet?.address || !roscaHook.publicClient) {
+    if (!primaryWallet?.address) {
       return null;
     }
     
     try {
-      const balance = await roscaHook.publicClient.getBalance({
-        address: primaryWallet.address as Address
-      });
+      const balance = await blockchainService.getBalance(primaryWallet.address as Address);
       const balanceInEth = parseFloat((Number(balance) / 1e18).toFixed(6));
       const contrib = parseFloat(formData.contribution);
       const requiredAmount = contrib + parseFloat(ROSCA_CONFIG.FACTORY_CREATION_FEE);
@@ -93,7 +97,7 @@ export default function CreatePage() {
     }
     
     return null;
-  }, [primaryWallet?.address, roscaHook.publicClient, formData.contribution]);
+  }, [primaryWallet?.address, formData.contribution]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,8 +115,8 @@ export default function CreatePage() {
 
     setIsCreating(true);
     try {
-      // Use the native ETH helper method for cleaner code
-      const txHash = await roscaHook.createNativeROSCA(
+      // Use the blockchain service to create native ROSCA
+      const txHash = await blockchainService.createNativeROSCA(
         formData.contribution,                        // contribution amount
         parseInt(formData.roundDuration) * 86400,     // round duration in seconds
         formData.memberTarget,                        // max members
@@ -120,12 +124,13 @@ export default function CreatePage() {
       );
 
       if (txHash) {
-        // Extract ROSCA address from transaction receipt using the utility function
-        const roscaAddress = await roscaHook.extractROSCAAddressFromReceipt(txHash);
+        // Extract ROSCA address from transaction receipt
+        const roscaAddress = await blockchainService.extractROSCAAddressFromReceipt(txHash);
         
         if (roscaAddress) {
-          // Add to user's chama list
-          addChama(roscaAddress);
+          // Invalidate related queries
+          queryClient.invalidateQueries({ queryKey: ['user-chamas', primaryWallet.address] });
+          queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
           
           toast({ 
             title: '🎉 ROSCA created!', 
@@ -331,17 +336,17 @@ export default function CreatePage() {
                   type="button" 
                   variant="outline" 
                   onClick={handleCancel} 
-                  disabled={isCreating || roscaHook.isLoading} 
+                  disabled={isCreating} 
                   className="flex-1"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isCreating || roscaHook.isLoading}
+                  disabled={isCreating}
                   className="flex-1 bg-gradient-to-r from-bitcoin to-orange-600 hover:scale-105 transition-transform font-bold"
                 >
-                  {isCreating || roscaHook.isLoading ? (
+                  {isCreating ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
                       Creating...

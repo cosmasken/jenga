@@ -147,21 +147,137 @@ class BlockchainService {
   }
 
   /**
-   * Discover user's ROSCAs (production pattern - from events or API)
+   * Create a native ROSCA
+   */
+  async createNativeROSCA(
+    contributionAmount: string,
+    roundDurationSeconds: number,
+    maxMembers: number,
+    roscaName: string
+  ): Promise<Hash | undefined> {
+    const hook = this.ensureHook();
+    return hook.createNativeROSCA(contributionAmount, roundDurationSeconds, maxMembers, roscaName);
+  }
+
+  /**
+   * Extract ROSCA address from transaction receipt
+   */
+  async extractROSCAAddressFromReceipt(txHash: Hash): Promise<Address | null> {
+    const hook = this.ensureHook();
+    return hook.extractROSCAAddressFromReceipt(txHash);
+  }
+
+  /**
+   * Join ROSCA (alias for joinRosca for consistency)
+   */
+  async joinROSCA(chamaAddress: Address): Promise<Hash | undefined> {
+    const hook = this.ensureHook();
+    return hook.joinROSCA(chamaAddress);
+  }
+
+  /**
+   * Get ROSCA info
+   */
+  async getROSCAInfo(chamaAddress: Address) {
+    const hook = this.ensureHook();
+    return hook.getROSCAInfo(chamaAddress);
+  }
+
+  /**
+   * Get required deposit
+   */
+  async getRequiredDeposit(chamaAddress: Address) {
+    const hook = this.ensureHook();
+    return hook.getRequiredDeposit(chamaAddress);
+  }
+
+  /**
+   * Check if user is a member
+   */
+  async isMember(chamaAddress: Address, userAddress: Address): Promise<boolean> {
+    const hook = this.ensureHook();
+    return hook.isMember(chamaAddress, userAddress);
+  }
+
+  /**
+   * Search ROSCAs by name
+   */
+  async searchROSCAsByName(searchTerm: string) {
+    const hook = this.ensureHook();
+    return hook.searchROSCAsByName(searchTerm);
+  }
+
+  /**
+   * Get balance
+   */
+  async getBalance(address: Address) {
+    const hook = this.ensureHook();
+    if (!hook.publicClient) {
+      throw new Error('Public client not available');
+    }
+    return hook.publicClient.getBalance({ address });
+  }
+
+  /**
+   * Discover user's ROSCAs by checking factory and membership
    */
   async getUserRoscas(userAddress: Address): Promise<ChamaBasicInfo[]> {
     const hook = this.ensureHook();
     
     try {
-      // In production, this would typically come from:
-      // 1. Indexed blockchain events (The Graph, Moralis, Alchemy)
-      // 2. Backend API that tracks user interactions
-      // 3. Cached results from previous interactions
+      console.log(`Fetching ROSCAs for user: ${userAddress}`);
       
-      // For now, we'll return empty array and let users add ROSCAs manually
-      // This is more reliable than localStorage
-      console.log('Production pattern: User ROSCAs should come from indexed events or backend API');
-      return [];
+      // Get all active ROSCAs from factory
+      const allActiveRoscas = await hook.getAllActiveROSCAs();
+      if (!allActiveRoscas || !allActiveRoscas.addresses.length) {
+        console.log('No active ROSCAs found');
+        return [];
+      }
+      
+      console.log(`Found ${allActiveRoscas.addresses.length} active ROSCAs`);
+      
+      // Check which ones the user is a member of or created
+      const userRoscas: ChamaBasicInfo[] = [];
+      
+      for (let i = 0; i < allActiveRoscas.addresses.length; i++) {
+        const roscaAddress = allActiveRoscas.addresses[i];
+        const creator = allActiveRoscas.creators[i];
+        const name = allActiveRoscas.names[i];
+        
+        try {
+          // Check if user is creator or member
+          const isCreator = creator.toLowerCase() === userAddress.toLowerCase();
+          const isMember = isCreator || await hook.isMember(roscaAddress, userAddress);
+          
+          if (isMember) {
+            // Get detailed info for this ROSCA
+            const roscaInfo = await hook.getROSCAInfo(roscaAddress);
+            if (roscaInfo) {
+              userRoscas.push({
+                address: roscaAddress,
+                name: name || roscaInfo.roscaName || `Chama ${roscaAddress.slice(0, 8)}...`,
+                creator,
+                contributionAmount: roscaInfo.contributionAmount,
+                securityDeposit: 0n, // Calculate if needed
+                memberTarget: roscaInfo.maxMembers,
+                totalMembers: roscaInfo.totalMembers,
+                status: roscaInfo.status,
+                currentRound: roscaInfo.currentRound,
+                isActive: roscaInfo.status <= 2, // RECRUITING, WAITING, or ACTIVE
+                creationTime: allActiveRoscas.creationTimes?.[i],
+              });
+            }
+          }
+        } catch (membershipError) {
+          console.error(`Error checking membership for ROSCA ${roscaAddress}:`, membershipError);
+          // Continue to next ROSCA instead of failing entirely
+          continue;
+        }
+      }
+      
+      console.log(`Found ${userRoscas.length} ROSCAs for user ${userAddress}`);
+      return userRoscas;
+      
     } catch (error) {
       console.error('Failed to fetch user ROSCAs:', error);
       return [];

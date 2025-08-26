@@ -1,5 +1,5 @@
 // src/pages/Dashboard.tsx
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useDynamicContext, useIsLoggedIn } from '@dynamic-labs/sdk-react-core';
 import { motion } from 'framer-motion';
@@ -14,11 +14,13 @@ import BorrowModal from '@/components/modals/BorrowModal';
 import RepayModal from '@/components/modals/RepayModal';
 import WithdrawModal from '@/components/modals/WithdrawModal';
 import { toast } from '@/hooks/use-toast';
-import { useDashboardData } from '@/hooks/useDashboardData';
+import { useUserRoscas } from '@/hooks/useChamaData';
+import { blockchainService } from '@/services/blockchainService';
 import { useRosca } from '@/hooks/useRosca';
 import { useSaccoStatus, useSaccoFeatureAccess } from '@/contexts/SaccoStatusContext';
 import { SaccoStatusIndicator, SaccoTreasuryStats } from '@/components/SaccoStatusIndicator';
 import { BITCOIN_PRICE_USD, FACTORY_ADDRESS } from '@/utils/constants';
+import { type Address } from 'viem';
 import {
   Users,
   Plus,
@@ -64,17 +66,26 @@ export default function Dashboard() {
   const [showRepayModal, setShowRepayModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
 
-  // Use the dashboard data hook
+  const roscaHook = useRosca(FACTORY_ADDRESS);
+  
+  // Initialize blockchain service
+  React.useEffect(() => {
+    blockchainService.setRoscaHook(roscaHook);
+  }, [roscaHook]);
+
+  // Use the new chama data hooks
   const {
-    userChamas,
-    dashboardStats,
+    data: userChamas = [],
     isLoading: chamaLoading,
     error: chamaError,
-    lastRefresh,
-  } = useDashboardData();
+  } = useUserRoscas(primaryWallet?.address as Address);
 
-  // Use ROSCA hook for search functionality
-  const roscaHook = useRosca(FACTORY_ADDRESS);
+  // Mock dashboard stats for now
+  const dashboardStats = {
+    totalSaved: userChamas.reduce((sum, chama) => sum + (parseFloat(chama.contributionAmount) || 0), 0),
+    userChamas: userChamas.length,
+    averageRound: userChamas.length > 0 ? Math.round(userChamas.reduce((sum, chama) => sum + (chama.currentRound || 1), 0) / userChamas.length) : 0
+  };
 
   // Use the global Sacco status context
   const {
@@ -114,6 +125,8 @@ export default function Dashboard() {
       refreshSaccoData()
     ]);
   };
+
+  const lastRefresh = new Date(); // Placeholder for now
 
   // Helper function to calculate next round time
   const getNextRoundText = (chama: any) => {
@@ -172,8 +185,8 @@ export default function Dashboard() {
 
     setIsSearching(true);
     try {
-      const results = await roscaHook.searchROSCAsByName(searchTerm.trim());
-      if (results) {
+      const results = await blockchainService.searchROSCAsByName(searchTerm.trim());
+      if (results && results.addresses.length > 0) {
         // Convert search results to display format
         const formattedResults = results.addresses.map((address, index) => ({
           address,

@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useSearch } from 'wouter';
 import { useDynamicContext, useIsLoggedIn } from '@dynamic-labs/sdk-react-core';
+import { blockchainService } from '@/services/blockchainService';
 import { useRosca } from '@/hooks/useRosca';
-import { chamaStateManager } from '@/services/chamaStateManager';
 import { FACTORY_ADDRESS } from '@/utils/constants';
 import InputModal from '@/components/InputModal';
 import EmptyState from '@/components/EmptyState';
@@ -12,18 +12,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, Link, Users, Coins, Clock, Shield, CheckCircle } from 'lucide-react';
 import { isAddress, type Address } from 'viem';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function JoinPage() {
   const [, navigate] = useLocation();
   const searchParams = useSearch();
   const isLoggedIn = useIsLoggedIn();
   const { primaryWallet } = useDynamicContext();
+  const queryClient = useQueryClient();
   const roscaHook = useRosca(FACTORY_ADDRESS);
+  
+  // Initialize blockchain service
+  React.useEffect(() => {
+    blockchainService.setRoscaHook(roscaHook);
+  }, [roscaHook]);
   
   const [chamaAddress, setChamaAddress] = useState('');
   const [error, setError] = useState('');
   const [chamaInfo, setChamaInfo] = useState<any>(null);
   const [isLoadingInfo, setIsLoadingInfo] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
 
   // Check for address in URL params
   useEffect(() => {
@@ -63,12 +71,12 @@ export default function JoinPage() {
     
     setIsLoadingInfo(true);
     try {
-      // Use the enhanced ROSCA hook to get info
-      const info = await roscaHook.getROSCAInfo(chamaAddr as Address);
+      // Use the blockchain service to get info
+      const info = await blockchainService.getROSCAInfo(chamaAddr as Address);
       if (!info) throw new Error('Failed to fetch ROSCA info');
       
       // Get deposit info
-      const deposit = await roscaHook.getRequiredDeposit(chamaAddr as Address);
+      const deposit = await blockchainService.getRequiredDeposit(chamaAddr as Address);
       
       // Convert blockchain data to display format (native ETH only)
       const decimals = 18;
@@ -92,7 +100,7 @@ export default function JoinPage() {
       console.error('Failed to load chama info:', error);
       toast({
         title: "❌ Failed to load chama info",
-        description: roscaHook.error || "Could not retrieve chama details",
+        description: error instanceof Error ? error.message : "Could not retrieve chama details",
         variant: "destructive",
       });
     } finally {
@@ -131,9 +139,10 @@ export default function JoinPage() {
     
     if (!validateAddress(chamaAddress) || !primaryWallet?.address) return;
     
+    setIsJoining(true);
     try {
       // First, check if the ROSCA is in RECRUITING status
-      const roscaInfo = await roscaHook.getROSCAInfo(chamaAddress as Address);
+      const roscaInfo = await blockchainService.getROSCAInfo(chamaAddress as Address);
       
       if (!roscaInfo) {
         toast({
@@ -168,7 +177,7 @@ export default function JoinPage() {
       }
 
       // Check if user is already a member
-      const isMember = await roscaHook.isMember(chamaAddress as Address, primaryWallet.address as Address);
+      const isMember = await blockchainService.isMember(chamaAddress as Address, primaryWallet.address as Address);
       if (isMember) {
         toast({
           title: "ℹ️ Already a Member",
@@ -180,10 +189,11 @@ export default function JoinPage() {
       }
 
       // All checks passed, proceed with joining
-      const txHash = await roscaHook.joinROSCA(chamaAddress as Address);
+      const txHash = await blockchainService.joinROSCA(chamaAddress as Address);
       
-      // Update state manager with the join action
-      await chamaStateManager.handleActionResult('join', chamaAddress as Address, primaryWallet.address as Address, roscaHook);
+      // Invalidate related queries
+      queryClient.invalidateQueries({ queryKey: ['chama-membership', primaryWallet.address] });
+      queryClient.invalidateQueries({ queryKey: ['chama-info', chamaAddress] });
       
       toast({
         title: "🎉 Successfully joined!",
@@ -197,9 +207,11 @@ export default function JoinPage() {
     } catch (error) {
       toast({
         title: "❌ Join failed",
-        description: roscaHook.error || "Could not join chama. Please try again.",
+        description: error instanceof Error ? error.message : "Could not join chama. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsJoining(false);
     }
   };
 
@@ -373,29 +385,29 @@ export default function JoinPage() {
 
             {/* Actions */}
             <div className="flex gap-4 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleCancel}
-                disabled={roscaHook.isLoading}
-                className="flex-1 glassmorphism border-gray-500 text-gray-300 hover:text-white"
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={roscaHook.isLoading || !chamaAddress || !!error || !canJoin}
-                className="flex-1 bg-gradient-to-r from-electric to-blue-600 hover:scale-105 transition-transform font-bold disabled:opacity-50 disabled:hover:scale-100"
-              >
-                {roscaHook.isLoading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Joining...
-                  </div>
-                ) : (
-                  "Join Chama"
-                )}
-              </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCancel}
+                  disabled={isJoining || isLoadingInfo}
+                  className="flex-1 glassmorphism border-gray-500 text-gray-300 hover:text-white"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isJoining || isLoadingInfo || !chamaAddress || !!error || !canJoin}
+                  className="flex-1 bg-gradient-to-r from-electric to-blue-600 hover:scale-105 transition-transform font-bold disabled:opacity-50 disabled:hover:scale-100"
+                >
+                  {isJoining ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Joining...
+                    </div>
+                  ) : (
+                    "Join Chama"
+                  )}
+                </Button>
             </div>
           </form>
         </InputModal>

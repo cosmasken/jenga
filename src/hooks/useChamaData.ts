@@ -7,9 +7,7 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tansta
 import { useDynamicContext, useIsLoggedIn } from '@dynamic-labs/sdk-react-core';
 import { type Address } from 'viem';
 import { blockchainService, type ChamaBasicInfo, type UserMembershipInfo, type RoscaStatusInfo } from '@/services/blockchainService';
-import { useRosca } from './useRosca';
 import { toast } from './use-toast';
-import { useEffect } from 'react';
 
 // Query key factory - ensures consistent cache keys
 export const chamaKeys = {
@@ -26,16 +24,6 @@ export const chamaKeys = {
   activeRoscas: () => ['roscas', 'active'] as const,
 } as const;
 
-/**
- * Initialize blockchain service with useRosca hook
- */
-export function useBlockchainServiceInit() {
-  const roscaHook = useRosca();
-  
-  useEffect(() => {
-    blockchainService.setRoscaHook(roscaHook);
-  }, [roscaHook]);
-}
 
 /**
  * Get basic chama information with caching
@@ -306,8 +294,6 @@ export function useComprehensiveChamaData(chamaAddress: Address) {
   const isLoggedIn = useIsLoggedIn();
   const userAddress = primaryWallet?.address as Address;
 
-  // Initialize blockchain service
-  useBlockchainServiceInit();
 
   // Core data queries
   const chamaInfoQuery = useChamaInfo(chamaAddress);

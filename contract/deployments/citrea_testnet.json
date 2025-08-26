@@ -1,16 +1,17 @@
 {
   "network": "citrea_testnet",
+  "chainId": 5115,
   "deployer": "0x09aB514B6974601967E7b379478EFf4073cceD06",
-  "timestamp": "2025-08-24T14:44:15.573Z",
-  "deploymentTime": "23.75s",
+  "timestamp": "2025-08-24T17:30:43.577Z",
+  "deploymentTime": "26.54s",
   "contracts": {
-    "mockUSDC": "0xE59A85512B82BCf6f69757FCFB61BF5D3AeC88bb",
-    "roscaFactory": "0x09582bb16C7bb4a871d96dDba533B92E5c90D708",
-    "microSacco": "0xB7BdA8401964Bd2BEC1a551C64c47A7098F80112"
+    "mockUSDC": "0x27b682A6cF2f6fcF9f9D032a8E76BEA5c10A7A72",
+    "roscaFactory": "0xb61A908350E042d8DadD58387C683ce7006A09B6",
+    "microSacco": "0x6017029824112362F916D0f395827fCBba72caBb"
   },
   "verification": {
-    "mockUSDC": "0xE59A85512B82BCf6f69757FCFB61BF5D3AeC88bb",
-    "roscaFactory": "0x09582bb16C7bb4a871d96dDba533B92E5c90D708",
-    "microSacco": "0xB7BdA8401964Bd2BEC1a551C64c47A7098F80112"
+    "mockUSDC": "0x27b682A6cF2f6fcF9f9D032a8E76BEA5c10A7A72",
+    "roscaFactory": "0xb61A908350E042d8DadD58387C683ce7006A09B6",
+    "microSacco": "0x6017029824112362F916D0f395827fCBba72caBb"
   }
 }

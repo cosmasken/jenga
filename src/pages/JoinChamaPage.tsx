@@ -1,9 +1,10 @@
 // src/pages/JoinChamaPage.tsx
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useDynamicContext, useIsLoggedIn } from '@dynamic-labs/sdk-react-core';
+import { blockchainService } from '@/services/blockchainService';
 import { useRosca } from '@/hooks/useRosca';
-import { useDashboardData } from '@/hooks/useDashboardData';
+import { useQueryClient } from '@tanstack/react-query';
 import { FACTORY_ADDRESS } from '@/utils/constants';
 import { TOKENS } from '@/config';
 import InputModal from '@/components/InputModal';
@@ -28,8 +29,13 @@ export default function JoinChamaPage() {
   const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [hasInviteBonus, setHasInviteBonus] = useState(false);
 
+  const queryClient = useQueryClient();
   const roscaHook = useRosca(FACTORY_ADDRESS);
-  const { addChama } = useDashboardData();
+  
+  // Initialize blockchain service
+  React.useEffect(() => {
+    blockchainService.setRoscaHook(roscaHook);
+  }, [roscaHook]);
 
   // Check for invite parameters in URL
   useEffect(() => {
@@ -86,7 +92,7 @@ export default function JoinChamaPage() {
 
     setIsJoining(true);
     try {
-      const hash = await roscaHook.join(chamaAddress as Address);
+      const hash = await blockchainService.joinROSCA(chamaAddress as Address);
 
       if (hash) {
         toast({
@@ -96,8 +102,9 @@ export default function JoinChamaPage() {
             : 'You are now a member of this savings circle.'
         });
         
-        // Add the chama to the dashboard
-        addChama(chamaAddress as Address);
+        // Invalidate related queries
+        queryClient.invalidateQueries({ queryKey: ['user-chamas', primaryWallet.address] });
+        queryClient.invalidateQueries({ queryKey: ['chama-membership', primaryWallet.address] });
         
         // Clear URL parameters
         window.history.replaceState({}, document.title, '/join');
@@ -205,17 +212,17 @@ export default function JoinChamaPage() {
                   type="button"
                   variant="outline"
                   onClick={handleCancel}
-                  disabled={isJoining || roscaHook.isLoading}
+                  disabled={isJoining}
                   className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-700"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isJoining || roscaHook.isLoading || !chamaAddress}
+                  disabled={isJoining || !chamaAddress}
                   className="flex-1 bg-gradient-to-r from-electric to-blue-600 hover:scale-105 transition-transform font-bold"
                 >
-                  {isJoining || roscaHook.isLoading ? (
+                  {isJoining ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
                       Joining...
