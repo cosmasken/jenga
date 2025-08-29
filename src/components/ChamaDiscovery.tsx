@@ -423,20 +423,27 @@ function ChamaDiscoveryCard({ chama, onJoin }: ChamaDiscoveryCardProps) {
           ) : (
             <Button 
               onClick={handleJoin}
-              disabled={joinMutation.isPending || spotsLeft === 0 || chama.status !== 'recruiting'}
+              disabled={joinMutation.isPending || spotsLeft === 0 || (chama.status !== 'recruiting' && chama.status !== 'draft')}
               className="flex-1"
             >
               {joinMutation.isPending ? (
                 "Joining..."
               ) : spotsLeft === 0 ? (
                 "Full"
-              ) : chama.status !== 'recruiting' ? (
-                "Not Recruiting"
-              ) : (
+              ) : chama.status === 'draft' ? (
+                <>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Join (Will Open)
+                </>
+              ) : chama.status === 'recruiting' ? (
                 <>
                   <UserPlus className="h-4 w-4 mr-2" />
                   Join Now
                 </>
+              ) : chama.status === 'waiting' ? (
+                "Ready to Start"
+              ) : (
+                "Not Available"
               )}
             </Button>
           )}

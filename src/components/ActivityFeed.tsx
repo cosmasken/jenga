@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from '@/hooks/use-toast';
+import { useActivityFeed } from '@/hooks/useActivityFeed';
 
 interface ActivityItem {
   id: string;
@@ -48,52 +49,21 @@ export function ActivityFeed({
   showNotifications = true,
   maxItems = 10 
 }: ActivityFeedProps) {
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [showAll, setShowAll] = useState(false);
 
-  // Mock data for demonstration - replace with real blockchain data
+  // Fetch real activity data from database
+  const { data: activities = [], isLoading, error, refetch } = useActivityFeed(userAddress, maxItems);
+
+  // Update unread count when activities change
   useEffect(() => {
-    const mockActivities: ActivityItem[] = [
-      {
-        id: '1',
-        type: 'contribution',
-        title: 'Payment Received',
-        description: 'You received 0.001 cBTC from Family Savings',
-        timestamp: new Date(Date.now() - 5 * 60 * 1000), // 5 minutes ago
-        chamaName: 'Family Savings',
-        amount: 0.001,
-        currency: 'cBTC',
-        isRead: false,
-        priority: 'medium'
-      },
-      {
-        id: '2',
-        type: 'member_joined',
-        title: 'New Member Joined',
-        description: 'Alice joined your Friends Circle chama',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-        chamaName: 'Friends Circle',
-        isRead: false,
-        priority: 'low'
-      },
-      {
-        id: '3',
-        type: 'round_completed',
-        title: 'Round Completed',
-        description: 'Round 3 of Family Savings has been completed',
-        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-        chamaName: 'Family Savings',
-        isRead: true,
-        priority: 'high'
-      }
-    ];
-    
-    setActivities(mockActivities);
-    setUnreadCount(mockActivities.filter(a => !a.isRead).length);
-  }, [userAddress]);
+    setUnreadCount(activities.filter(a => !a.isRead).length);
+  }, [activities]);
+
+  const handleRefresh = () => {
+    refetch();
+  };
 
   const markAsRead = (activityId: string) => {
     setActivities(prev => prev.map(activity => 
@@ -155,6 +125,15 @@ export function ActivityFeed({
                 {unreadCount}
               </Badge>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isLoading}
+              className="ml-auto"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
           </CardTitle>
           
           <div className="flex items-center gap-2">

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { motion } from 'framer-motion'
+import { InviteModal } from '@/components/InviteModal'
 import { useQuery } from '@tanstack/react-query'
 import { offchainChamaService } from '@/services/offchainChamaService'
 import {
@@ -52,6 +53,7 @@ export function HybridEnhancedDashboard({
 
   const [viewMode, setViewMode] = useState<'hybrid' | 'testing'>('hybrid')
   const [showDevTools, setShowDevTools] = useState(false)
+  const [showInviteModal, setShowInviteModal] = useState(false)
 
   // Get hybrid data and actions
   const hybridData = useHybridChamaData(chamaAddress, userAddress)
@@ -92,6 +94,16 @@ export function HybridEnhancedDashboard({
 
             <div className="flex items-center gap-2">
               <Button
+                variant="outline"
+                size="sm"
+                onClick={() => hybridData.refresh()}
+                className="gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </Button>
+
+              <Button
                 variant={showDevTools ? "default" : "outline"}
                 size="sm"
                 onClick={() => setShowDevTools(!showDevTools)}
@@ -128,45 +140,6 @@ export function HybridEnhancedDashboard({
         </div>
       </div>
 
-      {/* Dev Tools Panel */}
-      {showDevTools && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
-          className="bg-gray-900 text-white p-4 border-b"
-        >
-          <div className="max-w-7xl mx-auto">
-            <h3 className="font-semibold mb-2 flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Developer Tools
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <p className="font-medium mb-1">Hybrid Data Status:</p>
-                <p className="text-gray-300">
-                  Loading: {hybridData.isLoading ? '✅' : '❌'} |
-                  Error: {hybridData.error ? '❌' : '✅'} |
-                  Data: {hybridData.data ? '✅' : '❌'}
-                </p>
-              </div>
-              <div>
-                <p className="font-medium mb-1">Real-time Updates:</p>
-                <p className="text-gray-300">
-                  Last Update: {hybridData.data?.lastUpdate?.toLocaleTimeString() || 'Never'}
-                </p>
-              </div>
-              <div>
-                <p className="font-medium mb-1">Actions Available:</p>
-                <p className="text-gray-300">
-                  Join: {actions.joinChama.isPending ? '⏳' : '✅'} |
-                  Contribute: {actions.contribute.isPending ? '⏳' : '✅'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -176,15 +149,11 @@ export function HybridEnhancedDashboard({
             userAddress={userAddress}
             hybridData={hybridData}
             actions={actions}
+            showInviteModal={showInviteModal}
+            setShowInviteModal={setShowInviteModal}
           />
         )}
 
-        {viewMode === 'testing' && isTestMode && (
-          <TestingView
-            chamaAddress={chamaAddress}
-            userAddress={userAddress}
-          />
-        )}
       </div>
     </div>
   )
@@ -195,13 +164,19 @@ function HybridView({
   chamaAddress,
   userAddress,
   hybridData,
-  actions
+  actions,
+  showInviteModal,
+  setShowInviteModal,
 }: {
   chamaAddress: Address
   userAddress: Address
   hybridData: any
   actions: any
+  showInviteModal: boolean
+  setShowInviteModal: (show: boolean) => void
 }) {
+  const [showStatusTransition, setShowStatusTransition] = useState(false)
+
   // Get user context for this chama
   const { data: userContext } = useQuery({
     queryKey: ['chama-user-context', chamaAddress, userAddress],
@@ -211,6 +186,31 @@ function HybridView({
     },
     enabled: !!userAddress
   });
+
+  // Get chama data for status management
+  const { data: chamaData } = useQuery({
+    queryKey: ['chama-offchain', chamaAddress],
+    queryFn: () => offchainChamaService.getChama(chamaAddress),
+    enabled: !!chamaAddress
+  });
+
+  const handleStatusTransition = (newStatus: string) => {
+    actions.transitionStatus({ newStatus });
+    setShowStatusTransition(false);
+  };
+
+  const getAvailableStatusTransitions = (currentStatus: string) => {
+    const transitions = {
+      'draft': [{ value: 'recruiting', label: 'Start Recruiting', color: 'blue' }],
+      'recruiting': [
+        { value: 'waiting', label: 'Mark as Full', color: 'orange' }
+      ],
+      'waiting': [
+        { value: 'recruiting', label: 'Reopen Recruiting', color: 'blue' }
+      ],
+    };
+    return transitions[currentStatus as keyof typeof transitions] || [];
+  };
 
   return (
     <div className="space-y-8">
@@ -228,7 +228,7 @@ function HybridView({
             ) : (
               <Eye className="h-4 w-4 text-gray-600" />
             )}
-            <AlertDescription>
+            <AlertDescription className='text-black'>
               {userContext.isCreator && (
                 <span><strong>Creator Mode:</strong> You have full management access to this chama.</span>
               )}
@@ -243,14 +243,168 @@ function HybridView({
         </motion.div>
       )}
 
-      {/* Status Banner */}
-      <Alert>
-        <Cloud className="h-4 w-4" />
-        <AlertDescription>
-          <strong>Hybrid Mode Active:</strong> Off-chain operations are enabled for instant updates.
-          Batch operations will be deployed to the blockchain automatically.
-        </AlertDescription>
-      </Alert>
+      {/* Member Actions - Show for all members based on chama status */}
+      {userContext?.isMember && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <UserCheck className="h-4 w-4 text-blue-600" />
+                Member Actions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                {/* Pay Deposit - Show for registered chamas when user hasn't paid */}
+                {chamaData?.status === 'registered' && userContext?.memberInfo?.deposit_status !== 'paid' && (
+                  <Button
+                    size="sm"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (!actions.isPayingDeposit) {
+                        actions.payDeposit();
+                      }
+                    }}
+                    disabled={actions.isPayingDeposit}
+                    className="bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {actions.isPayingDeposit ? 'Paying...' : 'Pay Deposit'}
+                  </Button>
+                )}
+                
+                {/* Contribute - Show for active chamas when user has paid deposit */}
+                {chamaData?.status === 'active' && userContext?.memberInfo?.deposit_status === 'paid' && (
+                  <Button
+                    size="sm"
+                    onClick={() => actions.contribute({ 
+                      userAddress: userAddress!, 
+                      amount: chamaData.contribution_amount 
+                    })}
+                    disabled={actions.isContributing}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    {actions.isContributing ? 'Contributing...' : 'Contribute'}
+                  </Button>
+                )}
+                
+                {/* Status messages when no actions available */}
+                {chamaData?.status === 'registered' && userContext?.memberInfo?.deposit_status === 'paid' && (
+                  <p className="text-sm text-gray-600">✅ Deposit paid. Waiting for ROSCA to start...</p>
+                )}
+                
+                {chamaData?.status === 'waiting' && (
+                  <p className="text-sm text-gray-600">⏳ Waiting for deployment to blockchain...</p>
+                )}
+                
+                {chamaData?.status === 'recruiting' && (
+                  <p className="text-sm text-gray-600">📢 Chama is still recruiting members</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Creator Status Management */}
+      {userContext?.isCreator && chamaData && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card className="border-bitcoin/20 bg-bitcoin/5">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Crown className="h-4 w-4 text-bitcoin" />
+                Creator Controls
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="border-bitcoin text-bitcoin">
+                    {chamaData.status.toUpperCase()}
+                  </Badge>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {userContext.memberCount}/{chamaData.member_target} members
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {getAvailableStatusTransitions(chamaData.status).map((transition) => (
+                    <Button
+                      key={transition.value}
+                      size="sm"
+                      onClick={() => handleStatusTransition(transition.value)}
+                      disabled={actions.isTransitioningStatus}
+                      className={`bg-${transition.color}-600 hover:bg-${transition.color}-700`}
+                    >
+                      {actions.isTransitioningStatus ? 'Updating...' : transition.label}
+                    </Button>
+                  ))}
+
+                  {chamaData.status === 'recruiting' && (
+                    <Button
+                      size="sm"
+                      onClick={() => setShowInviteModal(true)}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Bell className="w-4 h-4 mr-1" />
+                      Send Invites
+                    </Button>
+                  )}
+
+                  {chamaData.status === 'waiting' && (
+                    <Button
+                      size="sm"
+                      onClick={actions.deployToChain}
+                      disabled={actions.isDeployingToChain}
+                      className="bg-purple-600 hover:bg-purple-700"
+                    >
+                      <Rocket className="w-4 h-4 mr-1" />
+                      {actions.isDeployingToChain ? 'Deploying...' : 'Deploy to Chain'}
+                    </Button>
+                  )}
+
+                  {chamaData.status === 'registered' && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleStatusTransition('active')}
+                      disabled={actions.isTransitioningStatus}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      {actions.isTransitioningStatus ? 'Starting...' : 'Start ROSCA'}
+                    </Button>
+                  )}
+
+                </div>
+              </div>
+
+              {/* Status Description */}
+              <div className="mt-3 text-xs text-gray-600 dark:text-gray-400">
+                {chamaData.status === 'draft' && (
+                  <p>💡 <strong>Draft:</strong> Start recruiting when ready to invite members</p>
+                )}
+                {chamaData.status === 'recruiting' && (
+                  <p>📢 <strong>Recruiting:</strong> Members can join. Auto-transitions to waiting when full</p>
+                )}
+                {chamaData.status === 'waiting' && (
+                  <p>⏳ <strong>Ready:</strong> All members joined! Deploy to blockchain to enable contributions</p>
+                )}
+                {chamaData.status === 'registered' && (
+                  <p>🔗 <strong>On-chain:</strong> Deployed! Members can now pay deposits</p>
+                )}
+                {chamaData.status === 'active' && (
+                  <p>🚀 <strong>Active:</strong> ROSCA is running! Members can contribute</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
 
       {/* Main Dashboard */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -271,78 +425,16 @@ function HybridView({
         </div>
       </div>
 
-      {/* Additional Sections */}
-      <Tabs defaultValue="sharing" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="sharing" className="gap-2">
-            <Users className="h-4 w-4" />
-            Share & Invite
-          </TabsTrigger>
-          <TabsTrigger value="activity" className="gap-2">
-            <Activity className="h-4 w-4" />
-            Full Activity
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="sharing" className="space-y-6">
-          <ChamaInviteManager
-            chamaAddress={chamaAddress}
-            userAddress={userAddress}
-          />
-        </TabsContent>
-
-        <TabsContent value="activity" className="space-y-6">
-          <ActivityFeed
-            userAddress={userAddress}
-            showNotifications={true}
-            maxItems={20}
-          />
-        </TabsContent>
-      </Tabs>
+      {/* Invite Modal */}
+      <InviteModal
+        chamaId={chamaAddress}
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+      />
     </div>
   )
 }
 
-// Testing View - For reactivity testing
-function TestingView({ chamaAddress, userAddress }: {
-  chamaAddress: Address
-  userAddress: Address
-}) {
-  return (
-    <div className="space-y-8">
-      <div className="text-center">
-        <h2 className="text-2xl font-semibold mb-2">Reactivity Testing</h2>
-        <p className="text-gray-600">
-          Test real-time updates and off-chain operations
-        </p>
-      </div>
-
-      <ReactivityTest />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div>
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Timer className="h-5 w-5" />
-            Real-time Dashboard
-          </h3>
-          <HybridChamaDashboard chamaAddress={chamaAddress} />
-        </div>
-
-        <div>
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Bell className="h-5 w-5" />
-            Live Activity
-          </h3>
-          <ActivityFeed
-            userAddress={userAddress}
-            showNotifications={true}
-            maxItems={10}
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // Route wrapper component that gets address from URL params
 export function HybridEnhancedDashboardRoute() {

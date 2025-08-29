@@ -20,17 +20,64 @@ export function useHybridChamaData(chamaId: string) {
   // Members data
   const membersQuery = useQuery({
     queryKey: ['chama-members', chamaId],
-    queryFn: () => offchainChamaService.getChamaMembers(chamaId),
+    queryFn: async () => {
+      try {
+        const members = await offchainChamaService.getChamaMembers(chamaId);
+        console.log('✅ Successfully fetched members:', members.length);
+        return members;
+      } catch (error: any) {
+        console.error('❌ Error fetching members:', error);
+        // Handle 406 RLS errors gracefully
+        if (error.message?.includes('406') || 
+            error.message?.includes('Not Acceptable') ||
+            error.code === '42501' || 
+            error.code === 'PGRST301') {
+          console.warn('RLS/Permission error, returning empty array. Run fix_rls_issue.sql');
+          return [];
+        }
+        throw error;
+      }
+    },
     enabled: !!chamaId,
-    staleTime: 15000,
+    staleTime: 5000, // Reduce stale time for more frequent updates
+    refetchInterval: 15000, // More frequent refetch
+    retry: (failureCount, error: any) => {
+      // Don't retry on permission errors
+      if (error.message?.includes('406') || 
+          error.message?.includes('Not Acceptable') ||
+          error.code === '42501' || 
+          error.code === 'PGRST301') {
+        return false;
+      }
+      return failureCount < 3;
+    },
   });
 
   // Current user's membership
   const membershipQuery = useQuery({
     queryKey: ['user-membership', chamaId, userAddress],
-    queryFn: () => userAddress ? offchainChamaService.getMember(chamaId, userAddress) : null,
+    queryFn: async () => {
+      if (!userAddress) return null;
+      try {
+        return await offchainChamaService.getMember(chamaId, userAddress);
+      } catch (error: any) {
+        // Handle 406 RLS errors gracefully
+        if (error.message?.includes('406') || error.code === '42501') {
+          console.warn('RLS blocking membership access for user:', userAddress);
+          return null;
+        }
+        throw error;
+      }
+    },
     enabled: !!userAddress && !!chamaId,
     staleTime: 10000,
+    retry: (failureCount, error: any) => {
+      // Don't retry on permission errors
+      if (error.message?.includes('406') || error.code === '42501') {
+        return false;
+      }
+      return failureCount < 3;
+    },
   });
 
   // Current round
@@ -50,14 +97,37 @@ export function useHybridChamaData(chamaId: string) {
     const subscription = offchainChamaService.subscribeToChamaUpdates(chamaId, (payload) => {
       console.log('📡 Real-time update received:', payload);
       
-      // Invalidate relevant queries to trigger refetch
+      // Force immediate refetch of all chama-related data
       queryClient.invalidateQueries({ queryKey: ['chama-offchain', chamaId] });
       queryClient.invalidateQueries({ queryKey: ['chama-members', chamaId] });
       queryClient.invalidateQueries({ queryKey: ['current-round', chamaId] });
       
-      if (userAddress) {
-        queryClient.invalidateQueries({ queryKey: ['user-membership', chamaId, userAddress] });
-      }
+      // Invalidate ALL user membership queries for this chama (not just current user)
+      queryClient.invalidateQueries({ 
+        queryKey: ['user-membership', chamaId],
+        exact: false // This will match all user-membership queries for this chama
+      });
+      
+      // Invalidate user context for all users
+      queryClient.invalidateQueries({ 
+        queryKey: ['chama-user-context', chamaId],
+        exact: false
+      });
+      
+      // Force refetch with no cache
+      queryClient.refetchQueries({ queryKey: ['chama-members', chamaId] });
+      
+      // Also invalidate broader queries
+      queryClient.invalidateQueries({ queryKey: ['public-chamas-with-context'] });
+      queryClient.invalidateQueries({ queryKey: ['user-chamas'] });
+      
+      // Add a small delay then force another refetch to ensure UI updates
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['chama-members', chamaId] });
+        if (userAddress) {
+          queryClient.refetchQueries({ queryKey: ['user-membership', chamaId, userAddress] });
+        }
+      }, 500);
     });
 
     return () => {
@@ -92,8 +162,12 @@ export function useHybridChamaData(chamaId: string) {
   // Available actions
   const availableActions = {
     canJoin: accessLevel === 'CAN_JOIN',
-    canPayDeposit: accessLevel === 'CREATOR' && userMembership?.deposit_status === 'pending',
-    canContribute: accessLevel === 'MEMBER' && currentRound?.status === 'active' && !userMembership?.has_received_payout,
+    canPayDeposit: (accessLevel === 'MEMBER' || accessLevel === 'CREATOR') && 
+                   chama?.status === 'registered' && 
+                   userMembership?.deposit_status !== 'paid',
+    canContribute: (accessLevel === 'MEMBER' || accessLevel === 'CREATOR') && 
+                   chama?.status === 'active' && 
+                   userMembership?.deposit_status === 'paid',
     canStartROSCA: (accessLevel === 'CREATOR' || accessLevel === 'MEMBER') && chama?.status === 'waiting',
     canInvite: accessLevel === 'CREATOR' && chama?.status === 'recruiting',
   };

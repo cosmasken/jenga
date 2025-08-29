@@ -1,5 +1,6 @@
 // src/utils/inviteCodeGenerator.ts
 import { type Address } from 'viem';
+import { getChamaInviteUrl } from './urlUtils';
 
 export interface InviteCode {
   code: string;
@@ -110,8 +111,8 @@ export class InviteCodeGenerator {
   static generateShareableUrl(
     code: string,
     chamaAddress: Address,
-    baseUrl: string = window.location.origin
+    baseUrl?: string
   ): string {
-    return `${baseUrl}/join?chama=${chamaAddress}&invite=${code}`;
+    return getChamaInviteUrl(chamaAddress, code);
   }
 }

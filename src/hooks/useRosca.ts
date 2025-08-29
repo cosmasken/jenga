@@ -319,8 +319,16 @@ export function useRosca(
     if (!client) return;
     
     return executeTransaction(async () => {
+      // Validate and convert contribution amount
+      const contributionStr = String(contributionAmount).trim();
+      if (!contributionStr || contributionStr === '0') {
+        throw new Error('Invalid contribution amount');
+      }
+      
+      console.log('🔍 Converting contribution amount:', contributionStr);
+      
       // Factory only supports native ETH ROSCAs - token parameter is ignored
-      const contributionWei = parseUnits(contributionAmount, 18); // Native ETH has 18 decimals
+      const contributionWei = parseUnits(contributionStr, 18); // Native ETH has 18 decimals
       const creationFee = parseEther('0.001'); // 0.001 ETH creation fee
       
       const factoryWithWallet = getContract({

@@ -8,12 +8,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/hooks/use-toast'
-import { 
-  Share2, 
-  Users, 
-  Copy, 
-  Mail, 
-  MessageCircle, 
+import {
+  Share2,
+  Users,
+  Copy,
+  Mail,
+  MessageCircle,
   Plus,
   QrCode,
   Link,
@@ -21,7 +21,7 @@ import {
   Check,
   X
 } from 'lucide-react'
-import { type Address } from 'viem'
+import { getChamaUrl } from '@/utils/urlUtils'
 import { offchainChamaService } from '@/services/offchainChamaService'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -39,7 +39,7 @@ export function ChamaShareInviteCard({ chamaAddress, userAddress }: ChamaShareIn
     queryFn: () => offchainChamaService.getChama(chamaAddress)
   })
 
-  const shareUrl = `${window.location.origin}/join?code=${chama?.invitation_code}`
+  const shareUrl = getChamaUrl(chamaAddress)
 
   const copyToClipboard = async (text: string) => {
     try {
@@ -103,18 +103,18 @@ Join: ${shareUrl}`
         <div className="space-y-2">
           <Label className="text-sm font-medium">Quick Share</Label>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={shareViaWhatsApp}
               className="flex-1"
             >
               <MessageCircle className="h-4 w-4 mr-1" />
               WhatsApp
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={shareViaEmail}
               className="flex-1"
             >
@@ -130,13 +130,13 @@ Join: ${shareUrl}`
         <div className="space-y-2">
           <Label className="text-sm font-medium">Share Link</Label>
           <div className="flex gap-2">
-            <Input 
+            <Input
               value={shareUrl}
               readOnly
               className="text-sm"
             />
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => copyToClipboard(shareUrl)}
             >
@@ -152,8 +152,8 @@ Join: ${shareUrl}`
             <Badge variant="secondary" className="font-mono text-sm">
               {chama.invitation_code}
             </Badge>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => copyToClipboard(chama.invitation_code)}
             >
@@ -231,9 +231,9 @@ function DirectInviteForm({ chamaId, inviterAddress }: DirectInviteFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Filter out empty invites and validate
-    const validInvites = invites.filter(invite => 
+    const validInvites = invites.filter(invite =>
       invite.address.trim() || invite.email.trim()
     ).map(invite => ({
       invitee_address: invite.address.trim() || undefined,
@@ -260,7 +260,7 @@ function DirectInviteForm({ chamaId, inviterAddress }: DirectInviteFormProps) {
           <div className="flex items-center justify-between">
             <h4 className="font-medium">Invite #{index + 1}</h4>
             {invites.length > 1 && (
-              <Button 
+              <Button
                 type="button"
                 variant="ghost"
                 size="sm"
@@ -314,8 +314,8 @@ function DirectInviteForm({ chamaId, inviterAddress }: DirectInviteFormProps) {
         </Button>
       </div>
 
-      <Button 
-        type="submit" 
+      <Button
+        type="submit"
         className="w-full"
         disabled={sendInvitesMutation.isPending}
       >
@@ -402,7 +402,7 @@ export function ChamaInviteManager({ chamaAddress, userAddress }: ChamaInviteMan
                   <div>
                     <p className="font-medium">{member.user_address.slice(0, 10)}...{member.user_address.slice(-8)}</p>
                     <p className="text-sm text-muted-foreground">
-                      {member.join_method === 'creator' ? 'Creator' : 'Member'} • 
+                      {member.join_method === 'creator' ? 'Creator' : 'Member'} •
                       Joined {new Date(member.joined_at).toLocaleDateString()}
                     </p>
                   </div>
@@ -417,7 +417,7 @@ export function ChamaInviteManager({ chamaAddress, userAddress }: ChamaInviteMan
       )}
 
       {/* Pending Invitations */}
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Pending Invitations</CardTitle>
         </CardHeader>
@@ -444,7 +444,7 @@ export function ChamaInviteManager({ chamaAddress, userAddress }: ChamaInviteMan
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card> */}
     </div>
   )
 }

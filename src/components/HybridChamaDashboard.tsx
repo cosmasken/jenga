@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Users, 
-  DollarSign, 
-  Clock, 
+import {
+  Users,
+  DollarSign,
+  Clock,
   Shield,
   CheckCircle,
   AlertCircle,
@@ -24,6 +24,26 @@ export function HybridChamaDashboard() {
   const [, navigate] = useLocation();
   const { primaryWallet, setShowAuthFlow } = useDynamicContext();
   const userAddress = primaryWallet?.address;
+
+  // Status formatting functions
+  const formatMemberStatus = (status: string) => {
+    const statusMap = {
+      'pending': '⏳ Pending',
+      'confirmed': '✅ Confirmed', 
+      'active': '🟢 Active',
+      'inactive': '🔴 Inactive'
+    };
+    return statusMap[status as keyof typeof statusMap] || status;
+  };
+
+  const formatDepositStatus = (status: string) => {
+    const statusMap = {
+      'pending': '⏳ Deposit Pending',
+      'paid': '✅ Deposit Paid',
+      'refunded': '↩️ Refunded'
+    };
+    return statusMap[status as keyof typeof statusMap] || status;
+  };
 
   const {
     chama,
@@ -110,7 +130,7 @@ export function HybridChamaDashboard() {
       completed: { label: 'Completed', className: 'bg-purple-500' },
       cancelled: { label: 'Cancelled', className: 'bg-red-500' },
     };
-    
+
     const config = statusConfig[status] || statusConfig.draft;
     return <Badge className={`${config.className} text-white`}>{config.label}</Badge>;
   };
@@ -245,7 +265,7 @@ export function HybridChamaDashboard() {
           <div className="space-y-3">
             {/* Guest - Connect Wallet */}
             {!userState.isLoggedIn && (
-              <Button 
+              <Button
                 onClick={() => setShowAuthFlow(true)}
                 className="w-full bg-bitcoin hover:bg-bitcoin/90"
               >
@@ -255,8 +275,8 @@ export function HybridChamaDashboard() {
 
             {/* Join Action */}
             {availableActions.canJoin && (
-              <Button 
-                onClick={handleJoin} 
+              <Button
+                onClick={handleJoin}
                 disabled={isJoining}
                 className="w-full bg-blue-600 hover:bg-blue-700"
               >
@@ -266,7 +286,7 @@ export function HybridChamaDashboard() {
 
             {/* Contribute Action */}
             {availableActions.canContribute && (
-              <Button 
+              <Button
                 onClick={handleContribute}
                 disabled={isContributing}
                 className="w-full bg-green-600 hover:bg-green-700"
@@ -281,9 +301,9 @@ export function HybridChamaDashboard() {
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-5 w-5 text-green-500" />
                   <div>
-                    <p className="font-medium">Member Status: {userMembership.status}</p>
+                    <p className="font-medium">Member Status: {formatMemberStatus(userMembership.status)}</p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      Deposit Status: {userMembership.deposit_status}
+                      Deposit Status: {formatDepositStatus(userMembership.deposit_status)}
                     </p>
                     {userMembership.rounds_contributed > 0 && (
                       <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -326,11 +346,10 @@ export function HybridChamaDashboard() {
               members.map((member) => (
                 <div key={member.id} className="flex items-center justify-between p-3 border dark:border-gray-700 rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${
-                      member.status === 'active' ? 'bg-green-500' : 
-                      member.status === 'pending' ? 'bg-yellow-500' : 
-                      'bg-gray-400'
-                    }`} />
+                    <div className={`w-3 h-3 rounded-full ${member.status === 'active' ? 'bg-green-500' :
+                        member.status === 'pending' ? 'bg-yellow-500' :
+                          'bg-gray-400'
+                      }`} />
                     <div>
                       <p className="font-medium">
                         {formatAddress(member.user_address)}
@@ -344,9 +363,9 @@ export function HybridChamaDashboard() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <Badge variant="outline" className="mb-1">{member.status}</Badge>
+                    <Badge variant="outline" className="mb-1">{formatMemberStatus(member.status)}</Badge>
                     <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {member.deposit_status === 'paid' ? '✅ Deposit Paid' : '⏳ Deposit Pending'}
+                      {formatDepositStatus(member.deposit_status)}
                     </p>
                     {member.rounds_contributed > 0 && (
                       <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -362,7 +381,7 @@ export function HybridChamaDashboard() {
       </Card>
 
       {/* Debug Information (Development Only) */}
-      {process.env.NODE_ENV === 'development' && (
+      {/* {process.env.NODE_ENV === 'development' && (
         <Card className="bg-gray-50 dark:bg-gray-900">
           <CardHeader>
             <CardTitle className="text-sm">Debug Info (Development Only)</CardTitle>
@@ -387,7 +406,7 @@ export function HybridChamaDashboard() {
             </pre>
           </CardContent>
         </Card>
-      )}
+      )} */}
     </div>
   );
 }

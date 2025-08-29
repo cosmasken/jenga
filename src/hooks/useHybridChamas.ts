@@ -47,7 +47,7 @@ export function getChamaStatusInfo(chama: OffchainChama) {
     draft: 'Draft',
     recruiting: 'Recruiting',
     waiting: 'Waiting',
-    registered: 'Registered',
+    registered: 'On-Chain',
     active: 'Active',
     completed: 'Completed', 
     cancelled: 'Cancelled',
