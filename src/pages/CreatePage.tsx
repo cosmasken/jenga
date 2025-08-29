@@ -3,20 +3,21 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { useDynamicContext, useIsLoggedIn } from '@dynamic-labs/sdk-react-core';
 import { blockchainService } from '@/services/blockchainService';
-import { useRosca } from '@/hooks/useRosca';
-import { FACTORY_ADDRESS } from '@/utils/constants';
-import { ROSCA_CONFIG } from '@/config';
+import { offchainChamaService } from '@/services/offchainChamaService';
 import { useQueryClient } from '@tanstack/react-query';
+import { toast } from '@/hooks/use-toast';
+import { ROSCA_CONFIG } from '@/utils/constants';
+import { CONTRACT_ADDRESSES } from '@/config/index';
+import { useRosca } from '@/hooks/useRosca';
+import type { Address } from 'viem';
 import InputModal from '@/components/InputModal';
 import Header from '@/components/Header';
-import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { AlertCircle, Coins, Users, Clock, Shield, Loader2, Bitcoin } from 'lucide-react';
-import { type Address } from 'viem';
 
 export default function CreatePage() {
   const [, navigate] = useLocation();
@@ -26,7 +27,7 @@ export default function CreatePage() {
   const [isCreating, setIsCreating] = useState(false);
 
   const queryClient = useQueryClient();
-  const roscaHook = useRosca(FACTORY_ADDRESS);
+  const roscaHook = useRosca(CONTRACT_ADDRESSES.ROSCA_FACTORY);
   
   // Initialize blockchain service with the hook
   React.useEffect(() => {
@@ -103,54 +104,44 @@ export default function CreatePage() {
     e.preventDefault();
     if (!(await validateForm()) || !primaryWallet?.address) return;
 
-    // Check balance separately before creating
-    const balanceError = await checkBalance();
-    if (balanceError) {
-      setErrors(prev => ({ ...prev, balance: balanceError }));
-      return;
-    }
-    
-    // Clear balance error if it passes
-    setErrors(prev => ({ ...prev, balance: '' }));
-
     setIsCreating(true);
     try {
-      // Use the blockchain service to create native ROSCA
-      const txHash = await blockchainService.createNativeROSCA(
-        formData.contribution,                        // contribution amount
-        parseInt(formData.roundDuration) * 86400,     // round duration in seconds
-        formData.memberTarget,                        // max members
-        formData.roscaName.trim()                     // ROSCA name
-      );
-
-      if (txHash) {
-        // Extract ROSCA address from transaction receipt
-        const roscaAddress = await blockchainService.extractROSCAAddressFromReceipt(txHash);
-        
-        if (roscaAddress) {
-          // Invalidate related queries
-          queryClient.invalidateQueries({ queryKey: ['user-chamas', primaryWallet.address] });
-          queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
-          
-          toast({ 
-            title: '🎉 ROSCA created!', 
-            description: `Your savings circle has been created successfully!\nAddress: ${roscaAddress.slice(0, 6)}...${roscaAddress.slice(-4)}` 
-          });
-        } else {
-          console.warn('⚠️ Could not extract ROSCA address from transaction');
-          toast({ 
-            title: '🎉 ROSCA created!', 
-            description: 'Your savings circle has been created successfully. Please refresh to see it.' 
-          });
-        }
-        
-        // Navigate to dashboard after a short delay
-        setTimeout(() => navigate('/dashboard'), 1500);
-      }
+      // Create chama off-chain first
+      const chamaData = {
+        name: formData.roscaName.trim(),
+        description: `A savings circle with ${formData.memberTarget} members, ${formData.contribution} cBTC contributions every ${formData.roundDuration} days.`,
+        contribution_amount: formData.contribution,
+        security_deposit: (parseFloat(formData.contribution) * 2).toString(), // 2x contribution as security deposit
+        member_target: formData.memberTarget,
+        round_duration_hours: parseInt(formData.roundDuration) * 24, // Convert days to hours
+        is_private: false,
+        auto_start: false,
+        allow_late_join: false,
+        late_fee_percentage: 0,
+      };
+      
+      console.log('💾 Creating chama off-chain:', chamaData);
+      const chama = await offchainChamaService.createChama(primaryWallet.address as string, chamaData);
+      
+      console.log('✅ Chama created off-chain:', chama);
+      
+      // Invalidate related queries to refresh dashboard
+      queryClient.invalidateQueries({ queryKey: ['user-chamas', primaryWallet.address] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      
+      toast({ 
+        title: '🎉 Chama created!', 
+        description: `"${chama.name}" has been created off-chain. You can now invite members and deploy to blockchain when ready.` 
+      });
+      
+      // Navigate to dashboard after a short delay
+      setTimeout(() => navigate('/dashboard'), 1500);
+      
     } catch (e: any) {
+      console.error('❌ Chama creation failed:', e);
       toast({ 
         title: '❌ Creation failed', 
-        description: e.message || 'Failed to create ROSCA. Please try again.', 
+        description: e.message || 'Failed to create chama. Please try again.', 
         variant: 'destructive' 
       });
     } finally {
@@ -168,7 +159,8 @@ export default function CreatePage() {
 
   // Memoized calculated values to prevent unnecessary recalculation
   const estimatedAPY = useMemo(() => Math.round((12 / formData.memberTarget) * 100), [formData.memberTarget]);
-  const totalRequired = useMemo(() => parseFloat(formData.contribution || '0') + parseFloat(ROSCA_CONFIG.FACTORY_CREATION_FEE), [formData.contribution]);
+  const securityDeposit = useMemo(() => parseFloat(formData.contribution || '0') * 2, [formData.contribution]);
+  const deploymentCost = useMemo(() => parseFloat(formData.contribution || '0') + parseFloat(ROSCA_CONFIG.FACTORY_CREATION_FEE), [formData.contribution]);
 
   // Redirect to home if not logged in
   useEffect(() => {
@@ -182,18 +174,18 @@ export default function CreatePage() {
       <Header title="Create New Chama" />
       <div className="flex items-center justify-center px-4 py-8">
         <div className="max-w-2xl mx-auto">
-          <InputModal
-            title="Create Your Chama"
-            description="Set up a new native ETH savings circle"
-            isOpen
-            onClose={handleCancel}
-          >
+            <InputModal
+              title="Create Your Chama"
+              description="Set up a new hybrid off-chain + on-chain savings circle"
+              isOpen
+              onClose={handleCancel}
+            >
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* Summary Card */}
               <div className="glassmorphism p-4 rounded-lg border border-bitcoin/30 mb-6">
                 <h4 className="font-orbitron text-sm font-bold text-bitcoin mb-3 flex items-center gap-2">
                   <Bitcoin className="w-4 h-4" />
-                  NATIVE ETH CIRCLE
+                  HYBRID OFF-CHAIN + ON-CHAIN
                 </h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div className="flex items-center gap-2">
@@ -213,8 +205,8 @@ export default function CreatePage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Shield className="w-4 h-4 text-purple-400" />
-                    <span className="text-gray-300">Total Cost:</span>
-                    <span className="text-white font-bold">{totalRequired.toFixed(4)} cBTC</span>
+                    <span className="text-gray-300">Security Deposit:</span>
+                    <span className="text-white font-bold">{securityDeposit.toFixed(4)} cBTC</span>
                   </div>
                 </div>
               </div>
@@ -224,11 +216,12 @@ export default function CreatePage() {
                 <div className="text-sm text-gray-300 space-y-2">
                   <p className="flex items-center gap-2">
                     <Bitcoin className="w-4 h-4 text-bitcoin" />
-                    <strong className="text-bitcoin">Native ETH Only:</strong> No token approvals needed
+                    <strong className="text-bitcoin">Hybrid Flow:</strong> Off-chain first, then on-chain
                   </p>
-                  <p>• Contributions and deposits are paid in native cBTC</p>
-                  <p>• Security deposit calculated automatically (2x contribution)</p>
-                  <p>• Creation fee: {ROSCA_CONFIG.FACTORY_CREATION_FEE} cBTC</p>
+                  <p>• ✅ <strong>Step 1:</strong> Create chama off-chain (FREE)</p>
+                  <p>• ✅ <strong>Step 2:</strong> Invite members to join</p>
+                  <p>• ✅ <strong>Step 3:</strong> Deploy to blockchain when ready (Creator pays {deploymentCost.toFixed(4)} cBTC)</p>
+                  <p>• ✅ <strong>Step 4:</strong> Members pay deposits and ROSCA starts</p>
                 </div>
               </div>
 

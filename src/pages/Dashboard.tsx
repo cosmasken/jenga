@@ -14,7 +14,8 @@ import BorrowModal from '@/components/modals/BorrowModal';
 import RepayModal from '@/components/modals/RepayModal';
 import WithdrawModal from '@/components/modals/WithdrawModal';
 import { toast } from '@/hooks/use-toast';
-import { useUserRoscas } from '@/hooks/useChamaData';
+import { useHybridChamas } from '@/hooks/useHybridChamas';
+import { HybridChamaCard } from '@/components/HybridChamaCard';
 import { blockchainService } from '@/services/blockchainService';
 import { useRosca } from '@/hooks/useRosca';
 import { useSaccoStatus, useSaccoFeatureAccess } from '@/contexts/SaccoStatusContext';
@@ -79,12 +80,12 @@ export default function Dashboard() {
     blockchainService.setRoscaHook(roscaHook);
   }, [roscaHook]);
 
-  // Use the new chama data hooks
+  // Use hybrid chama data hooks (off-chain + on-chain)
   const {
     data: userChamas = [],
     isLoading: chamaLoading,
     error: chamaError,
-  } = useUserRoscas(primaryWallet?.address as Address);
+  } = useHybridChamas(primaryWallet?.address as string);
 
   // Helper functions for calculating portfolio values
   const formatCBTCAmount = (amount: bigint | undefined | null) => {
@@ -102,12 +103,12 @@ export default function Dashboard() {
     return cbtcAmount * BITCOIN_PRICE_USD;
   };
 
-  // Dashboard stats with proper bigint handling
+  // Dashboard stats with hybrid chama data
   const dashboardStats = {
-    totalSavedCBTC: userChamas.reduce((sum, chama) => sum + formatCBTCAmount(chama.contributionAmount), 0),
-    totalSavedUSD: userChamas.reduce((sum, chama) => sum + getCBTCUSDValue(chama.contributionAmount), 0),
+    totalSavedCBTC: userChamas.reduce((sum, chama) => sum + parseFloat(chama.contribution_amount || '0'), 0),
+    totalSavedUSD: userChamas.reduce((sum, chama) => sum + parseFloat(chama.contribution_amount || '0') * BITCOIN_PRICE_USD, 0),
     userChamas: userChamas.length,
-    averageRound: userChamas.length > 0 ? Math.round(userChamas.reduce((sum, chama) => sum + (chama.currentRound || 1), 0) / userChamas.length) : 0
+    averageRound: userChamas.length > 0 ? Math.round(userChamas.reduce((sum, chama) => sum + (chama.current_round || 1), 0) / userChamas.length) : 0
   };
 
   // Use the global Sacco status context
@@ -423,7 +424,7 @@ export default function Dashboard() {
               <AlertDescription className="text-red-800 dark:text-red-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <strong>Error loading data:</strong> {error}
+                    <strong>Error loading data:</strong> {error?.message || String(error) || 'Unknown error occurred'}
                   </div>
                   <Button size="sm" variant="outline" className="border-red-500 text-red-600 hover:bg-red-50" onClick={refreshAllData}>
                     <RefreshCw size={14} className="mr-1" />
@@ -813,65 +814,7 @@ export default function Dashboard() {
               ) : (
                 <div className="grid gap-4">
                   {userChamas.map((chama, index) => (
-                    <motion.div
-                      key={chama.address}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 * index }}
-                    >
-                      <Card className="hover:shadow-md transition-all hover:border-bitcoin/30 cursor-pointer">
-                        <CardContent className="p-6">
-                          <div className="flex justify-between items-start mb-4">
-                            <div className="flex-1">
-                              <h3 className="text-lg font-semibold mb-1">{chama.name}</h3>
-                              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                                {chama.tokenSymbol} • {chama.totalMembers} members
-                              </p>
-                            </div>
-                            <Badge variant="outline" className="border-bitcoin text-bitcoin">
-                              Round {chama.currentRound}
-                            </Badge>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4 mb-4">
-                            <div>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">Contribution</p>
-                              <p className="text-lg font-bold text-bitcoin">
-                                {formatCBTCAmount(chama.contributionAmount).toFixed(4)} cBTC
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">Security Deposit</p>
-                              <p className="text-lg font-bold text-green-600">
-                                {formatCBTCAmount(chama.securityDeposit).toFixed(4)} cBTC
-                              </p>
-                            </div>
-                          </div>
-
-                            <div className="flex items-center justify-between">
-                            <ChamaTimer chama={chama} />
-                            <div className="flex items-center gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleInviteToChama(chama)}
-                                className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5"
-                              >
-                                <Share2 size={14} className="mr-1" />
-                                Invite
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-bitcoin hover:bg-bitcoin/90"
-                                onClick={() => navigate(`/chama/${chama.address}`)}
-                              >
-                                View Details
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
+                    <HybridChamaCard key={chama.id} chama={chama} index={index} />
                   ))}
                 </div>
               )}

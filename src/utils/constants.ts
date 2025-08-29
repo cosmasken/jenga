@@ -6,6 +6,15 @@ export const FACTORY_ADDRESS = CONTRACT_ADDRESSES.ROSCA_FACTORY;
 // Bitcoin price for USD calculations (since Citrea is Bitcoin Layer 2)
 export const BITCOIN_PRICE_USD = PRICING_CONFIG.BITCOIN_PRICE_USD;
 
+// ROSCA creation and validation config
+export const ROSCA_CONFIG = {
+  MIN_CONTRIBUTION_AMOUNT: '0.001', // cBTC
+  MAX_CONTRIBUTION_AMOUNT: '10',    // cBTC
+  MIN_MEMBERS: 2,
+  MAX_MEMBERS: 50,
+  FACTORY_CREATION_FEE: '0.001',    // Estimated creation gas in cBTC (display only)
+} as const;
+
 // Round duration options in seconds
 export const ROUND_DURATIONS = {
   '3': 3 * 24 * 60 * 60,    // 3 days
