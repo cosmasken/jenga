@@ -356,6 +356,130 @@ export class OffchainChamaService {
   }
   
   /**
+   * Get member count for a chama
+   */
+  async getChamaMemberCount(chamaId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from('chama_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('chama_id', chamaId)
+      .in('status', ['pending', 'confirmed', 'active']); // Active member statuses
+    
+    if (error) throw new Error(`Failed to count chama members: ${error.message}`);
+    
+    return count || 0;
+  }
+
+  /**
+   * Get user's relationship to a chama
+   */
+  async getUserChamaContext(chamaId: string, userAddress: string): Promise<{
+    isCreator: boolean;
+    isMember: boolean;
+    memberInfo: OffchainMember | null;
+    memberCount: number;
+  }> {
+    try {
+      // Get chama info
+      const chama = await this.getChama(chamaId);
+      if (!chama) {
+        throw new Error('Chama not found');
+      }
+
+      const isCreator = chama.creator_address.toLowerCase() === userAddress.toLowerCase();
+      
+      // Get member info
+      const memberInfo = await this.getMember(chamaId, userAddress);
+      const isMember = !!memberInfo;
+      
+      // Get current member count
+      const memberCount = await this.getChamaMemberCount(chamaId);
+      
+      return {
+        isCreator,
+        isMember,
+        memberInfo,
+        memberCount
+      };
+      
+    } catch (error: any) {
+      console.error('❌ Error in getUserChamaContext:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get public chamas available for discovery with member counts
+   */
+  async getPublicChamas(): Promise<OffchainChama[]> {
+    try {
+      const { data: chamas, error } = await supabase
+        .from('chamas')
+        .select('*')
+        .eq('is_private', false)
+        .in('status', ['recruiting', 'waiting', 'draft'])
+        .order('created_at', { ascending: false })
+        .limit(50);
+      
+      if (error) throw new Error(`Failed to fetch public chamas: ${error.message}`);
+      
+      return chamas || [];
+      
+    } catch (error: any) {
+      console.error('❌ Error in getPublicChamas:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get public chamas with user context for discovery
+   */
+  async getPublicChamasWithContext(userAddress?: string): Promise<(OffchainChama & {
+    memberCount: number;
+    isCreator?: boolean;
+    isMember?: boolean;
+    memberInfo?: OffchainMember | null;
+  })[]> {
+    try {
+      const chamas = await this.getPublicChamas();
+      
+      // Enhance with member counts and user context
+      const enhancedChamas = await Promise.all(
+        chamas.map(async (chama) => {
+          const memberCount = await this.getChamaMemberCount(chama.id);
+          
+          let userContext = {
+            isCreator: false,
+            isMember: false,
+            memberInfo: null as OffchainMember | null
+          };
+          
+          if (userAddress) {
+            const context = await this.getUserChamaContext(chama.id, userAddress);
+            userContext = {
+              isCreator: context.isCreator,
+              isMember: context.isMember,
+              memberInfo: context.memberInfo
+            };
+          }
+          
+          return {
+            ...chama,
+            memberCount,
+            ...userContext
+          };
+        })
+      );
+      
+      return enhancedChamas;
+      
+    } catch (error: any) {
+      console.error('❌ Error in getPublicChamasWithContext:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Get user's chamas
    */
   async getUserChamas(userAddress: string): Promise<OffchainChama[]> {

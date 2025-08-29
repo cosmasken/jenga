@@ -2,7 +2,7 @@
  * Hybrid Chama Card Component - Displays chama with deploy functionality
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,8 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useChamaActions } from '@/hooks/useChamaActions';
 import { getChamaStatusInfo } from '@/hooks/useHybridChamas';
-import { type OffchainChama } from '@/services/offchainChamaService';
+import { type OffchainChama, offchainChamaService } from '@/services/offchainChamaService';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useQuery } from '@tanstack/react-query';
 import {
   Coins,
   Shield,
@@ -20,7 +21,10 @@ import {
   Rocket,
   ExternalLink,
   Loader2,
-  Bitcoin
+  Bitcoin,
+  Users,
+  Crown,
+  Settings
 } from 'lucide-react';
 
 interface HybridChamaCardProps {
@@ -36,6 +40,16 @@ export function HybridChamaCard({ chama, index }: HybridChamaCardProps) {
   const statusInfo = getChamaStatusInfo(chama);
   const isCreator = chama.creator_address === primaryWallet?.address;
   const canDeploy = isCreator && statusInfo.isDeployable && !statusInfo.isOnChain;
+
+  // Get user context for this chama
+  const { data: userContext } = useQuery({
+    queryKey: ['chama-user-context', chama.id, primaryWallet?.address],
+    queryFn: async () => {
+      if (!primaryWallet?.address) return null;
+      return offchainChamaService.getUserChamaContext(chama.id, primaryWallet.address);
+    },
+    enabled: !!primaryWallet?.address
+  });
 
   const handleDeploy = () => {
     deployToChain();
@@ -67,13 +81,23 @@ export function HybridChamaCard({ chama, index }: HybridChamaCardProps) {
             <div className="flex-1">
               <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
                 {chama.name}
+                {userContext?.isCreator && (
+                  <Crown size={16} className="text-yellow-600" title="You created this chama" />
+                )}
                 {statusInfo.isOnChain && (
                   <ExternalLink size={16} className="text-green-600" title="On-chain" />
                 )}
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
-                {chama.member_target} members • {chama.round_duration_hours / 24}d rounds
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  {userContext?.memberCount || 0}/{chama.member_target} members • {chama.round_duration_hours / 24}d rounds
+                </p>
+                {userContext?.isMember && !userContext?.isCreator && (
+                  <Badge variant="secondary" className="text-xs">
+                    Member
+                  </Badge>
+                )}
+              </div>
             </div>
             <Badge variant="outline" className="border-bitcoin text-bitcoin">
               {statusInfo.label}
@@ -171,25 +195,56 @@ export function HybridChamaCard({ chama, index }: HybridChamaCardProps) {
                 </Button>
               )}
 
-              {/* Invite Button */}
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {/* TODO: Handle invite */}}
-                className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5"
-              >
-                <Share2 size={14} className="mr-1" />
-                Invite
-              </Button>
-
-              {/* View Details Button */}
-              <Button
-                size="sm"
-                className="bg-bitcoin hover:bg-bitcoin/90"
-                onClick={handleViewDetails}
-              >
-                View Details
-              </Button>
+              {/* Context-aware action buttons */}
+              {userContext?.isCreator ? (
+                <>
+                  {/* Invite Button - only for creators */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {/* TODO: Handle invite */}}
+                    className="border-bitcoin/20 hover:border-bitcoin/40 hover:bg-bitcoin/5"
+                  >
+                    <Share2 size={14} className="mr-1" />
+                    Invite
+                  </Button>
+                  
+                  {/* Manage Button - creators see manage instead of view */}
+                  <Button
+                    size="sm"
+                    className="bg-bitcoin hover:bg-bitcoin/90"
+                    onClick={handleViewDetails}
+                  >
+                    <Settings size={14} className="mr-1" />
+                    Manage
+                  </Button>
+                </>
+              ) : userContext?.isMember ? (
+                <>
+                  {/* Member view button */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                    onClick={handleViewDetails}
+                  >
+                    <Users size={14} className="mr-1" />
+                    My Chama
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {/* Non-member view button */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-gray-300 text-gray-600 hover:bg-gray-50"
+                    onClick={handleViewDetails}
+                  >
+                    View Details
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </CardContent>

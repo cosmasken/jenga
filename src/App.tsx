@@ -16,6 +16,7 @@ import ChamaDashboard from "./pages/ChamaDashboard";
 import InviteTest from "./pages/InviteTest";
 import { HybridEnhancedDashboardRoute } from "./components/HybridEnhancedDashboard";
 import { ReactivityTest } from "./components/ReactivityTest";
+import ChamaDiscoveryPage from "./pages/ChamaDiscoveryPage";
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 
 function TestReactivityWrapper() {
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/chama/:address/hybrid" component={HybridEnhancedDashboardRoute} />
       <Route path="/dashboard/:address" component={ChamaDashboard} />
       <Route path="/invite-test" component={InviteTest} />
+      <Route path="/discover" component={ChamaDiscoveryPage} />
       <Route path="/test-reactivity" component={TestReactivityWrapper} />
       <Route component={NotFound} />
     </Switch>

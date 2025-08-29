@@ -31,6 +31,7 @@ export default function Navigation() {
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard" },
+    { name: "Discover", href: "/discover" },
     { name: "Governance", href: "#governance" },
     { name: "Analytics", href: "#analytics" },
   ];
