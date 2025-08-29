@@ -12,7 +12,6 @@ import Dashboard from "./pages/Dashboard";
 import NotFound from "@/pages/not-found";
 import CreatePage from "./pages/CreatePage";
 import JoinChamaPage from "./pages/JoinChamaPage";
-import ChamaDashboard from "./pages/ChamaDashboard";
 import InviteTest from "./pages/InviteTest";
 import { HybridEnhancedDashboardRoute } from "./components/HybridEnhancedDashboard";
 import { ReactivityTest } from "./components/ReactivityTest";
@@ -41,9 +40,8 @@ function Router() {
       <Route path="/sacco-dashboard" component={SaccoOnboardingWrapper} />
       <Route path="/create" component={CreatePage} />
       <Route path="/join" component={JoinChamaPage} />
-      <Route path="/chama/:address" component={ChamaDashboard} />
-      <Route path="/chama/:address/hybrid" component={HybridEnhancedDashboardRoute} />
-      <Route path="/dashboard/:address" component={ChamaDashboard} />
+      <Route path="/chama/:address" component={HybridEnhancedDashboardRoute} />
+      <Route path="/dashboard/:address" component={HybridEnhancedDashboardRoute} />
       <Route path="/invite-test" component={InviteTest} />
       <Route path="/discover" component={ChamaDiscoveryPage} />
       <Route path="/test-reactivity" component={TestReactivityWrapper} />

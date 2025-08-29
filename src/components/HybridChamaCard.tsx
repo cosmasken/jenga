@@ -57,11 +57,11 @@ export function HybridChamaCard({ chama, index }: HybridChamaCardProps) {
 
   const handleViewDetails = () => {
     if (statusInfo.isOnChain && chama.chain_address) {
-      // For on-chain chamas, go to the regular chama dashboard
+      // For on-chain chamas, use chain address
       navigate(`/chama/${chama.chain_address}`);
     } else {
-      // For off-chain chamas, go to hybrid dashboard using chama ID as address
-      navigate(`/chama/${chama.id}/hybrid`);
+      // For off-chain chamas, use chama ID
+      navigate(`/chama/${chama.id}`);
     }
   };
 

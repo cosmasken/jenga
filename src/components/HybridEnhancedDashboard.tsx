@@ -34,8 +34,7 @@ import { ActivityFeed, LiveStatusIndicator } from '@/components/ActivityFeed'
 import { ReactivityTest } from '@/components/ReactivityTest'
 import { ChamaShareInviteCard, ChamaInviteManager } from '@/components/ChamaShareInvite'
 
-// Import existing hooks for comparison
-import { useComprehensiveChamaData } from '@/hooks/useChamaData'
+// Import existing hooks
 import { useHybridChamaData } from '@/hooks/useHybridChamaData'
 import { useChamaActions } from '@/hooks/useChamaActions'
 
@@ -51,12 +50,11 @@ export function HybridEnhancedDashboard({
   const { primaryWallet } = useDynamicContext()
   const userAddress = primaryWallet?.address as Address
 
-  const [viewMode, setViewMode] = useState<'hybrid' | 'comparison' | 'testing'>('hybrid')
+  const [viewMode, setViewMode] = useState<'hybrid' | 'testing'>('hybrid')
   const [showDevTools, setShowDevTools] = useState(false)
 
-  // Get both hybrid and traditional data for comparison
+  // Get hybrid data and actions
   const hybridData = useHybridChamaData(chamaAddress, userAddress)
-  const traditionalData = useComprehensiveChamaData(chamaAddress)
   const actions = useChamaActions(chamaAddress, userAddress)
 
   if (!userAddress) {
@@ -112,15 +110,6 @@ export function HybridEnhancedDashboard({
                 >
                   <Layers className="h-4 w-4" />
                   Hybrid
-                </Button>
-                <Button
-                  variant={viewMode === 'comparison' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('comparison')}
-                  className="gap-2"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Compare
                 </Button>
                 {isTestMode && (
                   <Button
@@ -187,15 +176,6 @@ export function HybridEnhancedDashboard({
             userAddress={userAddress}
             hybridData={hybridData}
             actions={actions}
-          />
-        )}
-
-        {viewMode === 'comparison' && (
-          <ComparisonView
-            chamaAddress={chamaAddress}
-            userAddress={userAddress}
-            hybridData={hybridData}
-            traditionalData={traditionalData}
           />
         )}
 
@@ -319,109 +299,6 @@ function HybridView({
           />
         </TabsContent>
       </Tabs>
-    </div>
-  )
-}
-
-// Comparison View - Side by side traditional vs hybrid
-function ComparisonView({
-  chamaAddress,
-  userAddress,
-  hybridData,
-  traditionalData
-}: {
-  chamaAddress: Address
-  userAddress: Address
-  hybridData: any
-  traditionalData: any
-}) {
-  return (
-    <div className="space-y-8">
-      <div className="text-center">
-        <h2 className="text-2xl font-semibold mb-2">Data Source Comparison</h2>
-        <p className="text-gray-600">
-          Compare hybrid off-chain data with traditional on-chain only data
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Hybrid Data Column */}
-        <div className="space-y-6">
-          <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950 dark:border-blue-800">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Cloud className="h-5 w-5 text-blue-500" />
-                Hybrid (Off-chain + On-chain)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span>Update Speed:</span>
-                  <Badge variant="default">Instant</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Gas Cost:</span>
-                  <Badge variant="secondary">Batched</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Loading:</span>
-                  <Badge variant={hybridData.isLoading ? "destructive" : "default"}>
-                    {hybridData.isLoading ? 'Loading...' : 'Ready'}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <HybridChamaDashboard chamaAddress={chamaAddress} />
-        </div>
-
-        {/* Traditional Data Column */}
-        <div className="space-y-6">
-          <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950 dark:border-orange-800">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Database className="h-5 w-5 text-orange-500" />
-                Traditional (On-chain Only)
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span>Update Speed:</span>
-                  <Badge variant="secondary">Block Confirmation</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Gas Cost:</span>
-                  <Badge variant="destructive">Per Transaction</Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Loading:</span>
-                  <Badge variant={traditionalData.isLoading ? "destructive" : "default"}>
-                    {traditionalData.isLoading ? 'Loading...' : 'Ready'}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Traditional dashboard components would go here */}
-          <Card>
-            <CardContent className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <Database className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">
-                  Traditional on-chain dashboard view
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  This would show the existing ChamaDashboard component
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
     </div>
   )
 }
