@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { motion } from 'framer-motion'
+import { useQuery } from '@tanstack/react-query'
+import { offchainChamaService } from '@/services/offchainChamaService'
 import {
   Cloud,
   Database,
@@ -19,7 +21,10 @@ import {
   Layers,
   Rocket,
   Timer,
-  Bell
+  Bell,
+  Crown,
+  Shield,
+  UserCheck
 } from 'lucide-react'
 import { type Address } from 'viem'
 
@@ -217,8 +222,47 @@ function HybridView({
   hybridData: any
   actions: any
 }) {
+  // Get user context for this chama
+  const { data: userContext } = useQuery({
+    queryKey: ['chama-user-context', chamaAddress, userAddress],
+    queryFn: async () => {
+      if (!userAddress) return null;
+      return offchainChamaService.getUserChamaContext(chamaAddress, userAddress);
+    },
+    enabled: !!userAddress
+  });
+
   return (
     <div className="space-y-8">
+      {/* User Context Banner */}
+      {userContext && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Alert className={userContext.isCreator ? 'border-yellow-200 bg-yellow-50' : userContext.isMember ? 'border-blue-200 bg-blue-50' : 'border-gray-200'}>
+            {userContext.isCreator ? (
+              <Crown className="h-4 w-4 text-yellow-600" />
+            ) : userContext.isMember ? (
+              <UserCheck className="h-4 w-4 text-blue-600" />
+            ) : (
+              <Eye className="h-4 w-4 text-gray-600" />
+            )}
+            <AlertDescription>
+              {userContext.isCreator && (
+                <span><strong>Creator Mode:</strong> You have full management access to this chama.</span>
+              )}
+              {userContext.isMember && !userContext.isCreator && (
+                <span><strong>Member Access:</strong> You are a member of this chama with {userContext.memberCount - 1} other members.</span>
+              )}
+              {!userContext.isMember && (
+                <span><strong>Viewer Mode:</strong> You can view this chama but cannot participate.</span>
+              )}
+            </AlertDescription>
+          </Alert>
+        </motion.div>
+      )}
+
       {/* Status Banner */}
       <Alert>
         <Cloud className="h-4 w-4" />
